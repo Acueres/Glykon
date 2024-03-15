@@ -9,15 +9,17 @@ namespace Test
         {
             const string commentsSource = @"
             #comment1
+
+            code1
+
             #comment2
-            
-            ##multiline
-            comment
-            test##
+
+            code2 #comment3
+            code3
 ";
             Lexer lexer = new(commentsSource, "CommentsTest");
             var tokens = lexer.ScanSource();
-            Assert.Empty(tokens);
+            Assert.Equal(3, tokens.Count);
         }
     }
 }
