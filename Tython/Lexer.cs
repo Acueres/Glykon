@@ -12,7 +12,7 @@ namespace Tython
 
         bool AtEnd => currentChar >= sourceLength;
 
-        List<Token> tokens = [];
+        readonly List<Token> tokens = [];
         int line = 0;
         int currentChar = 0;
 
@@ -30,7 +30,7 @@ namespace Tython
 
                 if ((token == ' ' || token == '\n') && lexeme.Length > 0)
                 {
-                    tokens.Add(new Token(lexeme.ToString(), line, TokenType.Identifier));
+                    AddToken(lexeme.ToString(), line, TokenType.Identifier);
                     lexeme.Clear();
                 }
             }
@@ -42,21 +42,125 @@ namespace Tython
         {
             switch (token)
             {
+                //symbols
+                case '{':
+                    AddToken("{", line, TokenType.Symbol);
+                    return true;
+                case '}':
+                    AddToken("}", line, TokenType.Symbol);
+                    return true;
+                case '(':
+                    AddToken("(", line, TokenType.Symbol);
+                    return true;
+                case ')':
+                    AddToken(")", line, TokenType.Symbol);
+                    return true;
+                case '[':
+                    AddToken("[", line, TokenType.Symbol);
+                    return true;
+                case ']':
+                    AddToken("]", line, TokenType.Symbol);
+                    return true;
+                case ':':
+                    AddToken(":", line, TokenType.Symbol);
+                    return true;
+                case '.':
+                    AddToken(".", line, TokenType.Symbol);
+                    return true;
+                case ',':
+                    AddToken(",", line, TokenType.Symbol);
+                    return true;
+                case '+':
+                    AddToken("+", line, TokenType.Symbol);
+                    return true;
+                case '-':
+                    AddToken("-", line, TokenType.Symbol);
+                    return true;
+
+                //long symbols
+                case '<':
+                    if (Lookup() == '=')
+                    {
+                        NextToken();
+                        AddToken("<=", line, TokenType.Symbol);
+                    }
+                    else
+                    {
+                        AddToken("<", line, TokenType.Symbol);
+                    }
+                    return true;
+                case '>':
+                    if (Lookup() == '=')
+                    {
+                        NextToken();
+                        AddToken(">=", line, TokenType.Symbol);
+                    }
+                    else
+                    {
+                        AddToken(">", line, TokenType.Symbol);
+                    }
+                    return true;
+                case '*':
+                    if (Lookup() == '*')
+                    {
+                        NextToken();
+                        AddToken("**", line, TokenType.Symbol);
+                    }
+                    else
+                    {
+                        AddToken("*", line, TokenType.Symbol);
+                    }
+                    return true;
+                case '/':
+                    if (Lookup() == '/')
+                    {
+                        NextToken();
+                        AddToken("//", line, TokenType.Symbol);
+                    }
+                    else
+                    {
+                        AddToken("/", line, TokenType.Symbol);
+                    }
+                    return true;
+                case '=':
+                    if (Lookup() == '=')
+                    {
+                        NextToken();
+                        AddToken("==", line, TokenType.Symbol);
+                    }
+                    else
+                    {
+                        AddToken("=", line, TokenType.Symbol);
+                    }
+                    return true;
+
                 //whitespace
                 case ' ':
                 case '\r':
                 case '\t':
                     break;
-                
+
                 //comments
                 case '#':
                     while (Lookup(1) != '\n') NextToken();
                     break;
 
-                //newline
+                //statement terminator
                 case '\n':
-                    line++;
-                    break;
+                    {
+                        Token last = tokens.LastOrDefault();
+                        if (last.Lexeme != ";" && last.Lexeme != null)
+                            AddToken(";", line, TokenType.Symbol);
+                        line++;
+                        break;
+                    }
+                case ';':
+                    {
+                        Token last = tokens.LastOrDefault();
+                        if (last.Lexeme != ";" && last.Lexeme != null)
+                            AddToken(";", line, TokenType.Symbol);
+                        return true;
+                    }
 
                 default:
                     return false;
@@ -65,7 +169,12 @@ namespace Tython
             return true;
         }
 
-        char Lookup(int n)
+        void AddToken(string lexeme, int line, TokenType type)
+        {
+            tokens.Add(new(lexeme, line, type));
+        }
+
+        char Lookup(int n = 0)
         {
             int nextCharPos = currentChar + n;
             return AtEnd || nextCharPos >= sourceLength ? '\0' : source[nextCharPos];
@@ -95,7 +204,7 @@ namespace Tython
 
             symbols =
             [
-                "{", "}", "(", ")", "[", "]", "=", ":",
+                "{", "}", "(", ")", "[", "]", "=", ":", ";",
                 ".", ",", "+", "-", "*", "/", "**", "//",
                 "<", ">", "<=", ">=", "=="
             ];
