@@ -101,8 +101,14 @@ namespace Tython
                     }
                     else
                     {
-                        Error(line, "Syntax Error:");
+                        Error(line, "Syntax Error: invalid syntax");
                     }
+                    return true;
+
+                //strings
+                case '\'':
+                case '"':
+                    ScanString(token);
                     return true;
 
                 //whitespace
@@ -140,6 +146,33 @@ namespace Tython
             return true;
         }
 
+        void ScanString(char openingQuote)
+        {
+            int stringStart = currentChar;
+
+            while (Lookup() != openingQuote && !AtEnd)
+            {
+                if (Lookup(1) == '\n')
+                {
+                    Error(line, "SyntaxError: unterminated string literal");
+                    return;
+                }
+
+                NextToken();
+            }
+
+            if (AtEnd)
+            {
+                Error(line, "SyntaxError: unterminated string literal");
+                return;
+            }
+
+            string result = source[stringStart..currentChar];
+            AddToken(result, line, TokenType.String);
+
+            NextToken(); //closing quote
+        }
+
         void AddToken(string lexeme, int line, TokenType type)
         {
             tokens.Add(new(lexeme, line, type));
@@ -155,7 +188,8 @@ namespace Tython
         char Lookup(int n = 0)
         {
             int nextCharPos = currentChar + n;
-            return AtEnd || nextCharPos >= sourceLength ? '\0' : source[nextCharPos];
+            char c = AtEnd || nextCharPos >= sourceLength ? '\0' : source[nextCharPos];
+            return c;
         }
 
         char NextToken()
