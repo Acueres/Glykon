@@ -27,11 +27,11 @@ namespace Test
         [Fact]
         public void ScanSymbolsTest()
         {
-            const string symbols = "(( )){} *+-/=<> <= == >= // ** , .";
+            const string symbols = "(( )){} *+-/=<> <= == != >= // ** , .";
 
             Lexer lexer = new(symbols, "CommentsTest");
             var tokens = lexer.ScanSource();
-            Assert.Equal(20, tokens.Count);
+            Assert.Equal(21, tokens.Count);
         }
     }
 }

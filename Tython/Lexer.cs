@@ -11,6 +11,7 @@ namespace Tython
         readonly int sourceLength = source.Length;
 
         bool AtEnd => currentChar >= sourceLength;
+        bool error = false;
 
         readonly List<Token> tokens = [];
         int line = 0;
@@ -79,58 +80,28 @@ namespace Tython
 
                 //long symbols
                 case '<':
-                    if (Lookup() == '=')
-                    {
-                        NextToken();
-                        AddToken("<=", line, TokenType.Symbol);
-                    }
-                    else
-                    {
-                        AddToken("<", line, TokenType.Symbol);
-                    }
+                    AddToken(MatchToken('=') ? "<=" : "<", line, TokenType.Symbol);
                     return true;
                 case '>':
-                    if (Lookup() == '=')
-                    {
-                        NextToken();
-                        AddToken(">=", line, TokenType.Symbol);
-                    }
-                    else
-                    {
-                        AddToken(">", line, TokenType.Symbol);
-                    }
+                    AddToken(MatchToken('=') ? ">=" : ">", line, TokenType.Symbol);
                     return true;
                 case '*':
-                    if (Lookup() == '*')
-                    {
-                        NextToken();
-                        AddToken("**", line, TokenType.Symbol);
-                    }
-                    else
-                    {
-                        AddToken("*", line, TokenType.Symbol);
-                    }
+                    AddToken(MatchToken('*') ? "**" : "*", line, TokenType.Symbol);
                     return true;
                 case '/':
-                    if (Lookup() == '/')
-                    {
-                        NextToken();
-                        AddToken("//", line, TokenType.Symbol);
-                    }
-                    else
-                    {
-                        AddToken("/", line, TokenType.Symbol);
-                    }
+                    AddToken(MatchToken('/') ? "//" : "/", line, TokenType.Symbol);
                     return true;
                 case '=':
-                    if (Lookup() == '=')
+                    AddToken(MatchToken('=') ? "==" : "=", line, TokenType.Symbol);
+                    return true;
+                case '!': //! is not valid by itself
+                    if (MatchToken('='))
                     {
-                        NextToken();
-                        AddToken("==", line, TokenType.Symbol);
+                        AddToken("!=", line, TokenType.Symbol);
                     }
                     else
                     {
-                        AddToken("=", line, TokenType.Symbol);
+                        Error(line, "Syntax Error:");
                     }
                     return true;
 
@@ -174,6 +145,13 @@ namespace Tython
             tokens.Add(new(lexeme, line, type));
         }
 
+        bool MatchToken(char token)
+        {
+            if (AtEnd || Lookup() != token) return false;
+            currentChar++;
+            return true;
+        }
+
         char Lookup(int n = 0)
         {
             int nextCharPos = currentChar + n;
@@ -183,6 +161,12 @@ namespace Tython
         char NextToken()
         {
             return source[currentChar++];
+        }
+
+        void Error(int line, string message)
+        {
+            Console.WriteLine($"{message} ({fileName}, line {line})");
+            error = true;
         }
 
         readonly static HashSet<string> keywords;
@@ -206,7 +190,7 @@ namespace Tython
             [
                 "{", "}", "(", ")", "[", "]", "=", ":", ";",
                 ".", ",", "+", "-", "*", "/", "**", "//",
-                "<", ">", "<=", ">=", "=="
+                "<", ">", "<=", ">=", "==", "!="
             ];
         }
     }
