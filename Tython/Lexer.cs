@@ -19,81 +19,70 @@ namespace Tython
 
         public List<Token> ScanSource()
         {
-            StringBuilder lexeme = new();
             while (!AtEnd)
             {
                 char token = NextToken();
-                bool added = ScanToken(token);
-                if (!added)
-                {
-                    lexeme.Append(token);
-                }
-
-                if ((token == ' ' || token == '\n') && lexeme.Length > 0)
-                {
-                    AddToken(lexeme.ToString(), line, TokenType.Identifier);
-                    lexeme.Clear();
-                }
+                ScanToken(token);
             }
 
             return tokens;
         }
 
-        bool ScanToken(char token)
+        void ScanToken(char token)
         {
             switch (token)
             {
                 //symbols
                 case '{':
                     AddToken("{", line, TokenType.Symbol);
-                    return true;
+                    break;
                 case '}':
                     AddToken("}", line, TokenType.Symbol);
-                    return true;
+                    break;
                 case '(':
                     AddToken("(", line, TokenType.Symbol);
-                    return true;
+                    break;
                 case ')':
                     AddToken(")", line, TokenType.Symbol);
-                    return true;
+                    break;
                 case '[':
                     AddToken("[", line, TokenType.Symbol);
-                    return true;
+                    break;
                 case ']':
                     AddToken("]", line, TokenType.Symbol);
-                    return true;
+                    break;
                 case ':':
                     AddToken(":", line, TokenType.Symbol);
-                    return true;
+                    break;
                 case '.':
                     AddToken(".", line, TokenType.Symbol);
-                    return true;
+                    break;
                 case ',':
                     AddToken(",", line, TokenType.Symbol);
-                    return true;
+                    break;
                 case '+':
                     AddToken("+", line, TokenType.Symbol);
-                    return true;
+                    break;
                 case '-':
                     AddToken("-", line, TokenType.Symbol);
-                    return true;
+                    break;
 
                 //long symbols
                 case '<':
                     AddToken(MatchToken('=') ? "<=" : "<", line, TokenType.Symbol);
-                    return true;
+                    break;
                 case '>':
                     AddToken(MatchToken('=') ? ">=" : ">", line, TokenType.Symbol);
-                    return true;
+                    break;
                 case '*':
                     AddToken(MatchToken('*') ? "**" : "*", line, TokenType.Symbol);
-                    return true;
+                    break;
                 case '/':
                     AddToken(MatchToken('/') ? "//" : "/", line, TokenType.Symbol);
-                    return true;
+                    break;
                 case '=':
                     AddToken(MatchToken('=') ? "==" : "=", line, TokenType.Symbol);
-                    return true;
+                    break;
                 case '!': //! is not valid by itself
                     if (MatchToken('='))
                     {
@@ -103,13 +92,13 @@ namespace Tython
                     {
                         Error(line, "Syntax Error: invalid syntax");
                     }
-                    return true;
+                    break;
 
                 //strings
                 case '\'':
                 case '"':
                     ScanString(token);
-                    return true;
+                    break;
 
                 //whitespace
                 case ' ':
@@ -119,7 +108,7 @@ namespace Tython
 
                 //comments
                 case '#':
-                    while (Lookup(1) != '\n') NextToken();
+                    while (Lookup() != '\n') NextToken();
                     break;
 
                 //statement terminator
@@ -136,14 +125,37 @@ namespace Tython
                         Token last = tokens.LastOrDefault();
                         if (last.Lexeme != ";" && last.Lexeme != null)
                             AddToken(";", line, TokenType.Symbol);
-                        return true;
+                        break;
                     }
 
                 default:
-                    return false;
-            }
+                    if (char.IsAsciiDigit(token))
+                    {
+                        ScanNumber();
+                        break;
+                    }
 
-            return true;
+                    ScanIdentifier();
+                    break;
+            }
+        }
+
+        void ScanIdentifier()
+        {
+            int identifierStart = currentChar - 1;
+
+            while (Lookup() != ' ' && Lookup() != '\n') NextToken();
+
+            AddToken(source[identifierStart..(currentChar - 1)], line, TokenType.Identifier);
+        }
+
+        void ScanNumber()
+        {
+            int numberStart = currentChar - 1;
+
+            while (char.IsAsciiDigit(Lookup())) NextToken();
+
+            AddToken(source[numberStart..currentChar], line, TokenType.Int);
         }
 
         void ScanString(char openingQuote)
@@ -152,7 +164,7 @@ namespace Tython
 
             while (Lookup() != openingQuote && !AtEnd)
             {
-                if (Lookup(1) == '\n')
+                if (Lookup() == '\n')
                 {
                     Error(line, "SyntaxError: unterminated string literal");
                     return;

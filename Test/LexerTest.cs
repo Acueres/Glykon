@@ -50,5 +50,19 @@ namespace Test
             Assert.Equal("some text", tokens[0].Lexeme);
             Assert.Equal("other text", tokens[1].Lexeme);
         }
+
+        [Fact]
+        public void ScanNumbersTest()
+        {
+            const string numbers = "123 42";
+
+            Lexer lexer = new(numbers, "NumbersTest");
+            var tokens = lexer.ScanSource();
+
+            Assert.Equal(2, tokens.Count);
+            Assert.Equal(TokenType.Int, tokens[0].Type);
+            Assert.Equal("123", tokens[0].Lexeme);
+            Assert.Equal("42", tokens[1].Lexeme);
+        }
     }
 }
