@@ -2,8 +2,9 @@
 {
     public enum TokenType : byte
     {
-        Keyword,
+        Null,
         Symbol,
+        Keyword,
         Identifier,
         Int,
         String

@@ -1,6 +1,4 @@
-﻿using System.Text;
-
-using Tython.Model;
+﻿using Tython.Model;
 
 namespace Tython
 {
@@ -21,72 +19,46 @@ namespace Tython
         {
             while (!AtEnd)
             {
-                char token = NextToken();
-                ScanToken(token);
+                char character = Advance();
+                Token token = ScanToken(character);
+                if (!token.IsNull)
+                    tokens.Add(token);
             }
 
             return tokens;
         }
 
-        void ScanToken(char token)
+        Token ScanToken(char character)
         {
-            switch (token)
+            //symbols
+            if (singleSymbols.Contains(character))
             {
-                //symbols
-                case '{':
-                    AddToken("{", line, TokenType.Symbol);
-                    break;
-                case '}':
-                    AddToken("}", line, TokenType.Symbol);
-                    break;
-                case '(':
-                    AddToken("(", line, TokenType.Symbol);
-                    break;
-                case ')':
-                    AddToken(")", line, TokenType.Symbol);
-                    break;
-                case '[':
-                    AddToken("[", line, TokenType.Symbol);
-                    break;
-                case ']':
-                    AddToken("]", line, TokenType.Symbol);
-                    break;
-                case ':':
-                    AddToken(":", line, TokenType.Symbol);
-                    break;
-                case '.':
-                    AddToken(".", line, TokenType.Symbol);
-                    break;
-                case ',':
-                    AddToken(",", line, TokenType.Symbol);
-                    break;
-                case '+':
-                    AddToken("+", line, TokenType.Symbol);
-                    break;
-                case '-':
-                    AddToken("-", line, TokenType.Symbol);
-                    break;
+                return new(character.ToString(), line, TokenType.Symbol);
+            }
 
+            switch (character)
+            {
                 //long symbols
+                case '.':
+                    return new(character.ToString(), line, TokenType.Symbol);
+                case '+':
+                    return new(character.ToString(), line, TokenType.Symbol);
+                case '-':
+                    return new(character.ToString(), line, TokenType.Symbol);
                 case '<':
-                    AddToken(MatchToken('=') ? "<=" : "<", line, TokenType.Symbol);
-                    break;
+                    return new(MatchToken('=') ? "<=" : "<", line, TokenType.Symbol);
                 case '>':
-                    AddToken(MatchToken('=') ? ">=" : ">", line, TokenType.Symbol);
-                    break;
+                    return new(MatchToken('=') ? ">=" : ">", line, TokenType.Symbol);
                 case '*':
-                    AddToken(MatchToken('*') ? "**" : "*", line, TokenType.Symbol);
-                    break;
+                    return new(MatchToken('*') ? "**" : "*", line, TokenType.Symbol);
                 case '/':
-                    AddToken(MatchToken('/') ? "//" : "/", line, TokenType.Symbol);
-                    break;
+                    return new(MatchToken('/') ? "//" : "/", line, TokenType.Symbol);
                 case '=':
-                    AddToken(MatchToken('=') ? "==" : "=", line, TokenType.Symbol);
-                    break;
+                    return new(MatchToken('=') ? "==" : "=", line, TokenType.Symbol);
                 case '!': //! is not valid by itself
                     if (MatchToken('='))
                     {
-                        AddToken("!=", line, TokenType.Symbol);
+                        return new("!=", line, TokenType.Symbol);
                     }
                     else
                     {
@@ -97,8 +69,7 @@ namespace Tython
                 //strings
                 case '\'':
                 case '"':
-                    ScanString(token);
-                    break;
+                    return ScanString(character);
 
                 //whitespace
                 case ' ':
@@ -108,103 +79,101 @@ namespace Tython
 
                 //comments
                 case '#':
-                    while (Lookup() != '\n') NextToken();
+                    while (Peek() != '\n') Advance();
                     break;
 
                 //statement terminator
                 case '\n':
-                    {
-                        Token last = tokens.LastOrDefault();
-                        if (last.Lexeme != ";" && last.Lexeme != null)
-                            AddToken(";", line, TokenType.Symbol);
-                        line++;
-                        break;
-                    }
+                    line++;
+                    return ScanTerminator();
                 case ';':
-                    {
-                        Token last = tokens.LastOrDefault();
-                        if (last.Lexeme != ";" && last.Lexeme != null)
-                            AddToken(";", line, TokenType.Symbol);
-                        break;
-                    }
+                    return ScanTerminator();
 
                 default:
-                    if (char.IsAsciiDigit(token))
+                    if (char.IsAsciiDigit(character))
                     {
-                        ScanNumber();
-                        break;
+                        return ScanNumber();
                     }
 
-                    ScanIdentifier();
-                    break;
+                    return ScanIdentifier();
             }
+
+            return Token.Null;
         }
 
-        void ScanIdentifier()
+        Token ScanIdentifier()
         {
             int identifierStart = currentChar - 1;
 
-            while (Lookup() != ' ' && Lookup() != '\n') NextToken();
+            while (Peek() != ' ' && Peek() != '\n') Advance();
 
-            AddToken(source[identifierStart..(currentChar - 1)], line, TokenType.Identifier);
+            return new(source[identifierStart..(currentChar - 1)], line, TokenType.Identifier);
         }
 
-        void ScanNumber()
+        Token ScanNumber()
         {
             int numberStart = currentChar - 1;
 
-            while (char.IsAsciiDigit(Lookup())) NextToken();
+            while (char.IsAsciiDigit(Peek())) Advance();
 
-            AddToken(source[numberStart..currentChar], line, TokenType.Int);
+            return new(source[numberStart..currentChar], line, TokenType.Int);
         }
 
-        void ScanString(char openingQuote)
+        Token ScanString(char openingQuote)
         {
             int stringStart = currentChar;
 
-            while (Lookup() != openingQuote && !AtEnd)
+            while (Peek() != openingQuote && !AtEnd)
             {
-                if (Lookup() == '\n')
+                if (Peek() == '\n')
                 {
                     Error(line, "SyntaxError: unterminated string literal");
-                    return;
+                    return Token.Null;
                 }
 
-                NextToken();
+                Advance();
             }
 
             if (AtEnd)
             {
                 Error(line, "SyntaxError: unterminated string literal");
-                return;
+                return Token.Null;
             }
 
-            string result = source[stringStart..currentChar];
-            AddToken(result, line, TokenType.String);
+            Token result = new(source[stringStart..currentChar], line, TokenType.String);
 
-            NextToken(); //closing quote
+            Advance(); //closing quote
+
+            return result;
         }
 
-        void AddToken(string lexeme, int line, TokenType type)
+        Token ScanTerminator()
         {
-            tokens.Add(new(lexeme, line, type));
+            Token last = tokens.LastOrDefault();
+            if (last.Lexeme != ";" && last.Lexeme != null)
+            {
+                return new(";", line, TokenType.Symbol);
+
+            }
+
+            return Token.Null;
         }
 
         bool MatchToken(char token)
         {
-            if (AtEnd || Lookup() != token) return false;
+            if (AtEnd || Peek() != token) return false;
             currentChar++;
             return true;
         }
 
-        char Lookup(int n = 0)
+        char Peek(int n = 0)
         {
             int nextCharPos = currentChar + n;
             char c = AtEnd || nextCharPos >= sourceLength ? '\0' : source[nextCharPos];
             return c;
         }
 
-        char NextToken()
+        char Advance()
         {
             return source[currentChar++];
         }
@@ -218,6 +187,7 @@ namespace Tython
         readonly static HashSet<string> keywords;
         readonly static HashSet<string> statements;
         readonly static HashSet<string> symbols;
+        readonly static HashSet<char> singleSymbols;
 
         static Lexer()
         {
@@ -238,6 +208,8 @@ namespace Tython
                 ".", ",", "+", "-", "*", "/", "**", "//",
                 "<", ">", "<=", ">=", "==", "!="
             ];
+
+            singleSymbols = ['{', '}', '(', ')', '[', ']', ',', ';', ':'];
         }
     }
 }
