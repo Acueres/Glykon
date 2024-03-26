@@ -30,17 +30,29 @@ namespace Tython
 
         Token ScanToken(char character)
         {
-            //symbols
-            if (singleSymbols.Contains(character))
-            {
-                return new(character.ToString(), line, TokenType.Symbol);
-            }
-
             switch (character)
             {
+                //symbols
+                case '{':
+                case '}':
+                case '(':
+                case ')':
+                case '[':
+                case ']':
+                case ',':
+                case ':':
+                    return new(character.ToString(), line, TokenType.Symbol);
+
                 //long symbols
                 case '.':
-                    return new(character.ToString(), line, TokenType.Symbol);
+                    {
+                        if (char.IsAsciiDigit(Peek()))
+                        {
+                            return ScanNumber(true);
+                        }
+
+                        return new(character.ToString(), line, TokenType.Symbol);
+                    }
                 case '+':
                     return new(character.ToString(), line, TokenType.Symbol);
                 case '-':
@@ -110,13 +122,22 @@ namespace Tython
             return new(source[identifierStart..(currentChar - 1)], line, TokenType.Identifier);
         }
 
-        Token ScanNumber()
+        Token ScanNumber(bool isFloat = false)
         {
             int numberStart = currentChar - 1;
 
             while (char.IsAsciiDigit(Peek())) Advance();
 
-            return new(source[numberStart..currentChar], line, TokenType.Int);
+            if (Peek() == '.' && char.IsAsciiDigit(Peek(1)))
+            {
+                isFloat = true;
+
+                Advance();
+
+                while (char.IsAsciiDigit(Peek())) Advance();
+            }
+
+            return new(source[numberStart..currentChar], line, isFloat ? TokenType.Float : TokenType.Int);
         }
 
         Token ScanString(char openingQuote)
@@ -186,8 +207,6 @@ namespace Tython
 
         readonly static HashSet<string> keywords;
         readonly static HashSet<string> statements;
-        readonly static HashSet<string> symbols;
-        readonly static HashSet<char> singleSymbols;
 
         static Lexer()
         {
@@ -201,15 +220,6 @@ namespace Tython
             ];
 
             statements = ["if", "while", "for", "return"];
-
-            symbols =
-            [
-                "{", "}", "(", ")", "[", "]", "=", ":", ";",
-                ".", ",", "+", "-", "*", "/", "**", "//",
-                "<", ">", "<=", ">=", "==", "!="
-            ];
-
-            singleSymbols = ['{', '}', '(', ')', '[', ']', ',', ';', ':'];
         }
     }
 }

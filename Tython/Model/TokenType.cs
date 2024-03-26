@@ -7,6 +7,7 @@
         Keyword,
         Identifier,
         Int,
+        Float,
         String
     }
 }

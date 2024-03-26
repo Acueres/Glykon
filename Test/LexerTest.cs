@@ -54,15 +54,21 @@ namespace Test
         [Fact]
         public void ScanNumbersTest()
         {
-            const string numbers = "123 42";
+            const string numbers = "123 42 1.2 .2 2.";
 
             Lexer lexer = new(numbers, "NumbersTest");
             var tokens = lexer.ScanSource();
 
-            Assert.Equal(2, tokens.Count);
+            Assert.Equal(6, tokens.Count);
             Assert.Equal(TokenType.Int, tokens[0].Type);
             Assert.Equal("123", tokens[0].Lexeme);
             Assert.Equal("42", tokens[1].Lexeme);
+
+            Assert.Equal(TokenType.Float, tokens[2].Type);
+            Assert.Equal("1.2", tokens[2].Lexeme);
+            Assert.Equal(".2", tokens[3].Lexeme);
+
+            Assert.Equal(TokenType.Int, tokens[4].Type);
         }
     }
 }
