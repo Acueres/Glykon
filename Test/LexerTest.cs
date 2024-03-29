@@ -6,7 +6,7 @@ namespace Test
     public class LexerTest
     {
         [Fact]
-        public void ScanWithCommentsTest()
+        public void ScanCommentsTest()
         {
             const string commentsSource = @"
             #comment1
@@ -40,15 +40,42 @@ namespace Test
         [Fact]
         public void ScanStringTest()
         {
-            const string stringsSource = "\"some text\" 'other text' \"unterminated";
+            const string stringsSource = "\"some text\" 'other text' \"\"\"multiline oneliner\"\"\" \"unterminated";
 
             Lexer lexer = new(stringsSource, "StringTest");
             var tokens = lexer.ScanSource();
 
-            Assert.Equal(2, tokens.Count);
+            Assert.Equal(3, tokens.Count);
             Assert.Equal(TokenType.String, tokens[0].Type);
             Assert.Equal("some text", tokens[0].Lexeme);
             Assert.Equal("other text", tokens[1].Lexeme);
+            Assert.Equal("multiline oneliner", tokens[2].Lexeme);
+        }
+
+        [Fact]
+        public void ScanMultilineStringTest()
+        {
+            const string stringsSource = @"'regular string'
+            '''multiline string
+'''
+
+            '''another multiline string
+ text
+'''
+            '''unterminated";
+
+            Lexer lexer = new(stringsSource, "StringTest");
+            var tokens = lexer.ScanSource();
+
+            //filter out statement terminators
+            tokens = tokens.Where(t => t.Type != TokenType.Symbol).ToList();
+
+            Assert.Equal(3, tokens.Count);
+            Assert.Equal("regular string", tokens[0].Lexeme);
+            Assert.Equal("multiline string\r\n", tokens[1].Lexeme);
+            Assert.Equal(1, tokens[1].Line);
+            Assert.Equal("another multiline string\r\n text\r\n", tokens[2].Lexeme);
+            Assert.Equal(4, tokens[2].Line);
         }
 
         [Fact]

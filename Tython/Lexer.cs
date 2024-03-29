@@ -142,14 +142,23 @@ namespace Tython
 
         Token ScanString(char openingQuote)
         {
+            bool multiline = MatchTokens(openingQuote, 2);
+            int currentLine = line;
             int stringStart = currentChar;
 
             while (Peek() != openingQuote && !AtEnd)
             {
                 if (Peek() == '\n')
                 {
-                    Error(line, "SyntaxError: unterminated string literal");
-                    return Token.Null;
+                    if (multiline)
+                    {
+                        line++;
+                    }
+                    else
+                    {
+                        Error(line, "SyntaxError: unterminated string literal");
+                        return Token.Null;
+                    }
                 }
 
                 Advance();
@@ -161,9 +170,10 @@ namespace Tython
                 return Token.Null;
             }
 
-            Token result = new(source[stringStart..currentChar], line, TokenType.String);
+            Token result = new(source[stringStart..currentChar], currentLine, TokenType.String);
 
-            Advance(); //closing quote
+            for (int i = 0; i < (multiline ? 3 : 1); i++)
+                Advance(); //closing quotes
 
             return result;
         }
@@ -180,16 +190,28 @@ namespace Tython
             return Token.Null;
         }
 
-        bool MatchToken(char token)
+        bool MatchToken(char token, int offset = 0)
         {
-            if (AtEnd || Peek() != token) return false;
+            if (AtEnd || Peek(offset) != token) return false;
             currentChar++;
             return true;
         }
 
-        char Peek(int n = 0)
+        bool MatchTokens(char token, int offset)
         {
-            int nextCharPos = currentChar + n;
+            for (int i = 0; i < offset; i++)
+            {
+                if (AtEnd || Peek(i) != token) return false;
+            }
+
+            currentChar += offset;
+
+            return true;
+        }
+
+        char Peek(int offset = 0)
+        {
+            int nextCharPos = currentChar + offset;
             char c = AtEnd || nextCharPos >= sourceLength ? '\0' : source[nextCharPos];
             return c;
         }
