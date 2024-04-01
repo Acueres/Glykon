@@ -55,11 +55,11 @@ namespace Test
         [Fact]
         public void ScanMultilineStringTest()
         {
-            const string stringsSource = @"'regular string'
-            '''multiline string
+            const string stringsSource = @"'''multiline string
 '''
+            'regular string'
 
-            '''another multiline string
+            '''another 'multiline' string
  text
 '''
             '''unterminated";
@@ -71,10 +71,10 @@ namespace Test
             tokens = tokens.Where(t => t.Type != TokenType.Symbol).ToList();
 
             Assert.Equal(3, tokens.Count);
-            Assert.Equal("regular string", tokens[0].Lexeme);
-            Assert.Equal("multiline string\r\n", tokens[1].Lexeme);
-            Assert.Equal(1, tokens[1].Line);
-            Assert.Equal("another multiline string\r\n text\r\n", tokens[2].Lexeme);
+            Assert.Equal("multiline string\r\n", tokens[0].Lexeme);
+            Assert.Equal("regular string", tokens[1].Lexeme);
+            Assert.Equal(2, tokens[1].Line);
+            Assert.Equal("another 'multiline' string\r\n text\r\n", tokens[2].Lexeme);
             Assert.Equal(4, tokens[2].Line);
         }
 

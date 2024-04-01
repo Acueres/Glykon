@@ -146,19 +146,17 @@ namespace Tython
             int currentLine = line;
             int stringStart = currentChar;
 
-            while (Peek() != openingQuote && !AtEnd)
+            while (!AtEnd && !(multiline ? MatchTokens(openingQuote, 3) : MatchToken(openingQuote)))
             {
                 if (Peek() == '\n')
                 {
-                    if (multiline)
-                    {
-                        line++;
-                    }
-                    else
+                    if (!multiline)
                     {
                         Error(line, "SyntaxError: unterminated string literal");
                         return Token.Null;
                     }
+
+                    line++;
                 }
 
                 Advance();
@@ -170,10 +168,8 @@ namespace Tython
                 return Token.Null;
             }
 
-            Token result = new(source[stringStart..currentChar], currentLine, TokenType.String);
-
-            for (int i = 0; i < (multiline ? 3 : 1); i++)
-                Advance(); //closing quotes
+            int stringEndOffset = multiline ? 3 : 1;
+            Token result = new(source[stringStart..(currentChar - stringEndOffset)], currentLine, TokenType.String);
 
             return result;
         }
@@ -190,9 +186,9 @@ namespace Tython
             return Token.Null;
         }
 
-        bool MatchToken(char token, int offset = 0)
+        bool MatchToken(char token)
         {
-            if (AtEnd || Peek(offset) != token) return false;
+            if (AtEnd || Peek() != token) return false;
             currentChar++;
             return true;
         }
