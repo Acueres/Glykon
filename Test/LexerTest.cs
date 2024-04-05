@@ -6,6 +6,21 @@ namespace Test
     public class LexerTest
     {
         [Fact]
+        public void ScanIdentifiersTest()
+        {
+            const string source = @"text = 'Hello Tython'
+                                    print(text)";
+
+            Lexer lexer = new(source, "IdentifiersTest");
+            var tokens = lexer.ScanSource();
+
+            Assert.Equal(8, tokens.Count);
+            Assert.Equal(TokenType.Identifier, tokens[0].Type);
+            Assert.Equal(TokenType.Identifier, tokens[4].Type);
+            Assert.Equal(TokenType.Identifier, tokens[6].Type);
+        }
+
+        [Fact]
         public void ScanCommentsTest()
         {
             const string commentsSource = @"
@@ -35,6 +50,18 @@ namespace Test
             var tokens = lexer.ScanSource();
 
             Assert.Equal(21, tokens.Count);
+        }
+
+        [Fact]
+        public void ScanKeywordsTest()
+        {
+            const string keywords = "if class struct else def int while False";
+
+            Lexer lexer = new(keywords, "KeywordsTest");
+            var tokens = lexer.ScanSource();
+
+            Assert.Equal(8, tokens.Count);
+            Assert.Equal(TokenType.Keyword, tokens[0].Type);
         }
 
         [Fact]

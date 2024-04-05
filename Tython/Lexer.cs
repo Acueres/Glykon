@@ -19,8 +19,7 @@ namespace Tython
         {
             while (!AtEnd)
             {
-                char character = Advance();
-                Token token = ScanToken(character);
+                Token token = GetNextToken();
                 if (!token.IsNull)
                     tokens.Add(token);
             }
@@ -28,8 +27,10 @@ namespace Tython
             return tokens;
         }
 
-        Token ScanToken(char character)
+        Token GetNextToken()
         {
+            char character = Advance();
+
             switch (character)
             {
                 //symbols
@@ -107,7 +108,13 @@ namespace Tython
                         return ScanNumber();
                     }
 
-                    return ScanIdentifier();
+                    if (char.IsLetter(character))
+                    {
+                        return ScanIdentifier();
+                    }
+
+                    Error(line, $"Invalid character '{character}' in token");
+                    return Token.Null;
             }
 
             return Token.Null;
@@ -117,9 +124,11 @@ namespace Tython
         {
             int identifierStart = currentChar - 1;
 
-            while (Peek() != ' ' && Peek() != '\n') Advance();
+            while (char.IsLetterOrDigit(Peek())) Advance();
 
-            return new(source[identifierStart..(currentChar - 1)], line, TokenType.Identifier);
+            string identifier = source[identifierStart..currentChar];
+
+            return new(identifier, line, keywords.Contains(identifier) ? TokenType.Keyword : TokenType.Identifier);
         }
 
         Token ScanNumber(bool isFloat = false)
@@ -224,7 +233,6 @@ namespace Tython
         }
 
         readonly static HashSet<string> keywords;
-        readonly static HashSet<string> statements;
 
         static Lexer()
         {
@@ -236,8 +244,6 @@ namespace Tython
                 "if", "else", "elif", "for", "while", "return",
                 "True", "False", "None"
             ];
-
-            statements = ["if", "while", "for", "return"];
         }
     }
 }
