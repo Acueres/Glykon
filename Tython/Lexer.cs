@@ -6,9 +6,8 @@ namespace Tython
     {
         readonly string source = source;
         readonly string fileName = fileName;
-        readonly int sourceLength = source.Length;
 
-        bool AtEnd => currentChar >= sourceLength;
+        bool AtEnd => currentChar >= source.Length;
         bool error = false;
 
         readonly List<Token> tokens = [];
@@ -59,17 +58,17 @@ namespace Tython
                 case '-':
                     return new(character.ToString(), line, TokenType.Symbol);
                 case '<':
-                    return new(MatchToken('=') ? "<=" : "<", line, TokenType.Symbol);
+                    return new(Match('=') ? "<=" : "<", line, TokenType.Symbol);
                 case '>':
-                    return new(MatchToken('=') ? ">=" : ">", line, TokenType.Symbol);
+                    return new(Match('=') ? ">=" : ">", line, TokenType.Symbol);
                 case '*':
-                    return new(MatchToken('*') ? "**" : "*", line, TokenType.Symbol);
+                    return new(Match('*') ? "**" : "*", line, TokenType.Symbol);
                 case '/':
-                    return new(MatchToken('/') ? "//" : "/", line, TokenType.Symbol);
+                    return new(Match('/') ? "//" : "/", line, TokenType.Symbol);
                 case '=':
-                    return new(MatchToken('=') ? "==" : "=", line, TokenType.Symbol);
+                    return new(Match('=') ? "==" : "=", line, TokenType.Symbol);
                 case '!': //! is not valid by itself
-                    if (MatchToken('='))
+                    if (Match('='))
                     {
                         return new("!=", line, TokenType.Symbol);
                     }
@@ -151,11 +150,11 @@ namespace Tython
 
         Token ScanString(char openingQuote)
         {
-            bool multiline = MatchTokens(openingQuote, 2);
+            bool multiline = Match(openingQuote, 2);
             int currentLine = line;
             int stringStart = currentChar;
 
-            while (!AtEnd && !(multiline ? MatchTokens(openingQuote, 3) : MatchToken(openingQuote)))
+            while (!AtEnd && !(multiline ? Match(openingQuote, 3) : Match(openingQuote)))
             {
                 if (Peek() == '\n')
                 {
@@ -195,14 +194,14 @@ namespace Tython
             return Token.Null;
         }
 
-        bool MatchToken(char token)
+        bool Match(char token)
         {
             if (AtEnd || Peek() != token) return false;
             currentChar++;
             return true;
         }
 
-        bool MatchTokens(char token, int offset)
+        bool Match(char token, int offset)
         {
             for (int i = 0; i < offset; i++)
             {
@@ -217,7 +216,7 @@ namespace Tython
         char Peek(int offset = 0)
         {
             int nextCharPos = currentChar + offset;
-            char c = AtEnd || nextCharPos >= sourceLength ? '\0' : source[nextCharPos];
+            char c = AtEnd || nextCharPos >= source.Length ? '\0' : source[nextCharPos];
             return c;
         }
 
