@@ -2,12 +2,12 @@
 
 namespace Tython
 {
-    public class Parser(List<Token> tokens, string fileName)
+    public class Parser(Token[] tokens, string fileName)
     {
-        readonly List<Token> tokens = tokens;
+        readonly Token[] tokens = tokens;
         readonly string fileName = fileName;
 
-        bool AtEnd => currentToken >= tokens.Count;
+        bool AtEnd => currentToken >= tokens.Length;
 
         int currentToken;
         bool error;
@@ -154,7 +154,7 @@ namespace Tython
         Token Peek(int offset = 0)
         {
             int nextTokenPos = currentToken + offset;
-            Token token = AtEnd || nextTokenPos >= tokens.Count ? Token.Null : tokens[nextTokenPos];
+            Token token = AtEnd || nextTokenPos >= tokens.Length ? Token.Null : tokens[nextTokenPos];
             return token;
         }
 

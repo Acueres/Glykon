@@ -2,35 +2,35 @@
 {
     public class Expression
     {
-        public Token Operator { get; }
-        public Expression? Left { get; }
-        public Expression? Right { get; }
+        public Token Token { get; }
+        public Expression? Primary { get; }
+        public Expression? Secondary { get; }
         public ExpressionType Type { get; }
 
-        public Expression(Token oper, Expression expression, ExpressionType type)
+        public Expression(Token oper, Expression expr, ExpressionType type)
         {
-            Operator = oper;
-            Left = expression;
+            Token = oper;
+            Primary = expr;
             Type = type;
         }
 
         public Expression(Token oper, Expression left, Expression right, ExpressionType type)
         {
-            Operator = oper;
-            Left = left;
-            Right = right;
+            Token = oper;
+            Primary = left;
+            Secondary = right;
             Type = type;
         }
 
-        public Expression(Token oper, ExpressionType type)
+        public Expression(Token token, ExpressionType type)
         {
-            Operator = oper;
+            Token = token;
             Type = type;
         }
 
         public Expression(Expression expr, ExpressionType type)
         {
-            Left = expr;
+            Primary = expr;
             Type = type;
         }
     }
