@@ -4,23 +4,23 @@ namespace Tython
 {
     public class Parser(Token[] tokens, string fileName)
     {
-        readonly Token[] tokens = tokens;
         readonly string fileName = fileName;
 
         bool AtEnd => currentToken >= tokens.Length;
 
+        readonly Token[] tokens = tokens;
+        readonly List<ITythonError> errors = [];
         int currentToken;
-        bool error;
 
-        public Expression Parse()
+        public (Expression ast, List<ITythonError> errors) Parse()
         {
             try
             {
-                return ParseExpression();
+                return (ParseExpression(), errors);
             }
-            catch (Exception ex)
+            catch (ParseException)
             {
-                return null;
+                return (null, errors);
             }
         }
 
@@ -110,8 +110,9 @@ namespace Tython
                 return new(expr, ExpressionType.Grouping);
             }
 
-            Error(Peek().Line, "Expect expression");
-            throw new Exception("Expect expression");
+            ParseError error = new(Peek(), fileName, "Expect expression");
+            errors.Add(error);
+            throw error.Exception();
         }
 
         void Synchronize()
@@ -142,8 +143,9 @@ namespace Tython
         Token Consume(string lexeme, string message)
         {
             if (Peek().Lexeme == lexeme) return Advance();
-            Error(Peek().Line, message);
-            throw new Exception(message);
+            ParseError error = new(Peek(), fileName, message);
+            errors.Add(error);
+            throw error.Exception();
         }
 
         Token Advance()
@@ -184,12 +186,6 @@ namespace Tython
             }
 
             return false;
-        }
-
-        void Error(int line, string message)
-        {
-            Console.WriteLine($"{message} ({fileName}, line {line})");
-            error = true;
         }
     }
 }

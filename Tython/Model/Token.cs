@@ -8,5 +8,19 @@
         public bool IsNull => Type == TokenType.Null;
 
         public static Token Null => new();
+
+        public static HashSet<string> Keywords { get; }
+
+        static Token()
+        {
+            Keywords =
+            [
+                "class", "struct", "interface", "enum", "def",
+                "int", "float", "bool", "str",
+                "and", "not", "or",
+                "if", "else", "elif", "for", "while", "return", "break", "continue",
+                "True", "False", "None"
+            ];
+        }
     }
 }

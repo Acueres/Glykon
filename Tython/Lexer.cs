@@ -8,13 +8,13 @@ namespace Tython
         readonly string fileName = fileName;
 
         bool AtEnd => currentChar >= source.Length;
-        bool error = false;
 
         readonly List<Token> tokens = [];
+        readonly List<ITythonError> errors = [];
         int line = 0;
         int currentChar = 0;
 
-        public List<Token> ScanSource()
+        public (List<Token> tokens, List<ITythonError> errors) ScanSource()
         {
             while (!AtEnd)
             {
@@ -23,7 +23,7 @@ namespace Tython
                     tokens.Add(token);
             }
 
-            return tokens;
+            return (tokens, errors);
         }
 
         Token GetNextToken()
@@ -74,7 +74,7 @@ namespace Tython
                     }
                     else
                     {
-                        Error(line, "Syntax Error: invalid syntax");
+                        errors.Add(new SyntaxError(line, fileName, "Syntax Error: invalid syntax"));
                     }
                     break;
 
@@ -112,7 +112,7 @@ namespace Tython
                         return ScanIdentifier();
                     }
 
-                    Error(line, $"Invalid character '{character}' in token");
+                    errors.Add(new SyntaxError(line, fileName, $"Invalid character '{character}' in token"));
                     return Token.Null;
             }
 
@@ -127,7 +127,7 @@ namespace Tython
 
             string identifier = source[identifierStart..currentChar];
 
-            return new(identifier, line, keywords.Contains(identifier) ? TokenType.Keyword : TokenType.Identifier);
+            return new(identifier, line, Token.Keywords.Contains(identifier) ? TokenType.Keyword : TokenType.Identifier);
         }
 
         Token ScanNumber(bool isFloat = false)
@@ -160,7 +160,7 @@ namespace Tython
                 {
                     if (!multiline)
                     {
-                        Error(line, "SyntaxError: unterminated string literal");
+                        errors.Add(new SyntaxError(line, fileName, "SyntaxError: unterminated string literal"));
                         return Token.Null;
                     }
 
@@ -172,7 +172,7 @@ namespace Tython
 
             if (AtEnd)
             {
-                Error(line, "SyntaxError: unterminated string literal");
+                errors.Add(new SyntaxError(line, fileName, "SyntaxError: unterminated string literal"));
                 return Token.Null;
             }
 
@@ -223,26 +223,6 @@ namespace Tython
         char Advance()
         {
             return source[currentChar++];
-        }
-
-        void Error(int line, string message)
-        {
-            Console.WriteLine($"{message} ({fileName}, line {line})");
-            error = true;
-        }
-
-        readonly static HashSet<string> keywords;
-
-        static Lexer()
-        {
-            keywords =
-            [
-                "class", "struct", "interface", "enum", "def",
-                "int", "float", "bool", "str",
-                "and", "not", "or",
-                "if", "else", "elif", "for", "while", "return",
-                "True", "False", "None"
-            ];
         }
     }
 }

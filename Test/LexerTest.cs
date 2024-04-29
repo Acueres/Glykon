@@ -12,7 +12,7 @@ namespace Test
                                     print(text)";
 
             Lexer lexer = new(source, "IdentifiersTest");
-            var tokens = lexer.ScanSource();
+            var (tokens, _) = lexer.ScanSource();
 
             Assert.Equal(8, tokens.Count);
             Assert.Equal(TokenType.Identifier, tokens[0].Type);
@@ -35,7 +35,7 @@ namespace Test
 
 ";
             Lexer lexer = new(commentsSource, "CommentsTest");
-            var tokens = lexer.ScanSource();
+            var (tokens, _) = lexer.ScanSource();
 
             //three identifiers and three statement terminators
             Assert.Equal(3 * 2, tokens.Count);
@@ -47,7 +47,7 @@ namespace Test
             const string symbols = "(( )){} *+-/=<> <= == != >= // ** , .";
 
             Lexer lexer = new(symbols, "SymbolsTest");
-            var tokens = lexer.ScanSource();
+            var (tokens, _) = lexer.ScanSource();
 
             Assert.Equal(21, tokens.Count);
         }
@@ -58,7 +58,7 @@ namespace Test
             const string keywords = "if class struct else def int while False";
 
             Lexer lexer = new(keywords, "KeywordsTest");
-            var tokens = lexer.ScanSource();
+            var (tokens, _) = lexer.ScanSource();
 
             Assert.Equal(8, tokens.Count);
             Assert.Equal(TokenType.Keyword, tokens[0].Type);
@@ -70,7 +70,7 @@ namespace Test
             const string stringsSource = "\"some text\" 'other text' \"\"\"multiline oneliner\"\"\" \"unterminated";
 
             Lexer lexer = new(stringsSource, "StringTest");
-            var tokens = lexer.ScanSource();
+            var (tokens, _) = lexer.ScanSource();
 
             Assert.Equal(3, tokens.Count);
             Assert.Equal(TokenType.String, tokens[0].Type);
@@ -92,7 +92,7 @@ namespace Test
             '''unterminated";
 
             Lexer lexer = new(stringsSource, "StringTest");
-            var tokens = lexer.ScanSource();
+            var (tokens, _) = lexer.ScanSource();
 
             //filter out statement terminators
             tokens = tokens.Where(t => t.Type != TokenType.Symbol).ToList();
@@ -111,7 +111,7 @@ namespace Test
             const string numbers = "123 42 1.2 .2 2.";
 
             Lexer lexer = new(numbers, "NumbersTest");
-            var tokens = lexer.ScanSource();
+            var (tokens, _) = lexer.ScanSource();
 
             Assert.Equal(6, tokens.Count);
             Assert.Equal(TokenType.Int, tokens[0].Type);

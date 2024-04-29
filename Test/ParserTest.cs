@@ -10,7 +10,7 @@ namespace Test
         {
             Token[] tokens = [new("not", 0, TokenType.Symbol), new("False", 0, TokenType.Keyword), new(";", 0, TokenType.Symbol)];
             Parser parser = new(tokens, "UnaryTest");
-            Expression ast = parser.Parse();
+            var (ast, _) = parser.Parse();
 
             Assert.NotNull(ast);
             Assert.Equal("not", ast.Token.Lexeme);
@@ -23,7 +23,7 @@ namespace Test
         {
             Token[] tokens = [new("a", 0, TokenType.Identifier), new("==", 0, TokenType.Symbol), new("b", 0, TokenType.Identifier), new(";", 0, TokenType.Symbol)];
             Parser parser = new(tokens, "EqualityTest");
-            Expression ast = parser.Parse();
+            var (ast, _) = parser.Parse();
 
             Assert.NotNull(ast);
             Assert.Equal("==", ast.Token.Lexeme);
