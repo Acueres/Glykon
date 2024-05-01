@@ -37,7 +37,7 @@ namespace Tython
             {
                 Token oper = Peek(-1);
                 Expression right = ParseComparison();
-                expr = new(oper, right, ExpressionType.Binary);
+                expr = new(oper, expr, right, ExpressionType.Binary);
             }
 
             return expr;
@@ -51,7 +51,7 @@ namespace Tython
             {
                 Token oper = Peek(-1);
                 Expression right = ParseTerm();
-                expr = new(oper, right, ExpressionType.Binary);
+                expr = new(oper, expr, right, ExpressionType.Binary);
             }
 
             return expr;
@@ -65,7 +65,7 @@ namespace Tython
             {
                 Token oper = Peek(-1);
                 Expression right = ParseFactor();
-                expr = new(oper, right, ExpressionType.Binary);
+                expr = new(oper, expr, right, ExpressionType.Binary);
             }
 
             return expr;
@@ -79,7 +79,7 @@ namespace Tython
             {
                 Token oper = Peek(-1);
                 Expression right = ParseUnary();
-                expr = new(oper, right, ExpressionType.Binary);
+                expr = new(oper, expr, right, ExpressionType.Binary);
             }
 
             return expr;
