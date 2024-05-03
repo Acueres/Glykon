@@ -9,15 +9,18 @@ namespace Test
         public void ScanIdentifiersTest()
         {
             const string source = @"text = 'Hello Tython'
-                                    print(text)";
+                                    print text";
 
             Lexer lexer = new(source, "IdentifiersTest");
             var (tokens, _) = lexer.ScanSource();
 
-            Assert.Equal(8, tokens.Count);
+            Assert.Equal(6, tokens.Count);
             Assert.Equal(TokenType.Identifier, tokens[0].Type);
-            Assert.Equal(TokenType.Identifier, tokens[4].Type);
-            Assert.Equal(TokenType.Identifier, tokens[6].Type);
+            Assert.Equal("text", tokens[0].Lexeme);
+            Assert.Equal(TokenType.Keyword, tokens[4].Type);
+            Assert.Equal("print", tokens[4].Lexeme);
+            Assert.Equal(TokenType.Identifier, tokens[5].Type);
+            Assert.Equal("text", tokens[5].Lexeme);
         }
 
         [Fact]
@@ -118,7 +121,7 @@ namespace Test
             Assert.Equal("123", tokens[0].Lexeme);
             Assert.Equal("42", tokens[1].Lexeme);
 
-            Assert.Equal(TokenType.Float, tokens[2].Type);
+            Assert.Equal(TokenType.Real, tokens[2].Type);
             Assert.Equal("1.2", tokens[2].Lexeme);
             Assert.Equal(".2", tokens[3].Lexeme);
 

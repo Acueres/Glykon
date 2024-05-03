@@ -9,22 +9,36 @@ namespace Tython
         bool AtEnd => currentToken >= tokens.Length;
 
         readonly Token[] tokens = tokens;
+        readonly List<Statement> statements = [];
         readonly List<ITythonError> errors = [];
         int currentToken;
 
-        public (Expression ast, List<ITythonError> errors) Parse()
+        public (List<Statement>, List<ITythonError>) Parse()
         {
             try
             {
-                return (ParseExpression(), errors);
+                while (!AtEnd)
+                {
+                    Statement stmt = ParseStatement();
+                    statements.Add(stmt);
+                }
+                return (statements, errors);
             }
             catch (ParseException)
             {
-                return (null, errors);
+                Synchronize();
+                return ([], errors);
             }
         }
 
-        Expression ParseExpression()
+        public Statement ParseStatement()
+        {
+            Expression expr = ParseExpression();
+            Consume(";", "Expect ';' after expression");
+            return new(tokens[currentToken], expr);
+        }
+
+        public Expression ParseExpression()
         {
             return ParseEquality();
         }
@@ -99,8 +113,8 @@ namespace Tython
 
         Expression ParsePrimary()
         {
-            if (Match("False", "True", "None")
-                || Match(TokenType.Int, TokenType.Float, TokenType.String))
+            if (Match("false", "true", "none")
+                || Match(TokenType.Int, TokenType.Real, TokenType.String))
                 return new(Peek(-1), ExpressionType.Literal);
 
             if (Match("("))
@@ -140,9 +154,9 @@ namespace Tython
             }
         }
 
-        Token Consume(string lexeme, string message)
+        Token Consume(string symbol, string message)
         {
-            if (Peek().Lexeme == lexeme) return Advance();
+            if (Peek().Lexeme == symbol) return Advance();
             ParseError error = new(Peek(), fileName, message);
             errors.Add(error);
             throw error.Exception();

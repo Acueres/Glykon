@@ -145,7 +145,7 @@ namespace Tython
                 while (char.IsAsciiDigit(Peek())) Advance();
             }
 
-            return new(source[numberStart..currentChar], line, isFloat ? TokenType.Float : TokenType.Int);
+            return new(source[numberStart..currentChar], line, isFloat ? TokenType.Real : TokenType.Int);
         }
 
         Token ScanString(char openingQuote)

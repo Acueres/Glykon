@@ -8,47 +8,47 @@ namespace Test
         [Fact]
         public void UnaryOperatorTest()
         {
-            Token[] tokens = [new("not", 0, TokenType.Symbol), new("False", 0, TokenType.Keyword), new(";", 0, TokenType.Symbol)];
+            Token[] tokens = [new("not", 0, TokenType.Symbol), new("false", 0, TokenType.Keyword), new(";", 0, TokenType.Symbol)];
             Parser parser = new(tokens, "UnaryTest");
-            var (ast, _) = parser.Parse();
+            var ast = parser.ParseExpression();
 
             Assert.NotNull(ast);
             Assert.Equal(ExpressionType.Unary, ast.Type);
             Assert.Equal("not", ast.Token.Lexeme);
             Assert.NotNull(ast.Primary);
-            Assert.Equal("False", ast.Primary.Token.Lexeme);
+            Assert.Equal("false", ast.Primary.Token.Lexeme);
         }
 
         [Fact]
         public void EqualityTest()
         {
-            Token[] tokens = [new("True", 0, TokenType.Keyword), new("==", 0, TokenType.Symbol), new("False", 0, TokenType.Keyword), new(";", 0, TokenType.Symbol)];
+            Token[] tokens = [new("true", 0, TokenType.Keyword), new("==", 0, TokenType.Symbol), new("false", 0, TokenType.Keyword), new(";", 0, TokenType.Symbol)];
             Parser parser = new(tokens, "EqualityTest");
-            var (ast, _) = parser.Parse();
+            var ast = parser.ParseExpression();
 
             Assert.NotNull(ast);
             Assert.Equal(ExpressionType.Binary, ast.Type);
             Assert.Equal("==", ast.Token.Lexeme);
             Assert.NotNull(ast.Primary);
-            Assert.Equal("True", ast.Primary.Token.Lexeme);
+            Assert.Equal("true", ast.Primary.Token.Lexeme);
             Assert.NotNull(ast.Secondary);
-            Assert.Equal("False", ast.Secondary.Token.Lexeme);
+            Assert.Equal("false", ast.Secondary.Token.Lexeme);
         }
 
         [Fact]
         public void ComparisonTest()
         {
-            Token[] tokens = [new("True", 0, TokenType.Keyword), new(">", 0, TokenType.Symbol), new("False", 0, TokenType.Keyword), new(";", 0, TokenType.Symbol)];
+            Token[] tokens = [new("true", 0, TokenType.Keyword), new(">", 0, TokenType.Symbol), new("false", 0, TokenType.Keyword), new(";", 0, TokenType.Symbol)];
             Parser parser = new(tokens, "ComparisonTest");
-            var (ast, _) = parser.Parse();
+            var ast = parser.ParseExpression();
 
             Assert.NotNull(ast);
             Assert.Equal(ExpressionType.Binary, ast.Type);
             Assert.Equal(">", ast.Token.Lexeme);
             Assert.NotNull(ast.Primary);
-            Assert.Equal("True", ast.Primary.Token.Lexeme);
+            Assert.Equal("true", ast.Primary.Token.Lexeme);
             Assert.NotNull(ast.Secondary);
-            Assert.Equal("False", ast.Secondary.Token.Lexeme);
+            Assert.Equal("false", ast.Secondary.Token.Lexeme);
         }
 
         [Fact]
@@ -56,7 +56,7 @@ namespace Test
         {
             Token[] tokens = [new("2", 0, TokenType.Int), new("-", 0, TokenType.Symbol), new("3", 0, TokenType.Int), new(";", 0, TokenType.Symbol)];
             Parser parser = new(tokens, "TermTest");
-            var (ast, _) = parser.Parse();
+            var ast = parser.ParseExpression();
 
             Assert.NotNull(ast);
             Assert.Equal(ExpressionType.Binary, ast.Type);
@@ -72,7 +72,7 @@ namespace Test
         {
             Token[] tokens = [new("6", 0, TokenType.Int), new("/", 0, TokenType.Symbol), new("3", 0, TokenType.Int), new(";", 0, TokenType.Symbol)];
             Parser parser = new(tokens, "FactorTest");
-            var (ast, _) = parser.Parse();
+            var ast = parser.ParseExpression();
 
             Assert.NotNull(ast);
             Assert.Equal(ExpressionType.Binary, ast.Type);

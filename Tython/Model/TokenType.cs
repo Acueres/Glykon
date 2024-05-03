@@ -7,7 +7,7 @@
         Keyword,
         Identifier,
         Int,
-        Float,
+        Real,
         String
     }
 }

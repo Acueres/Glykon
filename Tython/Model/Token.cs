@@ -15,11 +15,11 @@
         {
             Keywords =
             [
-                "class", "struct", "interface", "enum", "def",
-                "int", "float", "bool", "str",
+                "class", "struct", "interface", "enum", "def", "print",
+                "int", "real", "bool", "str",
                 "and", "not", "or",
                 "if", "else", "elif", "for", "while", "return", "break", "continue",
-                "True", "False", "None"
+                "true", "false", "none"
             ];
         }
     }
