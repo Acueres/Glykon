@@ -6,6 +6,20 @@ namespace Test
     public class ParserTest
     {
         [Fact]
+        public void PrintStmtTest()
+        {
+            Token[] tokens = [new("print", 0, TokenType.Keyword), new("Hello Tython", 0, TokenType.String), new(";", 0, TokenType.Symbol)];
+            Parser parser = new(tokens, "PrintStmtTest");
+            var (stmts, _) = parser.Parse();
+
+            Assert.NotEmpty(stmts);
+            Assert.Single(stmts);
+            Assert.Equal("print", stmts[0].Token.Lexeme);
+            Assert.NotNull(stmts[0].Expression);
+            Assert.Equal("Hello Tython", stmts[0].Expression.Token.Lexeme);
+        }
+
+        [Fact]
         public void UnaryOperatorTest()
         {
             Token[] tokens = [new("not", 0, TokenType.Symbol), new("false", 0, TokenType.Keyword), new(";", 0, TokenType.Symbol)];

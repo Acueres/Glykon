@@ -33,9 +33,10 @@ namespace Tython
 
         public Statement ParseStatement()
         {
+            Token token = Advance();
             Expression expr = ParseExpression();
             Consume(";", "Expect ';' after expression");
-            return new(tokens[currentToken], expr);
+            return new(token, expr);
         }
 
         public Expression ParseExpression()

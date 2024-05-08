@@ -2,7 +2,7 @@
 {
     public class Statement(Token token, Expression expr)
     {
-        public readonly Token token = token;
-        public readonly Expression Expression = expr;
+        public Token Token { get; } = token;
+        public Expression Expression { get; } = expr;
     }
 }
