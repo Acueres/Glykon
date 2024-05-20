@@ -4,7 +4,9 @@
     {
         static void Main(string[] args)
         {
-            Console.WriteLine("Tython Programming Language");
+            var codeEmitter = new CodeEmitter([], "HelloTython");
+            codeEmitter.EmitAssembly();
+            codeEmitter.Save();
         }
     }
 }
