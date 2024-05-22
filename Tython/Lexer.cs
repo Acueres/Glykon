@@ -14,7 +14,7 @@ namespace Tython
         int line = 0;
         int currentChar = 0;
 
-        public (List<Token> tokens, List<ITythonError> errors) ScanSource()
+        public (Token[] tokens, List<ITythonError> errors) ScanSource()
         {
             while (!AtEnd)
             {
@@ -23,7 +23,7 @@ namespace Tython
                     tokens.Add(token);
             }
 
-            return (tokens, errors);
+            return (tokens.ToArray(), errors);
         }
 
         Token GetNextToken()

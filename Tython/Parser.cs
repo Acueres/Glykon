@@ -13,7 +13,7 @@ namespace Tython
         readonly List<ITythonError> errors = [];
         int currentToken;
 
-        public (List<Statement>, List<ITythonError>) Parse()
+        public (Statement[], List<ITythonError>) Parse()
         {
             try
             {
@@ -22,7 +22,7 @@ namespace Tython
                     Statement stmt = ParseStatement();
                     statements.Add(stmt);
                 }
-                return (statements, errors);
+                return (statements.ToArray(), errors);
             }
             catch (ParseException)
             {

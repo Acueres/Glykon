@@ -14,7 +14,7 @@ namespace Test
             Lexer lexer = new(source, "IdentifiersTest");
             var (tokens, _) = lexer.ScanSource();
 
-            Assert.Equal(6, tokens.Count);
+            Assert.Equal(6, tokens.Length);
             Assert.Equal(TokenType.Identifier, tokens[0].Type);
             Assert.Equal("text", tokens[0].Lexeme);
             Assert.Equal(TokenType.Keyword, tokens[4].Type);
@@ -41,7 +41,7 @@ namespace Test
             var (tokens, _) = lexer.ScanSource();
 
             //three identifiers and three statement terminators
-            Assert.Equal(3 * 2, tokens.Count);
+            Assert.Equal(3 * 2, tokens.Length);
         }
 
         [Fact]
@@ -52,7 +52,7 @@ namespace Test
             Lexer lexer = new(symbols, "SymbolsTest");
             var (tokens, _) = lexer.ScanSource();
 
-            Assert.Equal(21, tokens.Count);
+            Assert.Equal(21, tokens.Length);
         }
 
         [Fact]
@@ -63,7 +63,7 @@ namespace Test
             Lexer lexer = new(keywords, "KeywordsTest");
             var (tokens, _) = lexer.ScanSource();
 
-            Assert.Equal(8, tokens.Count);
+            Assert.Equal(8, tokens.Length);
             Assert.Equal(TokenType.Keyword, tokens[0].Type);
         }
 
@@ -75,7 +75,7 @@ namespace Test
             Lexer lexer = new(stringsSource, "StringTest");
             var (tokens, _) = lexer.ScanSource();
 
-            Assert.Equal(3, tokens.Count);
+            Assert.Equal(3, tokens.Length);
             Assert.Equal(TokenType.String, tokens[0].Type);
             Assert.Equal("some text", tokens[0].Lexeme);
             Assert.Equal("other text", tokens[1].Lexeme);
@@ -98,9 +98,9 @@ namespace Test
             var (tokens, _) = lexer.ScanSource();
 
             //filter out statement terminators
-            tokens = tokens.Where(t => t.Type != TokenType.Symbol).ToList();
+            tokens = tokens.Where(t => t.Type != TokenType.Symbol).ToArray();
 
-            Assert.Equal(3, tokens.Count);
+            Assert.Equal(3, tokens.Length);
             Assert.Equal("multiline string\r\n", tokens[0].Lexeme);
             Assert.Equal("regular string", tokens[1].Lexeme);
             Assert.Equal(2, tokens[1].Line);
@@ -116,7 +116,7 @@ namespace Test
             Lexer lexer = new(numbers, "NumbersTest");
             var (tokens, _) = lexer.ScanSource();
 
-            Assert.Equal(6, tokens.Count);
+            Assert.Equal(6, tokens.Length);  
             Assert.Equal(TokenType.Int, tokens[0].Type);
             Assert.Equal("123", tokens[0].Lexeme);
             Assert.Equal("42", tokens[1].Lexeme);

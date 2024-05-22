@@ -6,9 +6,9 @@ using Tython.Model;
 
 namespace Tython
 {
-    public class CodeEmitter(List<Statement> statements, string appname)
+    public class CodeEmitter(Statement[] statements, string appname)
     {
-        readonly List<Statement> statements = statements;
+        readonly Statement[] statements = statements;
         readonly string appname = appname;
 
         private static readonly Guid Guid = new("87D4DBE1-1143-4FAD-AAB3-1001F92068E6");
@@ -18,11 +18,9 @@ namespace Tython
         readonly BlobBuilder ilBuilder = new();
         MethodDefinitionHandle entryPoint;
 
-        public Type EmitAssembly()
+        public void EmitAssembly()
         {
-            var main = EmitEntryPoint();
-            entryPoint = main;
-            return main.GetType();
+            entryPoint = EmitEntryPoint();
         }
 
         MethodDefinitionHandle EmitEntryPoint()
@@ -123,11 +121,13 @@ namespace Tython
             var flowBuilder = new ControlFlowBuilder();
             il = new InstructionEncoder(codeBuilder, flowBuilder);
 
-            // ldstr "hello"
-            il.LoadString(metadata.GetOrAddUserString("Hello Tython"));
-
-            // call void [mscorlib]System.Console::WriteLine(string)
-            il.Call(consoleWriteLineMemberRef);
+            foreach (Statement statement in statements)
+            {
+                if (statement.Token.Lexeme == "print")
+                {
+                    EmitPrintStatement(statement, il, consoleWriteLineMemberRef);
+                }
+            }
 
             // ret
             il.OpCode(ILOpCode.Ret);
@@ -162,7 +162,7 @@ namespace Tython
                 fieldList: MetadataTokens.FieldDefinitionHandle(1),
                 methodList: mainMethodDef);
 
-            // Create type definition for ConsoleApplication.Program
+            // Create type definition for Appname.Program
             metadata.AddTypeDefinition(
                 TypeAttributes.Class | TypeAttributes.Public | TypeAttributes.AutoLayout | TypeAttributes.BeforeFieldInit,
                 metadata.GetOrAddString(appname),
@@ -170,6 +170,7 @@ namespace Tython
                 baseType: systemObjectTypeRef,
                 fieldList: MetadataTokens.FieldDefinitionHandle(1),
                 methodList: mainMethodDef);
+            var s = mainMethodDef.ToDebugInformationHandle();
 
             return mainMethodDef;
         }
@@ -194,6 +195,55 @@ namespace Tython
             var peBlob = new BlobBuilder();
             BlobContentId contentId = peBuilder.Serialize(peBlob);
             peBlob.WriteContentTo(peStream);
+        }
+
+        public MemoryStream ToStream()
+        {
+            MemoryStream peStream = new();
+            // Create executable with the managed metadata from the specified MetadataBuilder.
+            var peHeaderBuilder = new PEHeaderBuilder(
+                imageCharacteristics: Characteristics.ExecutableImage
+                );
+
+            var peBuilder = new ManagedPEBuilder(
+                peHeaderBuilder,
+                new MetadataRootBuilder(metadata),
+                ilBuilder,
+                entryPoint: entryPoint,
+                flags: CorFlags.ILOnly,
+                deterministicIdProvider: content => ContentId);
+
+            // Write executable into the specified stream.
+            var peBlob = new BlobBuilder();
+            BlobContentId contentId = peBuilder.Serialize(peBlob);
+            peBlob.WriteContentTo(peStream);
+            return peStream;
+        }
+
+        void EmitPrintStatement(Statement statement, InstructionEncoder il, MemberReferenceHandle consoleWriteLineMemberRef)
+        {
+
+            EmitExpression(statement.Expression, il);
+
+            // call void [mscorlib]System.Console::WriteLine(string)
+            il.Call(consoleWriteLineMemberRef);
+        }
+
+        void EmitExpression(Expression expression, InstructionEncoder il)
+        {
+            switch (expression.Type)
+            {
+                case ExpressionType.Literal:
+                    {
+                        switch (expression.Token.Type)
+                        {
+                            case TokenType.String:
+                                il.LoadString(metadata.GetOrAddUserString(expression.Token.Lexeme));
+                                break;
+                        }
+                        break;
+                    }
+            }
         }
     }
 }
