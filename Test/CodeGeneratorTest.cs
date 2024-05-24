@@ -1,9 +1,8 @@
-﻿using System.Reflection;
-using Tython;
+﻿using Tython;
 
 namespace Test
 {
-    public class CodeEmitterTest
+    public class CodeGeneratorTest
     {
         [Fact]
         public void PrintTest()
@@ -18,13 +17,9 @@ namespace Test
             Parser parser = new(tokens, filename);
             var (stmts, _) = parser.Parse();
 
-            var codeEmitter = new CodeEmitter(stmts, filename);
-            codeEmitter.EmitAssembly();
-            using var stream = codeEmitter.ToStream();
+            var codeGenerator = new CodeGenerator(stmts, filename);
 
-            var assemblyData = stream.ToArray();
-
-            Type program = Assembly.Load(assemblyData).GetType($"{filename}.Program");
+            Type program = codeGenerator.GetAssembly().GetType("Program");
             var main = program.GetMethod("Main", []);
             main.Invoke(null, []);
         }
