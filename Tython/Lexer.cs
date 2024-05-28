@@ -185,7 +185,7 @@ namespace Tython
         Token ScanTerminator()
         {
             Token last = tokens.LastOrDefault();
-            if (last.Lexeme != ";" && last.Lexeme != null)
+            if (last.Value != ";" && last.Value != null)
             {
                 return new(";", line, TokenType.Symbol);
 

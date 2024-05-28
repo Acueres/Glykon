@@ -16,11 +16,11 @@ namespace Test
 
             Assert.Equal(6, tokens.Length);
             Assert.Equal(TokenType.Identifier, tokens[0].Type);
-            Assert.Equal("text", tokens[0].Lexeme);
+            Assert.Equal("text", tokens[0].Value);
             Assert.Equal(TokenType.Keyword, tokens[4].Type);
-            Assert.Equal("print", tokens[4].Lexeme);
+            Assert.Equal("print", tokens[4].Value);
             Assert.Equal(TokenType.Identifier, tokens[5].Type);
-            Assert.Equal("text", tokens[5].Lexeme);
+            Assert.Equal("text", tokens[5].Value);
         }
 
         [Fact]
@@ -77,9 +77,9 @@ namespace Test
 
             Assert.Equal(3, tokens.Length);
             Assert.Equal(TokenType.String, tokens[0].Type);
-            Assert.Equal("some text", tokens[0].Lexeme);
-            Assert.Equal("other text", tokens[1].Lexeme);
-            Assert.Equal("multiline oneliner", tokens[2].Lexeme);
+            Assert.Equal("some text", tokens[0].Value);
+            Assert.Equal("other text", tokens[1].Value);
+            Assert.Equal("multiline oneliner", tokens[2].Value);
         }
 
         [Fact]
@@ -101,10 +101,10 @@ namespace Test
             tokens = tokens.Where(t => t.Type != TokenType.Symbol).ToArray();
 
             Assert.Equal(3, tokens.Length);
-            Assert.Equal("multiline string\r\n", tokens[0].Lexeme);
-            Assert.Equal("regular string", tokens[1].Lexeme);
+            Assert.Equal("multiline string\r\n", tokens[0].Value);
+            Assert.Equal("regular string", tokens[1].Value);
             Assert.Equal(2, tokens[1].Line);
-            Assert.Equal("another 'multiline' string\r\n text\r\n", tokens[2].Lexeme);
+            Assert.Equal("another 'multiline' string\r\n text\r\n", tokens[2].Value);
             Assert.Equal(4, tokens[2].Line);
         }
 
@@ -118,12 +118,12 @@ namespace Test
 
             Assert.Equal(6, tokens.Length);  
             Assert.Equal(TokenType.Int, tokens[0].Type);
-            Assert.Equal("123", tokens[0].Lexeme);
-            Assert.Equal("42", tokens[1].Lexeme);
+            Assert.Equal("123", tokens[0].Value);
+            Assert.Equal("42", tokens[1].Value);
 
             Assert.Equal(TokenType.Real, tokens[2].Type);
-            Assert.Equal("1.2", tokens[2].Lexeme);
-            Assert.Equal(".2", tokens[3].Lexeme);
+            Assert.Equal("1.2", tokens[2].Value);
+            Assert.Equal(".2", tokens[3].Value);
 
             Assert.Equal(TokenType.Int, tokens[4].Type);
         }

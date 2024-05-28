@@ -136,8 +136,8 @@ namespace Tython
 
             while (!AtEnd)
             {
-                if (Peek(-1).Lexeme == ";") return;
-                switch (Peek().Lexeme)
+                if (Peek(-1).Value == ";") return;
+                switch (Peek().Value)
                 {
                     case "class":
                     case "struct":
@@ -157,7 +157,7 @@ namespace Tython
 
         Token Consume(string symbol, string message)
         {
-            if (Peek().Lexeme == symbol) return Advance();
+            if (Peek().Value == symbol) return Advance();
             ParseError error = new(Peek(), fileName, message);
             errors.Add(error);
             throw error.Exception();
@@ -179,7 +179,7 @@ namespace Tython
         {
             foreach (string value in values)
             {
-                if (Peek().Lexeme == value)
+                if (Peek().Value == value)
                 {
                     Advance();
                     return true;

@@ -7,7 +7,7 @@
             const string filename = "HelloTython";
             const string src = @"
             print ""Hello Tython""
-            print 'This is the first compiled Tython program';";
+            print 'test' == 'test';";
             Lexer lexer = new(src, filename);
             var (tokens, _) = lexer.ScanSource();
 

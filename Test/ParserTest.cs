@@ -14,9 +14,9 @@ namespace Test
 
             Assert.NotEmpty(stmts);
             Assert.Single(stmts);
-            Assert.Equal("print", stmts[0].Token.Lexeme);
+            Assert.Equal("print", stmts[0].Token.Value);
             Assert.NotNull(stmts[0].Expression);
-            Assert.Equal("Hello Tython", stmts[0].Expression.Token.Lexeme);
+            Assert.Equal("Hello Tython", stmts[0].Expression.Token.Value);
         }
 
         [Fact]
@@ -28,9 +28,9 @@ namespace Test
 
             Assert.NotNull(ast);
             Assert.Equal(ExpressionType.Unary, ast.Type);
-            Assert.Equal("not", ast.Token.Lexeme);
+            Assert.Equal("not", ast.Token.Value);
             Assert.NotNull(ast.Primary);
-            Assert.Equal("false", ast.Primary.Token.Lexeme);
+            Assert.Equal("false", ast.Primary.Token.Value);
         }
 
         [Fact]
@@ -42,11 +42,11 @@ namespace Test
 
             Assert.NotNull(ast);
             Assert.Equal(ExpressionType.Binary, ast.Type);
-            Assert.Equal("==", ast.Token.Lexeme);
+            Assert.Equal("==", ast.Token.Value);
             Assert.NotNull(ast.Primary);
-            Assert.Equal("true", ast.Primary.Token.Lexeme);
+            Assert.Equal("true", ast.Primary.Token.Value);
             Assert.NotNull(ast.Secondary);
-            Assert.Equal("false", ast.Secondary.Token.Lexeme);
+            Assert.Equal("false", ast.Secondary.Token.Value);
         }
 
         [Fact]
@@ -58,11 +58,11 @@ namespace Test
 
             Assert.NotNull(ast);
             Assert.Equal(ExpressionType.Binary, ast.Type);
-            Assert.Equal(">", ast.Token.Lexeme);
+            Assert.Equal(">", ast.Token.Value);
             Assert.NotNull(ast.Primary);
-            Assert.Equal("true", ast.Primary.Token.Lexeme);
+            Assert.Equal("true", ast.Primary.Token.Value);
             Assert.NotNull(ast.Secondary);
-            Assert.Equal("false", ast.Secondary.Token.Lexeme);
+            Assert.Equal("false", ast.Secondary.Token.Value);
         }
 
         [Fact]
@@ -74,11 +74,11 @@ namespace Test
 
             Assert.NotNull(ast);
             Assert.Equal(ExpressionType.Binary, ast.Type);
-            Assert.Equal("-", ast.Token.Lexeme);
+            Assert.Equal("-", ast.Token.Value);
             Assert.NotNull(ast.Primary);
-            Assert.Equal("2", ast.Primary.Token.Lexeme);
+            Assert.Equal("2", ast.Primary.Token.Value);
             Assert.NotNull(ast.Secondary);
-            Assert.Equal("3", ast.Secondary.Token.Lexeme);
+            Assert.Equal("3", ast.Secondary.Token.Value);
         }
 
         [Fact]
@@ -90,11 +90,11 @@ namespace Test
 
             Assert.NotNull(ast);
             Assert.Equal(ExpressionType.Binary, ast.Type);
-            Assert.Equal("/", ast.Token.Lexeme);
+            Assert.Equal("/", ast.Token.Value);
             Assert.NotNull(ast.Primary);
-            Assert.Equal("6", ast.Primary.Token.Lexeme);
+            Assert.Equal("6", ast.Primary.Token.Value);
             Assert.NotNull(ast.Secondary);
-            Assert.Equal("3", ast.Secondary.Token.Lexeme);
+            Assert.Equal("3", ast.Secondary.Token.Value);
         }
     }
 }
