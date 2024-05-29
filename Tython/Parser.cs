@@ -19,6 +19,7 @@ namespace Tython
             {
                 while (!AtEnd)
                 {
+                    if (Peek().Type == TokenType.EOF) break;
                     Statement stmt = ParseStatement();
                     statements.Add(stmt);
                 }
@@ -35,7 +36,7 @@ namespace Tython
         {
             Token token = Advance();
             Expression expr = ParseExpression();
-            Consume(";", "Expect ';' after expression");
+            Consume(TokenType.Semicolon, "Expect ';' after expression");
             return new(token, expr);
         }
 
@@ -48,7 +49,7 @@ namespace Tython
         {
             Expression expr = ParseComparison();
 
-            while (Match("!=", "=="))
+            while (Match(TokenType.Equal, TokenType.NotEqual))
             {
                 Token oper = Peek(-1);
                 Expression right = ParseComparison();
@@ -62,7 +63,7 @@ namespace Tython
         {
             Expression expr = ParseTerm();
 
-            while (Match(">", ">=", "<", "<="))
+            while (Match(TokenType.Greater, TokenType.GreaterEqual, TokenType.Less, TokenType.LessEqual))
             {
                 Token oper = Peek(-1);
                 Expression right = ParseTerm();
@@ -76,7 +77,7 @@ namespace Tython
         {
             Expression expr = ParseFactor();
 
-            while (Match("-", "+"))
+            while (Match(TokenType.Plus, TokenType.Minus))
             {
                 Token oper = Peek(-1);
                 Expression right = ParseFactor();
@@ -90,7 +91,7 @@ namespace Tython
         {
             Expression expr = ParseUnary();
 
-            while (Match("/", "*"))
+            while (Match(TokenType.Slash, TokenType.Star))
             {
                 Token oper = Peek(-1);
                 Expression right = ParseUnary();
@@ -102,7 +103,7 @@ namespace Tython
 
         Expression ParseUnary()
         {
-            if (Match("not", "-"))
+            if (Match(TokenType.Not, TokenType.Minus))
             {
                 Token oper = Peek(-1);
                 Expression right = ParseUnary();
@@ -114,14 +115,13 @@ namespace Tython
 
         Expression ParsePrimary()
         {
-            if (Match("false", "true", "none")
-                || Match(TokenType.Int, TokenType.Real, TokenType.String))
+            if (Match(TokenType.None, TokenType.True, TokenType.False, TokenType.Int, TokenType.Real, TokenType.String))
                 return new(Peek(-1), ExpressionType.Literal);
 
-            if (Match("("))
+            if (Match(TokenType.ParenthesisLeft))
             {
                 Expression expr = ParseExpression();
-                Consume(")", "Expect ')' after expression");
+                Consume(TokenType.ParenthesisRight, "Expect ')' after expression");
                 return new(expr, ExpressionType.Grouping);
             }
 
@@ -136,18 +136,18 @@ namespace Tython
 
             while (!AtEnd)
             {
-                if (Peek(-1).Value == ";") return;
-                switch (Peek().Value)
+                if (Peek(-1).Type == TokenType.Semicolon) return;
+                switch (Peek().Type)
                 {
-                    case "class":
-                    case "struct":
-                    case "interface":
-                    case "enum":
-                    case "def":
-                    case "for":
-                    case "if":
-                    case "while":
-                    case "return":
+                    case TokenType.Class:
+                    case TokenType.Struct:
+                    case TokenType.Interface:
+                    case TokenType.Enum:
+                    case TokenType.Def:
+                    case TokenType.For:
+                    case TokenType.If:
+                    case TokenType.While:
+                    case TokenType.Return:
                         return;
                 }
 
@@ -155,9 +155,9 @@ namespace Tython
             }
         }
 
-        Token Consume(string symbol, string message)
+        Token Consume(TokenType symbol, string message)
         {
-            if (Peek().Value == symbol) return Advance();
+            if (Peek().Type == symbol) return Advance();
             ParseError error = new(Peek(), fileName, message);
             errors.Add(error);
             throw error.Exception();
@@ -173,20 +173,6 @@ namespace Tython
             int nextTokenPos = currentToken + offset;
             Token token = AtEnd || nextTokenPos >= tokens.Length ? Token.Null : tokens[nextTokenPos];
             return token;
-        }
-
-        bool Match(params string[] values)
-        {
-            foreach (string value in values)
-            {
-                if (Peek().Value == value)
-                {
-                    Advance();
-                    return true;
-                }
-            }
-
-            return false;
         }
 
         bool Match(params TokenType[] values)

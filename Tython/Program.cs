@@ -1,4 +1,6 @@
-﻿namespace Tython
+﻿using System.Reflection;
+
+namespace Tython
 {
     internal class Program
     {
@@ -16,7 +18,7 @@
 
             var generator = new CodeGenerator(stmts, filename);
 
-            var assembly = generator.GetAssembly();
+            Assembly assembly = generator.GetAssembly();
 
             Type program = assembly.GetType("Program");
             var main = program.GetMethod("Main", []);

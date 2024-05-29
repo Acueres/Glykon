@@ -36,7 +36,7 @@ namespace Tython
 
             foreach (Statement statement in statements)
             {
-                if (statement.Token.Value == "print")
+                if (statement.Token.Type == TokenType.Print)
                 {
                     GeneratePrintStatement(statement);
                 }
@@ -53,7 +53,7 @@ namespace Tython
             il.EmitWriteLine(value.ToString());
         }
 
-        object EvaluateExpression(Expression expression)
+        object? EvaluateExpression(Expression expression)
         {
             switch (expression.Type)
             {
@@ -63,7 +63,9 @@ namespace Tython
                         TokenType.String => expression.Token.Value,
                         TokenType.Int => long.Parse(expression.Token.Value),
                         TokenType.Real => double.Parse(expression.Token.Value, CultureInfo.InvariantCulture),
-                        TokenType.Keyword => bool.Parse(expression.Token.Value),
+                        TokenType.True => true,
+                        TokenType.False => false,
+                        TokenType.None => null,
                         _ => throw new Exception("Token not a literal"),
                     };
                 case ExpressionType.Grouping:
@@ -72,16 +74,16 @@ namespace Tython
                     {
                         object primary = EvaluateExpression(expression.Primary);
 
-                        switch (expression.Token.Value)
+                        switch (expression.Token.Type)
                         {
-                            case "-":
+                            case TokenType.Minus:
                                 {
                                     if (primary is long l) return -l;
                                     else if (primary is double d) return -d;
                                     else throw new Exception($"Operator - not defined for {primary}");
 
                                 }
-                            case "not":
+                            case TokenType.Not:
                                 {
                                     if (primary is bool b) return !b;
                                     else throw new Exception($"Operator not not defined for {primary}");
@@ -95,8 +97,8 @@ namespace Tython
                         object primary = EvaluateExpression(expression.Primary);
                         object secondary = EvaluateExpression(expression.Secondary);
 
-                        switch (expression.Token.Value) {
-                            case "-":
+                        switch (expression.Token.Type) {
+                            case TokenType.Minus:
                                 {
                                     if (primary is long && secondary is long) return (long)primary - (long)secondary;
                                     else if (primary is double && secondary is double) return (double)primary - (double)secondary;
@@ -104,7 +106,7 @@ namespace Tython
                                     else if (primary is double && secondary is long) return (double)primary - (long)secondary;
                                     else throw new Exception($"Operator - not defined for {primary}, {secondary}");
                                 }
-                            case "+":
+                            case TokenType.Plus:
                                 {
                                     if (primary is string && secondary is string) return (string)primary + (string)secondary;
 
@@ -114,7 +116,7 @@ namespace Tython
                                     else if (primary is double && secondary is long) return (double)primary + (long)secondary;
                                     else throw new Exception($"Operator + not defined for {primary}, {secondary}");
                                 }
-                            case "/":
+                            case TokenType.Slash:
                                 {
                                     if ((secondary is double && (double)secondary == 0)
                                         || (secondary is long && (long)secondary == 0)) throw new Exception("Division by zero");
@@ -125,13 +127,13 @@ namespace Tython
                                     else if (primary is double && secondary is long) return (double)primary / (long)secondary;
                                     else throw new Exception($"Operator / not defined for {primary}, {secondary}");
                                 }
-                            case "*":
+                            case TokenType.Star:
                                 if (primary is long && secondary is long) return (long)primary * (long)secondary;
                                 else if (primary is double && secondary is double) return (double)primary * (double)secondary;
                                 else if (primary is long && secondary is double) return (long)primary * (double)secondary;
                                 else if (primary is double && secondary is long) return (double)primary * (long)secondary;
                                 else throw new Exception($"Operator * not defined for {primary}, {secondary}");
-                            case ">":
+                            case TokenType.Greater:
                                 {
                                     if (primary is long && secondary is long) return (long)primary > (long)secondary;
                                     else if (primary is double && secondary is double) return (double)primary > (double)secondary;
@@ -139,7 +141,7 @@ namespace Tython
                                     else if (primary is double && secondary is long) return (double)primary > (long)secondary;
                                     else throw new Exception($"Operator > not defined for {primary}, {secondary}");
                                 }
-                            case ">=":
+                            case TokenType.GreaterEqual:
                                 {
                                     if (primary is long && secondary is long) return (long)primary >= (long)secondary;
                                     else if (primary is double && secondary is double) return (double)primary >= (double)secondary;
@@ -147,7 +149,7 @@ namespace Tython
                                     else if (primary is double && secondary is long) return (double)primary >= (long)secondary;
                                     else throw new Exception($"Operator >= not defined for {primary}, {secondary}");
                                 }
-                            case "<":
+                            case TokenType.Less:
                                 {
                                     if (primary is long && secondary is long) return (long)primary < (long)secondary;
                                     else if (primary is double && secondary is double) return (double)primary < (double)secondary;
@@ -155,7 +157,7 @@ namespace Tython
                                     else if (primary is double && secondary is long) return (double)primary < (long)secondary;
                                     else throw new Exception($"Operator < not defined for {primary}, {secondary}");
                                 }
-                            case "<=":
+                            case TokenType.LessEqual:
                                 {
                                     if (primary is long && secondary is long) return (long)primary <= (long)secondary;
                                     else if (primary is double && secondary is double) return (double)primary <= (double)secondary;
@@ -163,11 +165,11 @@ namespace Tython
                                     else if (primary is double && secondary is long) return (double)primary <= (long)secondary;
                                     else throw new Exception($"Operator <= not defined for {primary}, {secondary}");
                                 }
-                            case "==":
+                            case TokenType.Equal:
                                 {
                                     return primary.Equals(secondary);
                                 }
-                            case "!=":
+                            case TokenType.NotEqual:
                                 {
                                     return !primary.Equals(secondary);
                                 }

@@ -14,11 +14,12 @@ namespace Test
             Lexer lexer = new(source, "IdentifiersTest");
             var (tokens, _) = lexer.ScanSource();
 
+            tokens = tokens.Where(t => t.Type != TokenType.EOF).ToArray();
+
             Assert.Equal(6, tokens.Length);
             Assert.Equal(TokenType.Identifier, tokens[0].Type);
             Assert.Equal("text", tokens[0].Value);
-            Assert.Equal(TokenType.Keyword, tokens[4].Type);
-            Assert.Equal("print", tokens[4].Value);
+            Assert.Equal(TokenType.Print, tokens[4].Type);
             Assert.Equal(TokenType.Identifier, tokens[5].Type);
             Assert.Equal("text", tokens[5].Value);
         }
@@ -40,8 +41,8 @@ namespace Test
             Lexer lexer = new(commentsSource, "CommentsTest");
             var (tokens, _) = lexer.ScanSource();
 
-            //three identifiers and three statement terminators
-            Assert.Equal(3 * 2, tokens.Length);
+            //three identifiers, three statement terminators and EOF
+            Assert.Equal(3 * 2 + 1, tokens.Length);
         }
 
         [Fact]
@@ -51,6 +52,8 @@ namespace Test
 
             Lexer lexer = new(symbols, "SymbolsTest");
             var (tokens, _) = lexer.ScanSource();
+
+            tokens = tokens.Where(t => t.Type != TokenType.EOF).ToArray();
 
             Assert.Equal(21, tokens.Length);
         }
@@ -63,8 +66,11 @@ namespace Test
             Lexer lexer = new(keywords, "KeywordsTest");
             var (tokens, _) = lexer.ScanSource();
 
+            tokens = tokens.Where(t => t.Type != TokenType.EOF).ToArray();
+
             Assert.Equal(8, tokens.Length);
-            Assert.Equal(TokenType.Keyword, tokens[0].Type);
+            Assert.Equal(TokenType.If, tokens[0].Type);
+            Assert.Equal(TokenType.Int, tokens[5].Type);
         }
 
         [Fact]
@@ -74,6 +80,8 @@ namespace Test
 
             Lexer lexer = new(stringsSource, "StringTest");
             var (tokens, _) = lexer.ScanSource();
+
+            tokens = tokens.Where(t => t.Type != TokenType.EOF).ToArray();
 
             Assert.Equal(3, tokens.Length);
             Assert.Equal(TokenType.String, tokens[0].Type);
@@ -98,7 +106,7 @@ namespace Test
             var (tokens, _) = lexer.ScanSource();
 
             //filter out statement terminators
-            tokens = tokens.Where(t => t.Type != TokenType.Symbol).ToArray();
+            tokens = tokens.Where(t => t.Type != TokenType.Semicolon && t.Type != TokenType.EOF).ToArray();
 
             Assert.Equal(3, tokens.Length);
             Assert.Equal("multiline string\r\n", tokens[0].Value);
@@ -115,6 +123,8 @@ namespace Test
 
             Lexer lexer = new(numbers, "NumbersTest");
             var (tokens, _) = lexer.ScanSource();
+
+            tokens = tokens.Where(t => t.Type != TokenType.EOF).ToArray();
 
             Assert.Equal(6, tokens.Length);  
             Assert.Equal(TokenType.Int, tokens[0].Type);

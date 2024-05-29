@@ -23,6 +23,7 @@ namespace Tython
                     tokens.Add(token);
             }
 
+            tokens.Add(new(TokenType.EOF, line));
             return (tokens.ToArray(), errors);
         }
 
@@ -34,14 +35,21 @@ namespace Tython
             {
                 //symbols
                 case '{':
+                    return new(TokenType.BraceRight, line);
                 case '}':
+                    return new(TokenType.BraceLeft, line);
                 case '(':
+                    return new(TokenType.ParenthesisRight, line);
                 case ')':
+                    return new(TokenType.ParenthesisLeft, line);
                 case '[':
+                    return new(TokenType.BracketLeft, line);
                 case ']':
+                    return new(TokenType.BracketRight, line);
                 case ',':
+                    return new(TokenType.Comma, line);
                 case ':':
-                    return new(character.ToString(), line, TokenType.Symbol);
+                    return new(TokenType.Colon, line);
 
                 //long symbols
                 case '.':
@@ -51,26 +59,26 @@ namespace Tython
                             return ScanNumber(true);
                         }
 
-                        return new(character.ToString(), line, TokenType.Symbol);
+                        return new(TokenType.Dot, line);
                     }
                 case '+':
-                    return new(character.ToString(), line, TokenType.Symbol);
+                    return new(TokenType.Plus, line);
                 case '-':
-                    return new(character.ToString(), line, TokenType.Symbol);
+                    return new(TokenType.Minus, line);
                 case '<':
-                    return new(Match('=') ? "<=" : "<", line, TokenType.Symbol);
+                    return new(Match('=') ? TokenType.LessEqual : TokenType.Less, line);
                 case '>':
-                    return new(Match('=') ? ">=" : ">", line, TokenType.Symbol);
+                    return new(Match('=') ? TokenType.GreaterEqual : TokenType.Greater, line);
                 case '*':
-                    return new(Match('*') ? "**" : "*", line, TokenType.Symbol);
+                    return new(Match('*') ? TokenType.StarDouble : TokenType.Star, line);
                 case '/':
-                    return new(Match('/') ? "//" : "/", line, TokenType.Symbol);
+                    return new(Match('/') ? TokenType.SlashDouble : TokenType.Slash, line);
                 case '=':
-                    return new(Match('=') ? "==" : "=", line, TokenType.Symbol);
+                    return new(Match('=') ? TokenType.Equal : TokenType.Assignment, line);
                 case '!': //! is not valid by itself
                     if (Match('='))
                     {
-                        return new("!=", line, TokenType.Symbol);
+                        return new(TokenType.NotEqual, line);
                     }
                     else
                     {
@@ -127,7 +135,12 @@ namespace Tython
 
             string identifier = source[identifierStart..currentChar];
 
-            return new(identifier, line, Token.Keywords.Contains(identifier) ? TokenType.Keyword : TokenType.Identifier);
+            if (keywords.Contains(identifier))
+            {
+                return new(keywordToType[identifier], line);
+            }
+
+            return new(identifier, line, TokenType.Identifier);
         }
 
         Token ScanNumber(bool isFloat = false)
@@ -185,10 +198,9 @@ namespace Tython
         Token ScanTerminator()
         {
             Token last = tokens.LastOrDefault();
-            if (last.Value != ";" && last.Value != null)
+            if (last.Type != TokenType.Semicolon && last.Type != TokenType.Null)
             {
-                return new(";", line, TokenType.Symbol);
-
+                return new(TokenType.Semicolon, line);
             }
 
             return Token.Null;
@@ -223,6 +235,47 @@ namespace Tython
         char Advance()
         {
             return source[currentChar++];
+        }
+
+        readonly static HashSet<string> keywords;
+        readonly static Dictionary<string, TokenType> keywordToType;
+
+        static Lexer()
+        {
+            keywords =
+            [
+                "class", "struct", "interface", "enum", "def", "print",
+                "int", "real", "str", "true", "false", "none",
+                "and", "not", "or",
+                "if", "else", "elif", "for", "while", "return", "break", "continue",
+            ];
+
+            keywordToType = new()
+            {
+                { "class", TokenType.Class },
+                { "struct", TokenType.Struct },
+                { "interface", TokenType.Interface },
+                { "enum", TokenType.Enum },
+                { "def", TokenType.Def },
+                { "print", TokenType.Print },
+                { "int", TokenType.Int },
+                { "real", TokenType.Real },
+                { "str", TokenType.String },
+                { "true",  TokenType.True },
+                { "false",  TokenType.False },
+                { "none", TokenType.None },
+                { "and", TokenType.And },
+                { "not", TokenType.Not },
+                { "or", TokenType.Or },
+                { "if", TokenType.If },
+                { "else", TokenType.Else },
+                { "elif", TokenType.Elif },
+                { "for", TokenType.For },
+                { "while", TokenType.While },
+                { "return", TokenType.Return },
+                { "break", TokenType.Break },
+                { "continue", TokenType.Continue }
+            };
         }
     }
 }
