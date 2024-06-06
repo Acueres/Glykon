@@ -36,9 +36,13 @@ namespace Tython
 
             foreach (Statement statement in statements)
             {
-                if (statement.Token.Type == TokenType.Print)
+                if (statement.Type == StatementType.Print)
                 {
                     GeneratePrintStatement(statement);
+                }
+                else if (statement.Type == StatementType.Variable)
+                {
+                    GenerateVariableDeclarationStatement(statement);
                 }
             }
 
@@ -50,7 +54,30 @@ namespace Tython
         void GeneratePrintStatement(Statement statement)
         {
             object value = EvaluateExpression(statement.Expression);
-            il.EmitWriteLine(value.ToString());
+
+            if (value == null)
+            {
+                il.EmitCall(OpCodes.Call, typeof(Console).GetMethod("WriteLine", [typeof(string)]), []);
+            }
+            else
+            {
+                il.EmitWriteLine(value.ToString());
+            }
+        }
+
+        void GenerateVariableDeclarationStatement(Statement statement)
+        {
+            object value = EvaluateExpression(statement.Expression);
+            if (value != null)
+            {
+                il.DeclareLocal(value.GetType());
+                il.Emit(OpCodes.Ldstr, value.ToString());
+                il.Emit(OpCodes.Stloc, 0);
+            }
+            else
+            {
+                il.DeclareLocal(typeof(object));
+            }
         }
 
         object? EvaluateExpression(Expression expression)
@@ -68,6 +95,9 @@ namespace Tython
                         TokenType.None => null,
                         _ => throw new Exception("Token not a literal"),
                     };
+                case ExpressionType.Variable:
+                    il.Emit(OpCodes.Ldloc_S, 0);
+                    break;
                 case ExpressionType.Grouping:
                     return EvaluateExpression(expression.Primary);
                 case ExpressionType.Unary:

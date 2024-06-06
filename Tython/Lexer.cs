@@ -244,7 +244,7 @@ namespace Tython
         {
             keywords =
             [
-                "class", "struct", "interface", "enum", "def", "print",
+                "class", "struct", "interface", "enum", "def", "let", "print",
                 "int", "real", "str", "true", "false", "none",
                 "and", "not", "or",
                 "if", "else", "elif", "for", "while", "return", "break", "continue",
@@ -257,6 +257,7 @@ namespace Tython
                 { "interface", TokenType.Interface },
                 { "enum", TokenType.Enum },
                 { "def", TokenType.Def },
+                { "let", TokenType.Let },
                 { "print", TokenType.Print },
                 { "int", TokenType.Int },
                 { "real", TokenType.Real },

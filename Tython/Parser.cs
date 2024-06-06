@@ -20,7 +20,7 @@ namespace Tython
                 while (!AtEnd)
                 {
                     if (Peek().Type == TokenType.EOF) break;
-                    Statement stmt = ParseStatement();
+                    Statement stmt = ParseDeclaration();
                     statements.Add(stmt);
                 }
                 return (statements.ToArray(), errors);
@@ -32,12 +32,44 @@ namespace Tython
             }
         }
 
-        public Statement ParseStatement()
+        public Statement ParseDeclaration()
+        {
+            if (Match(TokenType.Let))
+            {
+                return ParseVariableDeclaration();
+            }
+
+            return ParseStatement();
+        }
+
+        Statement ParseVariableDeclaration()
+        {
+            Token token = Consume(TokenType.Identifier, "Expect variable name");
+            Expression? initializer = null;
+            if (Match(TokenType.Assignment))
+            {
+                initializer = ParseExpression();
+            }
+
+            Consume(TokenType.Semicolon, "Expect ';' after variable declaration");
+
+            return new(token, initializer, StatementType.Variable);
+
+        }
+
+        Statement ParseStatement()
         {
             Token token = Advance();
             Expression expr = ParseExpression();
+
             Consume(TokenType.Semicolon, "Expect ';' after expression");
-            return new(token, expr);
+
+            var stmtType = token.Type switch
+            {
+                TokenType.Print => StatementType.Print,
+                _ => StatementType.Expression,
+            };
+            return new(token, expr, stmtType);
         }
 
         public Expression ParseExpression()
@@ -117,6 +149,11 @@ namespace Tython
         {
             if (Match(TokenType.None, TokenType.True, TokenType.False, TokenType.Int, TokenType.Real, TokenType.String))
                 return new(Peek(-1), ExpressionType.Literal);
+
+            if (Match(TokenType.Identifier))
+            {
+                return new(Peek(-1), ExpressionType.Variable);
+            }
 
             if (Match(TokenType.ParenthesisLeft))
             {

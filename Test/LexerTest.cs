@@ -8,7 +8,7 @@ namespace Test
         [Fact]
         public void ScanIdentifiersTest()
         {
-            const string source = @"text = 'Hello Tython'
+            const string source = @"let text = 'Hello Tython'
                                     print text";
 
             Lexer lexer = new(source, "IdentifiersTest");
@@ -16,12 +16,13 @@ namespace Test
 
             tokens = tokens.Where(t => t.Type != TokenType.EOF).ToArray();
 
-            Assert.Equal(6, tokens.Length);
-            Assert.Equal(TokenType.Identifier, tokens[0].Type);
-            Assert.Equal("text", tokens[0].Value);
-            Assert.Equal(TokenType.Print, tokens[4].Type);
-            Assert.Equal(TokenType.Identifier, tokens[5].Type);
-            Assert.Equal("text", tokens[5].Value);
+            Assert.Equal(7, tokens.Length);
+            Assert.Equal(TokenType.Let, tokens[0].Type);
+            Assert.Equal(TokenType.Identifier, tokens[1].Type);
+            Assert.Equal("text", tokens[1].Value);
+            Assert.Equal(TokenType.Print, tokens[5].Type);
+            Assert.Equal(TokenType.Identifier, tokens[6].Type);
+            Assert.Equal("text", tokens[6].Value);
         }
 
         [Fact]

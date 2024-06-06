@@ -9,7 +9,10 @@ namespace Tython
             const string filename = "HelloTython";
             const string src = @"
             print ""Hello Tython""
-            print 'test' == 'test';";
+            print 'test' == 'test'
+            let text = 'testing variables'
+            print text
+";
             Lexer lexer = new(src, filename);
             var (tokens, _) = lexer.ScanSource();
 

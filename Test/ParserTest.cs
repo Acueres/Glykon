@@ -14,9 +14,25 @@ namespace Test
 
             Assert.NotEmpty(stmts);
             Assert.Single(stmts);
+            Assert.Equal(StatementType.Print, stmts[0].Type);
             Assert.Equal(TokenType.Print, stmts[0].Token.Type);
             Assert.NotNull(stmts[0].Expression);
             Assert.Equal("Hello Tython", stmts[0].Expression.Token.Value);
+        }
+
+        [Fact]
+        public void VariableDeclarationStmtTest()
+        {
+            Token[] tokens = [new(TokenType.Let, 0), new("value", 0, TokenType.Identifier), new(TokenType.Assignment, 0), new("42", 0, TokenType.Int), new(TokenType.Semicolon, 0)];
+            Parser parser = new(tokens, "VariableDeclarationStmtTest");
+            var (stmts, _) = parser.Parse();
+
+            Assert.NotEmpty(stmts);
+            Assert.Single(stmts);
+            Assert.Equal(StatementType.Variable, stmts[0].Type);
+            Assert.Equal(TokenType.Identifier, stmts[0].Token.Type);
+            Assert.NotNull(stmts[0].Expression);
+            Assert.Equal("42", stmts[0].Expression.Token.Value);
         }
 
         [Fact]

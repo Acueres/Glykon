@@ -5,6 +5,7 @@
         Unary,
         Binary,
         Grouping,
-        Literal
+        Literal,
+        Variable
     }
 }
