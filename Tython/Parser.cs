@@ -13,7 +13,7 @@ namespace Tython
         readonly List<ITythonError> errors = [];
         int currentToken;
 
-        public (Statement[], List<ITythonError>) Parse()
+        public (Statement[], List<ITythonError>) Execute()
         {
             try
             {
@@ -28,8 +28,9 @@ namespace Tython
             catch (ParseException)
             {
                 Synchronize();
-                return ([], errors);
             }
+
+            return ([], errors);
         }
 
         public Statement ParseDeclaration()

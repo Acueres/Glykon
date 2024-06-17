@@ -12,10 +12,10 @@ namespace Test
             print ""Hello Tython"";
 ";
             Lexer lexer = new(src, filename);
-            var (tokens, _) = lexer.ScanSource();
+            var (tokens, _) = lexer.Execute();
 
             Parser parser = new(tokens, filename);
-            var (stmts, _) = parser.Parse();
+            var (stmts, _) = parser.Execute();
 
             var codeGenerator = new CodeGenerator(stmts, filename);
 

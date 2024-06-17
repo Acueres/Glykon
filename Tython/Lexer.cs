@@ -14,7 +14,7 @@ namespace Tython
         int line = 0;
         int currentChar = 0;
 
-        public (Token[] tokens, List<ITythonError> errors) ScanSource()
+        public (Token[] tokens, List<ITythonError> errors) Execute()
         {
             while (!AtEnd)
             {
@@ -35,13 +35,13 @@ namespace Tython
             {
                 //symbols
                 case '{':
-                    return new(TokenType.BraceRight, line);
-                case '}':
                     return new(TokenType.BraceLeft, line);
+                case '}':
+                    return new(TokenType.BraceRight, line);
                 case '(':
-                    return new(TokenType.ParenthesisRight, line);
-                case ')':
                     return new(TokenType.ParenthesisLeft, line);
+                case ')':
+                    return new(TokenType.ParenthesisRight, line);
                 case '[':
                     return new(TokenType.BracketLeft, line);
                 case ']':

@@ -23,10 +23,10 @@ namespace Tython
             this.statements = statements;
             this.appname = appname;
 
-            GenerateMain(out ab, out main, out il);
+            EmitMain(out ab, out main, out il);
         }
 
-        void GenerateMain(out PersistedAssemblyBuilder ab, out MethodBuilder main, out ILGenerator il)
+        void EmitMain(out PersistedAssemblyBuilder ab, out MethodBuilder main, out ILGenerator il)
         {
             ab = new(new AssemblyName(appname), typeof(object).Assembly);
             ModuleBuilder mob = ab.DefineDynamicModule(appname);
@@ -38,11 +38,11 @@ namespace Tython
             {
                 if (statement.Type == StatementType.Print)
                 {
-                    GeneratePrintStatement(statement);
+                    EmitPrintStatement(statement);
                 }
                 else if (statement.Type == StatementType.Variable)
                 {
-                    GenerateVariableDeclarationStatement(statement);
+                    EmitVariableDeclarationStatement(statement);
                 }
             }
 
@@ -51,7 +51,7 @@ namespace Tython
             tb.CreateType();
         }
 
-        void GeneratePrintStatement(Statement statement)
+        void EmitPrintStatement(Statement statement)
         {
             object value = EvaluateExpression(statement.Expression);
 
@@ -65,7 +65,7 @@ namespace Tython
             }
         }
 
-        void GenerateVariableDeclarationStatement(Statement statement)
+        void EmitVariableDeclarationStatement(Statement statement)
         {
             object value = EvaluateExpression(statement.Expression);
             if (value != null)
@@ -98,115 +98,6 @@ namespace Tython
                 case ExpressionType.Variable:
                     il.Emit(OpCodes.Ldloc_S, 0);
                     break;
-                case ExpressionType.Grouping:
-                    return EvaluateExpression(expression.Primary);
-                case ExpressionType.Unary:
-                    {
-                        object primary = EvaluateExpression(expression.Primary);
-
-                        switch (expression.Token.Type)
-                        {
-                            case TokenType.Minus:
-                                {
-                                    if (primary is long l) return -l;
-                                    else if (primary is double d) return -d;
-                                    else throw new Exception($"Operator - not defined for {primary}");
-
-                                }
-                            case TokenType.Not:
-                                {
-                                    if (primary is bool b) return !b;
-                                    else throw new Exception($"Operator not not defined for {primary}");
-                                }
-                            default:
-                                throw new Exception($"Operator {expression.Token.Value} is not unary");
-                        }
-                    }
-                case ExpressionType.Binary:
-                    {
-                        object primary = EvaluateExpression(expression.Primary);
-                        object secondary = EvaluateExpression(expression.Secondary);
-
-                        switch (expression.Token.Type) {
-                            case TokenType.Minus:
-                                {
-                                    if (primary is long && secondary is long) return (long)primary - (long)secondary;
-                                    else if (primary is double && secondary is double) return (double)primary - (double)secondary;
-                                    else if (primary is long && secondary is double) return (long)primary - (double)secondary;
-                                    else if (primary is double && secondary is long) return (double)primary - (long)secondary;
-                                    else throw new Exception($"Operator - not defined for {primary}, {secondary}");
-                                }
-                            case TokenType.Plus:
-                                {
-                                    if (primary is string && secondary is string) return (string)primary + (string)secondary;
-
-                                    if (primary is long && secondary is long) return (long)primary + (long)secondary;
-                                    else if (primary is double && secondary is double) return (double)primary + (double)secondary;
-                                    else if (primary is long && secondary is double) return (long)primary + (double)secondary;
-                                    else if (primary is double && secondary is long) return (double)primary + (long)secondary;
-                                    else throw new Exception($"Operator + not defined for {primary}, {secondary}");
-                                }
-                            case TokenType.Slash:
-                                {
-                                    if ((secondary is double && (double)secondary == 0)
-                                        || (secondary is long && (long)secondary == 0)) throw new Exception("Division by zero");
-
-                                    if (primary is long && secondary is long) return (long)primary / (long)secondary;
-                                    else if (primary is double && secondary is double) return (double)primary / (double)secondary;
-                                    else if (primary is long && secondary is double) return (long)primary / (double)secondary;
-                                    else if (primary is double && secondary is long) return (double)primary / (long)secondary;
-                                    else throw new Exception($"Operator / not defined for {primary}, {secondary}");
-                                }
-                            case TokenType.Star:
-                                if (primary is long && secondary is long) return (long)primary * (long)secondary;
-                                else if (primary is double && secondary is double) return (double)primary * (double)secondary;
-                                else if (primary is long && secondary is double) return (long)primary * (double)secondary;
-                                else if (primary is double && secondary is long) return (double)primary * (long)secondary;
-                                else throw new Exception($"Operator * not defined for {primary}, {secondary}");
-                            case TokenType.Greater:
-                                {
-                                    if (primary is long && secondary is long) return (long)primary > (long)secondary;
-                                    else if (primary is double && secondary is double) return (double)primary > (double)secondary;
-                                    else if (primary is long && secondary is double) return (long)primary > (double)secondary;
-                                    else if (primary is double && secondary is long) return (double)primary > (long)secondary;
-                                    else throw new Exception($"Operator > not defined for {primary}, {secondary}");
-                                }
-                            case TokenType.GreaterEqual:
-                                {
-                                    if (primary is long && secondary is long) return (long)primary >= (long)secondary;
-                                    else if (primary is double && secondary is double) return (double)primary >= (double)secondary;
-                                    else if (primary is long && secondary is double) return (long)primary >= (double)secondary;
-                                    else if (primary is double && secondary is long) return (double)primary >= (long)secondary;
-                                    else throw new Exception($"Operator >= not defined for {primary}, {secondary}");
-                                }
-                            case TokenType.Less:
-                                {
-                                    if (primary is long && secondary is long) return (long)primary < (long)secondary;
-                                    else if (primary is double && secondary is double) return (double)primary < (double)secondary;
-                                    else if (primary is long && secondary is double) return (long)primary < (double)secondary;
-                                    else if (primary is double && secondary is long) return (double)primary < (long)secondary;
-                                    else throw new Exception($"Operator < not defined for {primary}, {secondary}");
-                                }
-                            case TokenType.LessEqual:
-                                {
-                                    if (primary is long && secondary is long) return (long)primary <= (long)secondary;
-                                    else if (primary is double && secondary is double) return (double)primary <= (double)secondary;
-                                    else if (primary is long && secondary is double) return (long)primary <= (double)secondary;
-                                    else if (primary is double && secondary is long) return (double)primary <= (long)secondary;
-                                    else throw new Exception($"Operator <= not defined for {primary}, {secondary}");
-                                }
-                            case TokenType.Equal:
-                                {
-                                    return primary.Equals(secondary);
-                                }
-                            case TokenType.NotEqual:
-                                {
-                                    return !primary.Equals(secondary);
-                                }
-                            default:
-                                throw new Exception($"Operator {expression.Token.Value} is not binary");
-                        }
-                    }
             }
 
             return null;

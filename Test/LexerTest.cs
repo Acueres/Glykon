@@ -12,7 +12,7 @@ namespace Test
                                     print text";
 
             Lexer lexer = new(source, "IdentifiersTest");
-            var (tokens, _) = lexer.ScanSource();
+            var (tokens, _) = lexer.Execute();
 
             tokens = tokens.Where(t => t.Type != TokenType.EOF).ToArray();
 
@@ -40,7 +40,7 @@ namespace Test
 
 ";
             Lexer lexer = new(commentsSource, "CommentsTest");
-            var (tokens, _) = lexer.ScanSource();
+            var (tokens, _) = lexer.Execute();
 
             //three identifiers, three statement terminators and EOF
             Assert.Equal(3 * 2 + 1, tokens.Length);
@@ -52,7 +52,7 @@ namespace Test
             const string symbols = "(( )){} *+-/=<> <= == != >= // ** , .";
 
             Lexer lexer = new(symbols, "SymbolsTest");
-            var (tokens, _) = lexer.ScanSource();
+            var (tokens, _) = lexer.Execute();
 
             tokens = tokens.Where(t => t.Type != TokenType.EOF).ToArray();
 
@@ -65,7 +65,7 @@ namespace Test
             const string keywords = "if class struct else def int while False";
 
             Lexer lexer = new(keywords, "KeywordsTest");
-            var (tokens, _) = lexer.ScanSource();
+            var (tokens, _) = lexer.Execute();
 
             tokens = tokens.Where(t => t.Type != TokenType.EOF).ToArray();
 
@@ -80,7 +80,7 @@ namespace Test
             const string stringsSource = "\"some text\" 'other text' \"\"\"multiline oneliner\"\"\" \"unterminated";
 
             Lexer lexer = new(stringsSource, "StringTest");
-            var (tokens, _) = lexer.ScanSource();
+            var (tokens, _) = lexer.Execute();
 
             tokens = tokens.Where(t => t.Type != TokenType.EOF).ToArray();
 
@@ -104,7 +104,7 @@ namespace Test
             '''unterminated";
 
             Lexer lexer = new(stringsSource, "StringTest");
-            var (tokens, _) = lexer.ScanSource();
+            var (tokens, _) = lexer.Execute();
 
             //filter out statement terminators
             tokens = tokens.Where(t => t.Type != TokenType.Semicolon && t.Type != TokenType.EOF).ToArray();
@@ -123,7 +123,7 @@ namespace Test
             const string numbers = "123 42 1.2 .2 2.";
 
             Lexer lexer = new(numbers, "NumbersTest");
-            var (tokens, _) = lexer.ScanSource();
+            var (tokens, _) = lexer.Execute();
 
             tokens = tokens.Where(t => t.Type != TokenType.EOF).ToArray();
 
