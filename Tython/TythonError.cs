@@ -1,4 +1,6 @@
-﻿namespace Tython.Model
+﻿using Tython.Model;
+
+namespace Tython
 {
     public interface ITythonError
     {

@@ -1,4 +1,5 @@
 ﻿using Tython;
+using Tython.Enum;
 using Tython.Model;
 
 namespace Test

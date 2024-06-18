@@ -1,4 +1,6 @@
-﻿namespace Tython.Model
+﻿using Tython.Enum;
+
+namespace Tython.Model
 {
     public readonly struct Token
     {

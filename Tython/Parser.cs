@@ -1,4 +1,5 @@
-﻿using Tython.Model;
+﻿using Tython.Enum;
+using Tython.Model;
 
 namespace Tython
 {

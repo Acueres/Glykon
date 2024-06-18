@@ -6,6 +6,7 @@ using Tython.Model;
 using System.Reflection.Emit;
 using System.Runtime.Loader;
 using System.Globalization;
+using Tython.Enum;
 
 namespace Tython
 {

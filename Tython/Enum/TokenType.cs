@@ -1,4 +1,4 @@
-﻿namespace Tython.Model
+﻿namespace Tython.Enum
 {
     public enum TokenType : byte
     {

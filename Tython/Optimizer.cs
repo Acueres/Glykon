@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Globalization;
 using System.Runtime.CompilerServices;
+using Tython.Enum;
 using Tython.Model;
 
 namespace Tython
