@@ -5,7 +5,6 @@ using System.Reflection;
 using Tython.Model;
 using System.Reflection.Emit;
 using System.Runtime.Loader;
-using System.Globalization;
 using Tython.Enum;
 
 namespace Tython
@@ -54,54 +53,28 @@ namespace Tython
 
         void EmitPrintStatement(Statement statement)
         {
-            object value = EvaluateExpression(statement.Expression);
-
-            if (value == null)
-            {
-                il.EmitCall(OpCodes.Call, typeof(Console).GetMethod("WriteLine", [typeof(string)]), []);
-            }
-            else
-            {
-                il.EmitWriteLine(value.ToString());
-            }
+            EmitExpression(statement.Expression);
+            il.EmitCall(OpCodes.Call, typeof(Console).GetMethod("WriteLine", [typeof(string)]), []);
         }
 
         void EmitVariableDeclarationStatement(Statement statement)
         {
-            object value = EvaluateExpression(statement.Expression);
-            if (value != null)
-            {
-                il.DeclareLocal(value.GetType());
-                il.Emit(OpCodes.Ldstr, value.ToString());
-                il.Emit(OpCodes.Stloc, 0);
-            }
-            else
-            {
-                il.DeclareLocal(typeof(object));
-            }
+            il.DeclareLocal(typeof(object));
+            EmitExpression(statement.Expression);
+            il.Emit(OpCodes.Stloc, 0);
         }
 
-        object? EvaluateExpression(Expression expression)
+        void EmitExpression(Expression expression)
         {
             switch (expression.Type)
             {
                 case ExpressionType.Literal:
-                    return expression.Token.Type switch
-                    {
-                        TokenType.String => expression.Token.Value,
-                        TokenType.Int => long.Parse(expression.Token.Value),
-                        TokenType.Real => double.Parse(expression.Token.Value, CultureInfo.InvariantCulture),
-                        TokenType.True => true,
-                        TokenType.False => false,
-                        TokenType.None => null,
-                        _ => throw new Exception("Token not a literal"),
-                    };
+                    il.Emit(OpCodes.Ldstr, expression.Token.Value.ToString());
+                    break;
                 case ExpressionType.Variable:
                     il.Emit(OpCodes.Ldloc_S, 0);
                     break;
             }
-
-            return null;
         }
 
         public Assembly GetAssembly()

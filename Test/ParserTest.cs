@@ -24,7 +24,7 @@ namespace Test
         [Fact]
         public void VariableDeclarationStmtTest()
         {
-            Token[] tokens = [new(TokenType.Let, 0), new("value", 0, TokenType.Identifier), new(TokenType.Assignment, 0), new("42", 0, TokenType.Int), new(TokenType.Semicolon, 0)];
+            Token[] tokens = [new(TokenType.Let, 0), new("value", 0, TokenType.Identifier), new(TokenType.Assignment, 0), new(42L, 0, TokenType.Int), new(TokenType.Semicolon, 0)];
             Parser parser = new(tokens, "VariableDeclarationStmtTest");
             var (stmts, _) = parser.Execute();
 
@@ -33,7 +33,7 @@ namespace Test
             Assert.Equal(StatementType.Variable, stmts[0].Type);
             Assert.Equal(TokenType.Identifier, stmts[0].Token.Type);
             Assert.NotNull(stmts[0].Expression);
-            Assert.Equal("42", stmts[0].Expression.Token.Value);
+            Assert.Equal(42L, stmts[0].Expression.Token.Value);
         }
 
         [Fact]
@@ -69,7 +69,7 @@ namespace Test
         [Fact]
         public void ComparisonTest()
         {
-            Token[] tokens = [new("2", 0, TokenType.Int), new(TokenType.Greater, 0), new("1", 0, TokenType.Int), new(TokenType.Semicolon, 0)];
+            Token[] tokens = [new(2L, 0, TokenType.Int), new(TokenType.Greater, 0), new(1L, 0, TokenType.Int), new(TokenType.Semicolon, 0)];
             Parser parser = new(tokens, "ComparisonTest");
             var ast = parser.ParseExpression();
 
@@ -77,15 +77,15 @@ namespace Test
             Assert.Equal(ExpressionType.Binary, ast.Type);
             Assert.Equal(TokenType.Greater, ast.Token.Type);
             Assert.NotNull(ast.Primary);
-            Assert.Equal("2", ast.Primary.Token.Value);
+            Assert.Equal(2L, ast.Primary.Token.Value);
             Assert.NotNull(ast.Secondary);
-            Assert.Equal("1", ast.Secondary.Token.Value);
+            Assert.Equal(1L, ast.Secondary.Token.Value);
         }
 
         [Fact]
         public void TermTest()
         {
-            Token[] tokens = [new("2", 0, TokenType.Int), new(TokenType.Minus, 0), new("3", 0, TokenType.Int), new(TokenType.Semicolon, 0)];
+            Token[] tokens = [new(2L, 0, TokenType.Int), new(TokenType.Minus, 0), new(3L, 0, TokenType.Int), new(TokenType.Semicolon, 0)];
             Parser parser = new(tokens, "TermTest");
             var ast = parser.ParseExpression();
 
@@ -93,15 +93,15 @@ namespace Test
             Assert.Equal(ExpressionType.Binary, ast.Type);
             Assert.Equal(TokenType.Minus, ast.Token.Type);
             Assert.NotNull(ast.Primary);
-            Assert.Equal("2", ast.Primary.Token.Value);
+            Assert.Equal(2L, ast.Primary.Token.Value);
             Assert.NotNull(ast.Secondary);
-            Assert.Equal("3", ast.Secondary.Token.Value);
+            Assert.Equal(3L, ast.Secondary.Token.Value);
         }
 
         [Fact]
         public void FactorTest()
         {
-            Token[] tokens = [new("6", 0, TokenType.Int), new(TokenType.Slash, 0), new("3", 0, TokenType.Int), new(TokenType.Semicolon, 0)];
+            Token[] tokens = [new(6L, 0, TokenType.Int), new(TokenType.Slash, 0), new(3L, 0, TokenType.Int), new(TokenType.Semicolon, 0)];
             Parser parser = new(tokens, "FactorTest");
             var ast = parser.ParseExpression();
 
@@ -109,9 +109,9 @@ namespace Test
             Assert.Equal(ExpressionType.Binary, ast.Type);
             Assert.Equal(TokenType.Slash, ast.Token.Type);
             Assert.NotNull(ast.Primary);
-            Assert.Equal("6", ast.Primary.Token.Value);
+            Assert.Equal(6L, ast.Primary.Token.Value);
             Assert.NotNull(ast.Secondary);
-            Assert.Equal("3", ast.Secondary.Token.Value);
+            Assert.Equal(3L, ast.Secondary.Token.Value);
         }
     }
 }

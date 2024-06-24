@@ -4,14 +4,14 @@ namespace Tython.Model
 {
     public readonly struct Token
     {
-        public readonly string Value { get; }
+        public readonly object? Value { get; }
         public readonly int Line { get; }
         public readonly TokenType Type { get; }
         public bool IsNull => Type == TokenType.Null;
 
         public static Token Null => new();
 
-        public Token(string value, int line, TokenType type)
+        public Token(object value, int line, TokenType type)
         {
             Value = value;
             Line = line;
@@ -22,7 +22,15 @@ namespace Tython.Model
         {
             Type = type;
             Line = line;
-            Value = string.Empty;
+
+            if (Type == TokenType.True)
+            {
+                Value = true;
+            }
+            else if (Type == TokenType.False)
+            {
+                Value = false;
+            }
         }
     }
 }

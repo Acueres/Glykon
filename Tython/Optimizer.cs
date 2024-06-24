@@ -1,7 +1,4 @@
-﻿using System;
-using System.Globalization;
-using System.Runtime.CompilerServices;
-using Tython.Enum;
+﻿using Tython.Enum;
 using Tython.Model;
 
 namespace Tython
@@ -39,7 +36,7 @@ namespace Tython
 
                         if (primary.Type != ExpressionType.Literal) return primary;
 
-                        object value = EvaluateLiteral(primary.Token);
+                        object value = primary.Token.Value;
                         bool isDouble = value is double;
                         bool isLong = value is long;
                         bool isBool = value is bool;
@@ -50,13 +47,13 @@ namespace Tython
                                 {
                                     if (isLong) value = -(long)value;
                                     else if (isDouble) value = -(double)value;
-                                    else throw new Exception($"Operator - not defined for {value}");
+                                    else throw new Exception($"Operator - is not defined for {value}");
                                     break;
                                 }
                             case TokenType.Not:
                                 {
                                     if (isBool) value = !(bool)value;
-                                    else throw new Exception($"Operator not not defined for {value}");
+                                    else throw new Exception($"Operator not is not defined for {value}");
                                     break;
                                 }
                             default:
@@ -65,9 +62,9 @@ namespace Tython
 
                         Token token;
                         if (isDouble)
-                            token = new(value.ToString(), primary.Token.Line, TokenType.Real);
+                            token = new(value, primary.Token.Line, TokenType.Real);
                         else if (isLong)
-                            token = new(value.ToString(), primary.Token.Line, TokenType.Int);
+                            token = new(value, primary.Token.Line, TokenType.Int);
                         else
                             token = new((bool)value ? TokenType.True : TokenType.False, primary.Token.Line);
 
@@ -81,8 +78,8 @@ namespace Tython
                         if (primary.Type != ExpressionType.Literal || secondary.Type != ExpressionType.Literal)
                             return new(expression.Token, primary, secondary, ExpressionType.Binary);
 
-                        object primaryValue = EvaluateLiteral(primary.Token);
-                        object secondaryValue = EvaluateLiteral(secondary.Token);
+                        object primaryValue = primary.Token.Value;
+                        object secondaryValue = secondary.Token.Value;
                         object value;
 
                         bool isPrimaryDouble = primaryValue is double;
@@ -101,7 +98,7 @@ namespace Tython
                                     else if (isPrimaryDouble && isSecondaryDouble) value = (double)primaryValue - (double)secondaryValue;
                                     else if (isPrimaryLong && isSecondaryDouble) value = (long)primaryValue - (double)secondaryValue;
                                     else if (isPrimaryDouble && isSecondaryLong) value = (double)primaryValue - (long)secondaryValue;
-                                    else throw new Exception($"Operator - not defined for {primaryValue}, {secondaryValue}");
+                                    else throw new Exception($"Operator - is not defined for {primaryValue}, {secondaryValue}");
                                     break;
                                 }
                             case TokenType.Plus:
@@ -111,7 +108,7 @@ namespace Tython
                                     else if (isPrimaryDouble && isSecondaryDouble) value = (double)primaryValue + (double)secondaryValue;
                                     else if (isPrimaryLong && isSecondaryDouble) value = (long)primaryValue + (double)secondaryValue;
                                     else if (isPrimaryDouble && isSecondaryLong) value = (double)primaryValue + (long)secondaryValue;
-                                    else throw new Exception($"Operator + not defined for {primary}, {secondary}");
+                                    else throw new Exception($"Operator + is not defined for {primary}, {secondary}");
                                     break;
                                 }
                             case TokenType.Slash:
@@ -123,7 +120,7 @@ namespace Tython
                                     else if (isPrimaryDouble && isSecondaryDouble) value = (double)primaryValue / (double)secondaryValue;
                                     else if (isPrimaryLong && isSecondaryDouble) value = (long)primaryValue / (double)secondaryValue;
                                     else if (isPrimaryDouble && isSecondaryLong) value = (double)primaryValue / (long)secondaryValue;
-                                    else throw new Exception($"Operator / not defined for {primary}, {secondary}");
+                                    else throw new Exception($"Operator / is not defined for {primary}, {secondary}");
                                     break;
                                 }
                             case TokenType.Star:
@@ -131,7 +128,7 @@ namespace Tython
                                 else if (isPrimaryDouble && isSecondaryDouble) value = (double)primaryValue * (double)secondaryValue;
                                 else if (isPrimaryLong && isSecondaryDouble) value = (long)primaryValue * (double)secondaryValue;
                                 else if (isPrimaryDouble && isSecondaryLong) value = (double)primaryValue * (long)secondaryValue;
-                                else throw new Exception($"Operator * not defined for {primary}, {secondary}");
+                                else throw new Exception($"Operator * is not defined for {primary}, {secondary}");
                                 break;
                             case TokenType.Greater:
                                 {
@@ -139,7 +136,7 @@ namespace Tython
                                     else if (isPrimaryDouble && isSecondaryDouble) value = (double)primaryValue > (double)secondaryValue;
                                     else if (isPrimaryLong && isSecondaryDouble) value = (long)primaryValue > (double)secondaryValue;
                                     else if (isPrimaryDouble && isSecondaryLong) value = (double)primaryValue > (long)secondaryValue;
-                                    else throw new Exception($"Operator > not defined for {primary}, {secondary}");
+                                    else throw new Exception($"Operator > is not defined for {primary}, {secondary}");
                                     break;
                                 }
                             case TokenType.GreaterEqual:
@@ -148,7 +145,7 @@ namespace Tython
                                     else if (isPrimaryDouble && isSecondaryDouble) value = (double)primaryValue >= (double)secondaryValue;
                                     else if (isPrimaryLong && isSecondaryDouble) value = (long)primaryValue >= (double)secondaryValue;
                                     else if (isPrimaryDouble && isSecondaryLong) value = (double)primaryValue >= (long)secondaryValue;
-                                    else throw new Exception($"Operator >= not defined for {primary}, {secondary}");
+                                    else throw new Exception($"Operator >= is not defined for {primary}, {secondary}");
                                     break;
                                 }
                             case TokenType.Less:
@@ -157,7 +154,7 @@ namespace Tython
                                     else if (isPrimaryDouble && isSecondaryDouble) value = (double)primaryValue < (double)secondaryValue;
                                     else if (isPrimaryLong && isSecondaryDouble) value = (long)primaryValue < (double)secondaryValue;
                                     else if (isPrimaryDouble && isSecondaryLong) value = (double)primaryValue < (long)secondaryValue;
-                                    else throw new Exception($"Operator < not defined for {primary}, {secondary}");
+                                    else throw new Exception($"Operator < is not defined for {primary}, {secondary}");
                                     break;
                                 }
                             case TokenType.LessEqual:
@@ -166,7 +163,7 @@ namespace Tython
                                     else if (isPrimaryDouble && isSecondaryDouble) value = (double)primaryValue <= (double)secondaryValue;
                                     else if (isPrimaryLong && isSecondaryDouble) value = (long)primaryValue <= (double)secondaryValue;
                                     else if (isPrimaryDouble && isSecondaryLong) value = (double)primaryValue <= (long)secondaryValue;
-                                    else throw new Exception($"Operator <= not defined for {primary}, {secondary}");
+                                    else throw new Exception($"Operator <= is not defined for {primary}, {secondary}");
                                     break;
                                 }
                             case TokenType.Equal:
@@ -185,11 +182,11 @@ namespace Tython
 
                         Token token;
                         if (value is double)
-                            token = new(value.ToString(), primary.Token.Line, TokenType.Real);
+                            token = new(value, primary.Token.Line, TokenType.Real);
                         else if (value is long)
-                            token = new(value.ToString(), primary.Token.Line, TokenType.Int);
+                            token = new(value, primary.Token.Line, TokenType.Int);
                         else if (value is string)
-                            token = new((string)value, primary.Token.Line, TokenType.String);
+                            token = new(value, primary.Token.Line, TokenType.String);
                         else
                             token = new((bool)value ? TokenType.True : TokenType.False, primary.Token.Line);
 
@@ -198,20 +195,6 @@ namespace Tython
             }
 
             return expression;
-        }
-
-        object? EvaluateLiteral(Token token)
-        {
-            return token.Type switch
-            {
-                TokenType.String => token.Value,
-                TokenType.Int => long.Parse(token.Value),
-                TokenType.Real => double.Parse(token.Value, CultureInfo.InvariantCulture),
-                TokenType.True => true,
-                TokenType.False => false,
-                TokenType.None => null,
-                _ => throw new Exception("Token not a literal"),
-            };
         }
     }
 }

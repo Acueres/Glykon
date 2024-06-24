@@ -1,4 +1,5 @@
-﻿using Tython.Enum;
+﻿using System.Globalization;
+using Tython.Enum;
 using Tython.Model;
 
 namespace Tython
@@ -159,7 +160,18 @@ namespace Tython
                 while (char.IsAsciiDigit(Peek())) Advance();
             }
 
-            return new(source[numberStart..currentChar], line, isFloat ? TokenType.Real : TokenType.Int);
+            string number = source[numberStart..currentChar];
+            object value;
+            if (isFloat)
+            {
+                value = double.Parse(number, CultureInfo.InvariantCulture);
+            }
+            else
+            {
+                value = long.Parse(number);
+            }
+
+            return new(value, line, isFloat ? TokenType.Real : TokenType.Int);
         }
 
         Token ScanString(char openingQuote)
@@ -263,7 +275,7 @@ namespace Tython
                 { "int", TokenType.Int },
                 { "real", TokenType.Real },
                 { "str", TokenType.String },
-                { "true",  TokenType.True },
+                { "bool",  TokenType.True },
                 { "false",  TokenType.False },
                 { "none", TokenType.None },
                 { "and", TokenType.And },
