@@ -11,7 +11,7 @@ namespace Test
         {
             Token[] tokens = [new(TokenType.Let, 0), new("value", 0, TokenType.Identifier), new(TokenType.Assignment, 0), new(2L, 0, TokenType.Int), new(TokenType.Star, 0),  new(3L, 0, TokenType.Int), new(TokenType.Semicolon, 0)];
             Parser parser = new(tokens, "BinaryLiteralOptimizationTest");
-            var (stmts, _) = parser.Execute();
+            var (stmts, _, _) = parser.Execute();
 
             Optimizer optimizer = new(stmts);
             var optimizedStmts = optimizer.Execute();
@@ -26,7 +26,7 @@ namespace Test
         {
             Token[] tokens = [new(TokenType.Let, 0), new("value", 0, TokenType.Identifier), new(TokenType.Assignment, 0), new(TokenType.Not, 0), new(TokenType.False, 0), new(TokenType.Semicolon, 0)];
             Parser parser = new(tokens, "UnaryLiteralOptimizationTest");
-            var (stmts, _) = parser.Execute();
+            var (stmts, _, _) = parser.Execute();
 
             Optimizer optimizer = new(stmts);
             var optimizedStmts = optimizer.Execute();
@@ -47,7 +47,7 @@ namespace Test
             var (tokens, _) = lexer.Execute();
 
             Parser parser = new(tokens, name);
-            var (stmts, _) = parser.Execute();
+            var (stmts, _, _) = parser.Execute();
 
             Optimizer optimizer = new(stmts);
             var optimizedStmts = optimizer.Execute();

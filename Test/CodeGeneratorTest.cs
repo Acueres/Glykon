@@ -15,9 +15,9 @@ namespace Test
             var (tokens, _) = lexer.Execute();
 
             Parser parser = new(tokens, filename);
-            var (stmts, _) = parser.Execute();
+            var (stmts, symboltable, _) = parser.Execute();
 
-            var codeGenerator = new CodeGenerator(stmts, filename);
+            var codeGenerator = new CodeGenerator(stmts, symboltable, filename);
 
             Type program = codeGenerator.GetAssembly().GetType("Program");
             var main = program.GetMethod("Main", []);

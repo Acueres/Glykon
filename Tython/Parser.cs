@@ -11,10 +11,11 @@ namespace Tython
 
         readonly Token[] tokens = tokens;
         readonly List<Statement> statements = [];
+        readonly SymbolTable symbolTable = new();
         readonly List<ITythonError> errors = [];
         int currentToken;
 
-        public (Statement[], List<ITythonError>) Execute()
+        public (Statement[], SymbolTable symbolTable, List<ITythonError>) Execute()
         {
             try
             {
@@ -24,14 +25,14 @@ namespace Tython
                     Statement stmt = ParseDeclaration();
                     statements.Add(stmt);
                 }
-                return (statements.ToArray(), errors);
+                return (statements.ToArray(), symbolTable, errors);
             }
             catch (ParseException)
             {
                 Synchronize();
             }
 
-            return ([], errors);
+            return ([], symbolTable, errors);
         }
 
         public Statement ParseDeclaration()
@@ -55,6 +56,7 @@ namespace Tython
 
             Consume(TokenType.Semicolon, "Expect ';' after variable declaration");
 
+            symbolTable.Add(token.Value.ToString());
             return new(token, initializer, StatementType.Variable);
 
         }

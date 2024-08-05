@@ -11,17 +11,19 @@ namespace Tython
 {
     public class CodeGenerator
     {
-        readonly Statement[] statements;
         readonly string appname;
+        readonly Statement[] statements;
+        readonly SymbolTable symbolTable;
 
         readonly PersistedAssemblyBuilder ab;
         readonly MethodBuilder main;
         readonly ILGenerator il;
 
-        public CodeGenerator(Statement[] statements, string appname)
+        public CodeGenerator(Statement[] statements, SymbolTable symbolTable, string appname)
         {
-            this.statements = statements;
             this.appname = appname;
+            this.statements = statements;
+            this.symbolTable = symbolTable;
 
             EmitMain(out ab, out main, out il);
         }
@@ -59,9 +61,9 @@ namespace Tython
 
         void EmitVariableDeclarationStatement(Statement statement)
         {
-            il.DeclareLocal(typeof(object));
+            il.DeclareLocal(typeof(string));
             EmitExpression(statement.Expression);
-            il.Emit(OpCodes.Stloc, 0);
+            il.Emit(OpCodes.Stloc, symbolTable.Get(statement.Token.Value as string));
         }
 
         void EmitExpression(Expression expression)
@@ -72,7 +74,19 @@ namespace Tython
                     il.Emit(OpCodes.Ldstr, expression.Token.Value.ToString());
                     break;
                 case ExpressionType.Variable:
-                    il.Emit(OpCodes.Ldloc_S, 0);
+                    il.Emit(OpCodes.Ldloc, symbolTable.Get(expression.Token.Value.ToString()));
+                    break;
+                case ExpressionType.Binary:
+                    EmitExpression(expression.Primary);
+                    EmitExpression(expression.Secondary);
+
+                    switch (expression.Token.Type)
+                    {
+                        case TokenType.Plus:
+                            il.EmitCall(OpCodes.Call, typeof(string).GetMethod("Concat", [typeof(string), typeof(string)]), []);
+                            break;
+                    }
+
                     break;
             }
         }

@@ -11,7 +11,7 @@ namespace Test
         {
             Token[] tokens = [new(TokenType.Print, 0), new("Hello Tython", 0, TokenType.String), new(TokenType.Semicolon, 0)];
             Parser parser = new(tokens, "PrintStmtTest");
-            var (stmts, _) = parser.Execute();
+            var (stmts, _, _) = parser.Execute();
 
             Assert.NotEmpty(stmts);
             Assert.Single(stmts);
@@ -26,7 +26,7 @@ namespace Test
         {
             Token[] tokens = [new(TokenType.Let, 0), new("value", 0, TokenType.Identifier), new(TokenType.Assignment, 0), new(42L, 0, TokenType.Int), new(TokenType.Semicolon, 0)];
             Parser parser = new(tokens, "VariableDeclarationStmtTest");
-            var (stmts, _) = parser.Execute();
+            var (stmts, _, _) = parser.Execute();
 
             Assert.NotEmpty(stmts);
             Assert.Single(stmts);
