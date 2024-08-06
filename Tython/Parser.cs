@@ -48,7 +48,7 @@ namespace Tython
         Statement ParseVariableDeclaration()
         {
             Token token = Consume(TokenType.Identifier, "Expect variable name");
-            Expression? initializer = null;
+            IExpression? initializer = null;
             if (Match(TokenType.Assignment))
             {
                 initializer = ParseExpression();
@@ -64,7 +64,7 @@ namespace Tython
         Statement ParseStatement()
         {
             Token token = Advance();
-            Expression expr = ParseExpression();
+            IExpression expr = ParseExpression();
 
             Consume(TokenType.Semicolon, "Expect ';' after expression");
 
@@ -76,94 +76,94 @@ namespace Tython
             return new(token, expr, stmtType);
         }
 
-        public Expression ParseExpression()
+        public IExpression ParseExpression()
         {
             return ParseEquality();
         }
 
-        Expression ParseEquality()
+        IExpression ParseEquality()
         {
-            Expression expr = ParseComparison();
+            IExpression expr = ParseComparison();
 
             while (Match(TokenType.Equal, TokenType.NotEqual))
             {
                 Token oper = Peek(-1);
-                Expression right = ParseComparison();
-                expr = new(oper, expr, right, ExpressionType.Binary);
+                IExpression right = ParseComparison();
+                expr = new BinaryExpr(oper, expr, right);
             }
 
             return expr;
         }
 
-        Expression ParseComparison()
+        IExpression ParseComparison()
         {
-            Expression expr = ParseTerm();
+            IExpression expr = ParseTerm();
 
             while (Match(TokenType.Greater, TokenType.GreaterEqual, TokenType.Less, TokenType.LessEqual))
             {
                 Token oper = Peek(-1);
-                Expression right = ParseTerm();
-                expr = new(oper, expr, right, ExpressionType.Binary);
+                IExpression right = ParseTerm();
+                expr = new BinaryExpr(oper, expr, right);
             }
 
             return expr;
         }
 
-        Expression ParseTerm()
+        IExpression ParseTerm()
         {
-            Expression expr = ParseFactor();
+            IExpression expr = ParseFactor();
 
             while (Match(TokenType.Plus, TokenType.Minus))
             {
                 Token oper = Peek(-1);
-                Expression right = ParseFactor();
-                expr = new(oper, expr, right, ExpressionType.Binary);
+                IExpression right = ParseFactor();
+                expr = new BinaryExpr(oper, expr, right);
             }
 
             return expr;
         }
 
-        Expression ParseFactor()
+        IExpression ParseFactor()
         {
-            Expression expr = ParseUnary();
+            IExpression expr = ParseUnary();
 
             while (Match(TokenType.Slash, TokenType.Star))
             {
                 Token oper = Peek(-1);
-                Expression right = ParseUnary();
-                expr = new(oper, expr, right, ExpressionType.Binary);
+                IExpression right = ParseUnary();
+                expr = new BinaryExpr(oper, expr, right);
             }
 
             return expr;
         }
 
-        Expression ParseUnary()
+        IExpression ParseUnary()
         {
             if (Match(TokenType.Not, TokenType.Minus))
             {
                 Token oper = Peek(-1);
-                Expression right = ParseUnary();
-                return new(oper, right, ExpressionType.Unary);
+                IExpression right = ParseUnary();
+                return new UnaryExpr(oper, right);
             }
 
             return ParsePrimary();
         }
 
-        Expression ParsePrimary()
+        IExpression ParsePrimary()
         {
             if (Match(TokenType.None, TokenType.True, TokenType.False, TokenType.Int, TokenType.Real, TokenType.String))
-                return new(Peek(-1), ExpressionType.Literal);
+                return new LiteralExpr(Peek(-1));
 
             if (Match(TokenType.Identifier))
             {
-                return new(Peek(-1), ExpressionType.Variable);
+                return new VariableExpr(Peek(-1));
             }
 
             if (Match(TokenType.ParenthesisLeft))
             {
-                Expression expr = ParseExpression();
+                IExpression expr = ParseExpression();
                 Consume(TokenType.ParenthesisRight, "Expect ')' after expression");
-                return new(expr, ExpressionType.Grouping);
+                return new GroupingExpr(expr);
             }
 
             ParseError error = new(Peek(), fileName, "Expect expression");

@@ -66,28 +66,37 @@ namespace Tython
             il.Emit(OpCodes.Stloc, symbolTable.Get(statement.Token.Value as string));
         }
 
-        void EmitExpression(Expression expression)
+        void EmitExpression(IExpression expression)
         {
             switch (expression.Type)
             {
                 case ExpressionType.Literal:
-                    il.Emit(OpCodes.Ldstr, expression.Token.Value.ToString());
-                    break;
-                case ExpressionType.Variable:
-                    il.Emit(OpCodes.Ldloc, symbolTable.Get(expression.Token.Value.ToString()));
-                    break;
-                case ExpressionType.Binary:
-                    EmitExpression(expression.Primary);
-                    EmitExpression(expression.Secondary);
-
-                    switch (expression.Token.Type)
                     {
-                        case TokenType.Plus:
-                            il.EmitCall(OpCodes.Call, typeof(string).GetMethod("Concat", [typeof(string), typeof(string)]), []);
-                            break;
+                        var expr = (LiteralExpr)expression;
+                        il.Emit(OpCodes.Ldstr, expr.Token.Value.ToString());
+                        break;
                     }
+                case ExpressionType.Variable:
+                    {
+                        var expr = (VariableExpr)expression;
+                        il.Emit(OpCodes.Ldloc, symbolTable.Get(expr.Name));
+                        break;
+                    }
+                case ExpressionType.Binary:
+                    {
+                        var expr = (BinaryExpr)expression;
+                        EmitExpression(expr.Left);
+                        EmitExpression(expr.Right);
 
-                    break;
+                        switch (expr.Operator.Type)
+                        {
+                            case TokenType.Plus:
+                                il.EmitCall(OpCodes.Call, typeof(string).GetMethod("Concat", [typeof(string), typeof(string)]), []);
+                                break;
+                        }
+
+                        break;
+                    }
             }
         }
 

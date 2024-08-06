@@ -13,14 +13,14 @@ namespace Tython
 
             foreach (var statement in statements)
             {
-                Expression expression = EvaluateExpression(statement.Expression);
+                IExpression expression = EvaluateExpression(statement.Expression);
                 result.Add(new(statement.Token, expression, statement.Type));
             }
 
             return [.. result];
         }
 
-        Expression EvaluateExpression(Expression expression)
+        IExpression EvaluateExpression(IExpression expression)
         {
             switch (expression.Type)
             {
@@ -29,19 +29,23 @@ namespace Tython
                 case ExpressionType.Variable:
                     return expression;
                 case ExpressionType.Grouping:
-                    return EvaluateExpression(expression.Primary);
+                    {
+                        var expr = (GroupingExpr)expression;
+                        return EvaluateExpression(expr.Expr);
+                    }
                 case ExpressionType.Unary:
                     {
-                        Expression primary = EvaluateExpression(expression.Primary);
+                        var expr = (UnaryExpr)expression;
+                        var evaluatedExpr = EvaluateExpression(expr.Expr);
 
-                        if (primary.Type != ExpressionType.Literal) return primary;
-
-                        object value = primary.Token.Value;
+                        if (evaluatedExpr is not LiteralExpr literal) return evaluatedExpr;
+    
+                        object value = literal.Token.Value;
                         bool isDouble = value is double;
                         bool isLong = value is long;
                         bool isBool = value is bool;
 
-                        switch (expression.Token.Type)
+                        switch (expr.Operator.Type)
                         {
                             case TokenType.Minus:
                                 {
@@ -57,140 +61,141 @@ namespace Tython
                                     break;
                                 }
                             default:
-                                throw new Exception($"Operator {expression.Token.Value} is not unary");
+                                throw new Exception($"Operator {expr.Operator.Value} is not unary");
                         }
 
                         Token token;
                         if (isDouble)
-                            token = new(value, primary.Token.Line, TokenType.Real);
+                            token = new(value, literal.Token.Line, TokenType.Real);
                         else if (isLong)
-                            token = new(value, primary.Token.Line, TokenType.Int);
+                            token = new(value, literal.Token.Line, TokenType.Int);
                         else
-                            token = new((bool)value ? TokenType.True : TokenType.False, primary.Token.Line);
+                            token = new((bool)value ? TokenType.True : TokenType.False, literal.Token.Line);
 
-                        return new(token, ExpressionType.Literal);
+                        return new LiteralExpr(token);
                     }
                 case ExpressionType.Binary:
                     {
-                        Expression primary = EvaluateExpression(expression.Primary);
-                        Expression secondary = EvaluateExpression(expression.Secondary);
+                        var expr = (BinaryExpr)expression;
+                        var left = EvaluateExpression(expr.Left);
+                        var right = EvaluateExpression(expr.Right);
 
-                        if (primary.Type != ExpressionType.Literal || secondary.Type != ExpressionType.Literal)
-                            return new(expression.Token, primary, secondary, ExpressionType.Binary);
+                        if (left is not LiteralExpr leftLiteral || right is not LiteralExpr rightLiteral)
+                            return new BinaryExpr(expr.Operator, left, right);
 
-                        object primaryValue = primary.Token.Value;
-                        object secondaryValue = secondary.Token.Value;
+                        object leftValue = leftLiteral.Token.Value;
+                        object rightValue = rightLiteral.Token.Value;
                         object value;
 
-                        bool isPrimaryDouble = primaryValue is double;
-                        bool isPrimaryLong = primaryValue is long;
-                        bool isPrimaryString = primaryValue is string;
+                        bool isPrimaryDouble = leftValue is double;
+                        bool isPrimaryLong = leftValue is long;
+                        bool isPrimaryString = leftValue is string;
 
-                        bool isSecondaryDouble = secondaryValue is double;
-                        bool isSecondaryLong = secondaryValue is long;
-                        bool isSecondaryString = secondaryValue is string;
+                        bool isSecondaryDouble = rightValue is double;
+                        bool isSecondaryLong = rightValue is long;
+                        bool isSecondaryString = rightValue is string;
 
-                        switch (expression.Token.Type)
+                        switch (expr.Operator.Type)
                         {
                             case TokenType.Minus:
                                 {
-                                    if (isPrimaryLong && isSecondaryLong) value = (long)primaryValue - (long)secondaryValue;
-                                    else if (isPrimaryDouble && isSecondaryDouble) value = (double)primaryValue - (double)secondaryValue;
-                                    else if (isPrimaryLong && isSecondaryDouble) value = (long)primaryValue - (double)secondaryValue;
-                                    else if (isPrimaryDouble && isSecondaryLong) value = (double)primaryValue - (long)secondaryValue;
-                                    else throw new Exception($"Operator - is not defined for {primaryValue}, {secondaryValue}");
+                                    if (isPrimaryLong && isSecondaryLong) value = (long)leftValue - (long)rightValue;
+                                    else if (isPrimaryDouble && isSecondaryDouble) value = (double)leftValue - (double)rightValue;
+                                    else if (isPrimaryLong && isSecondaryDouble) value = (long)leftValue - (double)rightValue;
+                                    else if (isPrimaryDouble && isSecondaryLong) value = (double)leftValue - (long)rightValue;
+                                    else throw new Exception($"Operator - is not defined for {leftValue}, {rightValue}");
                                     break;
                                 }
                             case TokenType.Plus:
                                 {
-                                    if (isPrimaryString && isSecondaryString) value = (string)primaryValue + (string)secondaryValue;
-                                    else if (isPrimaryLong && isSecondaryLong) value = (long)primaryValue + (long)secondaryValue;
-                                    else if (isPrimaryDouble && isSecondaryDouble) value = (double)primaryValue + (double)secondaryValue;
-                                    else if (isPrimaryLong && isSecondaryDouble) value = (long)primaryValue + (double)secondaryValue;
-                                    else if (isPrimaryDouble && isSecondaryLong) value = (double)primaryValue + (long)secondaryValue;
-                                    else throw new Exception($"Operator + is not defined for {primary}, {secondary}");
+                                    if (isPrimaryString && isSecondaryString) value = (string)leftValue + (string)rightValue;
+                                    else if (isPrimaryLong && isSecondaryLong) value = (long)leftValue + (long)rightValue;
+                                    else if (isPrimaryDouble && isSecondaryDouble) value = (double)leftValue + (double)rightValue;
+                                    else if (isPrimaryLong && isSecondaryDouble) value = (long)leftValue + (double)rightValue;
+                                    else if (isPrimaryDouble && isSecondaryLong) value = (double)leftValue + (long)rightValue;
+                                    else throw new Exception($"Operator + is not defined for {left}, {right}");
                                     break;
                                 }
                             case TokenType.Slash:
                                 {
-                                    if ((isSecondaryDouble && (double)secondaryValue == 0)
-                                        || (isSecondaryLong && (long)secondaryValue == 0)) throw new Exception("Division by zero");
+                                    if ((isSecondaryDouble && (double)rightValue == 0)
+                                        || (isSecondaryLong && (long)rightValue == 0)) throw new Exception("Division by zero");
 
-                                    if (isPrimaryLong && isSecondaryLong) value = (long)primaryValue / (long)secondaryValue;
-                                    else if (isPrimaryDouble && isSecondaryDouble) value = (double)primaryValue / (double)secondaryValue;
-                                    else if (isPrimaryLong && isSecondaryDouble) value = (long)primaryValue / (double)secondaryValue;
-                                    else if (isPrimaryDouble && isSecondaryLong) value = (double)primaryValue / (long)secondaryValue;
-                                    else throw new Exception($"Operator / is not defined for {primary}, {secondary}");
+                                    if (isPrimaryLong && isSecondaryLong) value = (long)leftValue / (long)rightValue;
+                                    else if (isPrimaryDouble && isSecondaryDouble) value = (double)leftValue / (double)rightValue;
+                                    else if (isPrimaryLong && isSecondaryDouble) value = (long)leftValue / (double)rightValue;
+                                    else if (isPrimaryDouble && isSecondaryLong) value = (double)leftValue / (long)rightValue;
+                                    else throw new Exception($"Operator / is not defined for {left}, {right}");
                                     break;
                                 }
                             case TokenType.Star:
-                                if (isPrimaryLong && isSecondaryLong) value = (long)primaryValue * (long)secondaryValue;
-                                else if (isPrimaryDouble && isSecondaryDouble) value = (double)primaryValue * (double)secondaryValue;
-                                else if (isPrimaryLong && isSecondaryDouble) value = (long)primaryValue * (double)secondaryValue;
-                                else if (isPrimaryDouble && isSecondaryLong) value = (double)primaryValue * (long)secondaryValue;
-                                else throw new Exception($"Operator * is not defined for {primary}, {secondary}");
+                                if (isPrimaryLong && isSecondaryLong) value = (long)leftValue * (long)rightValue;
+                                else if (isPrimaryDouble && isSecondaryDouble) value = (double)leftValue * (double)rightValue;
+                                else if (isPrimaryLong && isSecondaryDouble) value = (long)leftValue * (double)rightValue;
+                                else if (isPrimaryDouble && isSecondaryLong) value = (double)leftValue * (long)rightValue;
+                                else throw new Exception($"Operator * is not defined for {left}, {right}");
                                 break;
                             case TokenType.Greater:
                                 {
-                                    if (isPrimaryLong && isSecondaryLong) value = (long)primaryValue > (long)secondaryValue;
-                                    else if (isPrimaryDouble && isSecondaryDouble) value = (double)primaryValue > (double)secondaryValue;
-                                    else if (isPrimaryLong && isSecondaryDouble) value = (long)primaryValue > (double)secondaryValue;
-                                    else if (isPrimaryDouble && isSecondaryLong) value = (double)primaryValue > (long)secondaryValue;
-                                    else throw new Exception($"Operator > is not defined for {primary}, {secondary}");
+                                    if (isPrimaryLong && isSecondaryLong) value = (long)leftValue > (long)rightValue;
+                                    else if (isPrimaryDouble && isSecondaryDouble) value = (double)leftValue > (double)rightValue;
+                                    else if (isPrimaryLong && isSecondaryDouble) value = (long)leftValue > (double)rightValue;
+                                    else if (isPrimaryDouble && isSecondaryLong) value = (double)leftValue > (long)rightValue;
+                                    else throw new Exception($"Operator > is not defined for {left}, {right}");
                                     break;
                                 }
                             case TokenType.GreaterEqual:
                                 {
-                                    if (isPrimaryLong && isSecondaryLong) value = (long)primaryValue >= (long)secondaryValue;
-                                    else if (isPrimaryDouble && isSecondaryDouble) value = (double)primaryValue >= (double)secondaryValue;
-                                    else if (isPrimaryLong && isSecondaryDouble) value = (long)primaryValue >= (double)secondaryValue;
-                                    else if (isPrimaryDouble && isSecondaryLong) value = (double)primaryValue >= (long)secondaryValue;
-                                    else throw new Exception($"Operator >= is not defined for {primary}, {secondary}");
+                                    if (isPrimaryLong && isSecondaryLong) value = (long)leftValue >= (long)rightValue;
+                                    else if (isPrimaryDouble && isSecondaryDouble) value = (double)leftValue >= (double)rightValue;
+                                    else if (isPrimaryLong && isSecondaryDouble) value = (long)leftValue >= (double)rightValue;
+                                    else if (isPrimaryDouble && isSecondaryLong) value = (double)leftValue >= (long)rightValue;
+                                    else throw new Exception($"Operator >= is not defined for {left}, {right}");
                                     break;
                                 }
                             case TokenType.Less:
                                 {
-                                    if (isPrimaryLong && isSecondaryLong) value = (long)primaryValue < (long)secondaryValue;
-                                    else if (isPrimaryDouble && isSecondaryDouble) value = (double)primaryValue < (double)secondaryValue;
-                                    else if (isPrimaryLong && isSecondaryDouble) value = (long)primaryValue < (double)secondaryValue;
-                                    else if (isPrimaryDouble && isSecondaryLong) value = (double)primaryValue < (long)secondaryValue;
-                                    else throw new Exception($"Operator < is not defined for {primary}, {secondary}");
+                                    if (isPrimaryLong && isSecondaryLong) value = (long)leftValue < (long)rightValue;
+                                    else if (isPrimaryDouble && isSecondaryDouble) value = (double)leftValue < (double)rightValue;
+                                    else if (isPrimaryLong && isSecondaryDouble) value = (long)leftValue < (double)rightValue;
+                                    else if (isPrimaryDouble && isSecondaryLong) value = (double)leftValue < (long)rightValue;
+                                    else throw new Exception($"Operator < is not defined for {left}, {right}");
                                     break;
                                 }
                             case TokenType.LessEqual:
                                 {
-                                    if (isPrimaryLong && isSecondaryLong) value = (long)primaryValue <= (long)secondaryValue;
-                                    else if (isPrimaryDouble && isSecondaryDouble) value = (double)primaryValue <= (double)secondaryValue;
-                                    else if (isPrimaryLong && isSecondaryDouble) value = (long)primaryValue <= (double)secondaryValue;
-                                    else if (isPrimaryDouble && isSecondaryLong) value = (double)primaryValue <= (long)secondaryValue;
-                                    else throw new Exception($"Operator <= is not defined for {primary}, {secondary}");
+                                    if (isPrimaryLong && isSecondaryLong) value = (long)leftValue <= (long)rightValue;
+                                    else if (isPrimaryDouble && isSecondaryDouble) value = (double)leftValue <= (double)rightValue;
+                                    else if (isPrimaryLong && isSecondaryDouble) value = (long)leftValue <= (double)rightValue;
+                                    else if (isPrimaryDouble && isSecondaryLong) value = (double)leftValue <= (long)rightValue;
+                                    else throw new Exception($"Operator <= is not defined for {left}, {right}");
                                     break;
                                 }
                             case TokenType.Equal:
                                 {
-                                    value = primaryValue.Equals(secondaryValue);
+                                    value = leftValue.Equals(rightValue);
                                     break;
                                 }
                             case TokenType.NotEqual:
                                 {
-                                    value = !primaryValue.Equals(secondaryValue);
+                                    value = !leftValue.Equals(rightValue);
                                     break;
                                 }
                             default:
-                                throw new Exception($"Operator {expression.Token.Value} is not binary");
+                                throw new Exception($"Operator {expr.Operator.Value} is not binary");
                         }
 
                         Token token;
                         if (value is double)
-                            token = new(value, primary.Token.Line, TokenType.Real);
+                            token = new(value, leftLiteral.Token.Line, TokenType.Real);
                         else if (value is long)
-                            token = new(value, primary.Token.Line, TokenType.Int);
+                            token = new(value, leftLiteral.Token.Line, TokenType.Int);
                         else if (value is string)
-                            token = new(value, primary.Token.Line, TokenType.String);
+                            token = new(value, leftLiteral.Token.Line, TokenType.String);
                         else
-                            token = new((bool)value ? TokenType.True : TokenType.False, primary.Token.Line);
+                            token = new((bool)value ? TokenType.True : TokenType.False, leftLiteral.Token.Line);
 
-                        return new(token, ExpressionType.Literal);
+                        return new LiteralExpr(token);
                     }
             }
 

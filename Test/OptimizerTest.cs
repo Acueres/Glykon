@@ -18,7 +18,7 @@ namespace Test
 
             Assert.NotEmpty(optimizedStmts);
             Assert.Equal(ExpressionType.Literal, optimizedStmts.First().Expression.Type);
-            Assert.Equal(6L, optimizedStmts.First().Expression.Token.Value);
+            Assert.Equal(6L, (optimizedStmts.First().Expression as LiteralExpr).Token.Value);
         }
 
         [Fact]
@@ -33,7 +33,7 @@ namespace Test
 
             Assert.NotEmpty(optimizedStmts);
             Assert.Equal(ExpressionType.Literal, optimizedStmts.First().Expression.Type);
-            Assert.Equal(TokenType.True, optimizedStmts.First().Expression.Token.Type);
+            Assert.Equal(TokenType.True, (optimizedStmts.First().Expression as LiteralExpr).Token.Type);
         }
 
         [Fact]
@@ -52,12 +52,19 @@ namespace Test
             Optimizer optimizer = new(stmts);
             var optimizedStmts = optimizer.Execute();
 
+            var division = (BinaryExpr)optimizedStmts.First().Expression;
+            var left = (BinaryExpr)division.Left;
+            var valueVar = (VariableExpr)left.Left;
+            var leftTwoConst = (LiteralExpr)left.Right;
+            var right = (LiteralExpr)division.Right;
+
             Assert.NotEmpty(optimizedStmts);
-            Assert.Equal(ExpressionType.Binary, optimizedStmts.First().Expression.Type);
-            Assert.Equal(ExpressionType.Binary, optimizedStmts.First().Expression.Primary.Type);
-            Assert.Equal(ExpressionType.Variable, optimizedStmts.First().Expression.Primary.Primary.Type);
-            Assert.Equal(ExpressionType.Literal, optimizedStmts.First().Expression.Primary.Secondary.Type);
-            Assert.Equal(ExpressionType.Literal, optimizedStmts.First().Expression.Secondary.Type);
+            Assert.Equal(ExpressionType.Binary, division.Type);
+            Assert.Equal(ExpressionType.Binary, left.Type);
+            Assert.Equal(ExpressionType.Variable, valueVar.Type);
+            Assert.Equal(ExpressionType.Literal, leftTwoConst.Type);
+            Assert.Equal(ExpressionType.Literal, right.Type);
+            Assert.Equal(8L, right.Token.Value);
         }
     }
 }

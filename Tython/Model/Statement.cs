@@ -2,10 +2,10 @@
 
 namespace Tython.Model
 {
-    public class Statement(Token token, Expression expr, StatementType type)
+    public class Statement(Token token, IExpression expr, StatementType type)
     {
         public Token Token => token;
-        public Expression Expression => expr;
+        public IExpression Expression => expr;
         public StatementType Type => type;
     }
 }

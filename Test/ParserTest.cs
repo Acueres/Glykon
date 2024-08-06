@@ -15,10 +15,10 @@ namespace Test
 
             Assert.NotEmpty(stmts);
             Assert.Single(stmts);
-            Assert.Equal(StatementType.Print, stmts[0].Type);
-            Assert.Equal(TokenType.Print, stmts[0].Token.Type);
+            Assert.Equal(StatementType.Print, stmts.First().Type);
+            Assert.Equal(TokenType.Print, stmts.First().Token.Type);
             Assert.NotNull(stmts[0].Expression);
-            Assert.Equal("Hello Tython", stmts[0].Expression.Token.Value);
+            Assert.Equal("Hello Tython", (stmts.First().Expression as LiteralExpr).Token.Value);
         }
 
         [Fact]
@@ -30,10 +30,10 @@ namespace Test
 
             Assert.NotEmpty(stmts);
             Assert.Single(stmts);
-            Assert.Equal(StatementType.Variable, stmts[0].Type);
-            Assert.Equal(TokenType.Identifier, stmts[0].Token.Type);
-            Assert.NotNull(stmts[0].Expression);
-            Assert.Equal(42L, stmts[0].Expression.Token.Value);
+            Assert.Equal(StatementType.Variable, stmts.First().Type);
+            Assert.Equal(TokenType.Identifier, stmts.First().Token.Type);
+            Assert.NotNull(stmts.First().Expression);
+            Assert.Equal(42L, (stmts.First().Expression as LiteralExpr).Token.Value);
         }
 
         [Fact]
@@ -45,9 +45,11 @@ namespace Test
 
             Assert.NotNull(ast);
             Assert.Equal(ExpressionType.Unary, ast.Type);
-            Assert.Equal(TokenType.Not, ast.Token.Type);
-            Assert.NotNull(ast.Primary);
-            Assert.Equal(TokenType.False, ast.Primary.Token.Type);
+
+            var unary = (UnaryExpr)ast;
+            Assert.Equal(TokenType.Not, unary.Operator.Type);
+            Assert.NotNull(unary.Expr);
+            Assert.Equal(TokenType.False, (unary.Expr as LiteralExpr).Token.Type);
         }
 
         [Fact]
@@ -59,11 +61,13 @@ namespace Test
 
             Assert.NotNull(ast);
             Assert.Equal(ExpressionType.Binary, ast.Type);
-            Assert.Equal(TokenType.Equal, ast.Token.Type);
-            Assert.NotNull(ast.Primary);
-            Assert.Equal(TokenType.True, ast.Primary.Token.Type);
-            Assert.NotNull(ast.Secondary);
-            Assert.Equal(TokenType.False, ast.Secondary.Token.Type);
+
+            var binary = (BinaryExpr)ast;
+            Assert.Equal(TokenType.Equal, binary.Operator.Type);
+            Assert.NotNull(binary.Left);
+            Assert.Equal(TokenType.True, (binary.Left as LiteralExpr).Token.Type);
+            Assert.NotNull(binary.Right);
+            Assert.Equal(TokenType.False, (binary.Right as LiteralExpr).Token.Type);
         }
 
         [Fact]
@@ -75,11 +79,13 @@ namespace Test
 
             Assert.NotNull(ast);
             Assert.Equal(ExpressionType.Binary, ast.Type);
-            Assert.Equal(TokenType.Greater, ast.Token.Type);
-            Assert.NotNull(ast.Primary);
-            Assert.Equal(2L, ast.Primary.Token.Value);
-            Assert.NotNull(ast.Secondary);
-            Assert.Equal(1L, ast.Secondary.Token.Value);
+
+            var binary = (BinaryExpr)ast;
+            Assert.Equal(TokenType.Greater, binary.Operator.Type);
+            Assert.NotNull(binary.Left);
+            Assert.Equal(2L, (binary.Left as LiteralExpr).Token.Value);
+            Assert.NotNull(binary.Right);
+            Assert.Equal(1L, (binary.Right as LiteralExpr).Token.Value);
         }
 
         [Fact]
@@ -91,11 +97,13 @@ namespace Test
 
             Assert.NotNull(ast);
             Assert.Equal(ExpressionType.Binary, ast.Type);
-            Assert.Equal(TokenType.Minus, ast.Token.Type);
-            Assert.NotNull(ast.Primary);
-            Assert.Equal(2L, ast.Primary.Token.Value);
-            Assert.NotNull(ast.Secondary);
-            Assert.Equal(3L, ast.Secondary.Token.Value);
+
+            var binary = (BinaryExpr)ast;
+            Assert.Equal(TokenType.Minus, binary.Operator.Type);
+            Assert.NotNull(binary.Left);
+            Assert.Equal(2L, (binary.Left as LiteralExpr).Token.Value);
+            Assert.NotNull(binary.Right);
+            Assert.Equal(3L, (binary.Right as LiteralExpr).Token.Value);
         }
 
         [Fact]
@@ -107,11 +115,13 @@ namespace Test
 
             Assert.NotNull(ast);
             Assert.Equal(ExpressionType.Binary, ast.Type);
-            Assert.Equal(TokenType.Slash, ast.Token.Type);
-            Assert.NotNull(ast.Primary);
-            Assert.Equal(6L, ast.Primary.Token.Value);
-            Assert.NotNull(ast.Secondary);
-            Assert.Equal(3L, ast.Secondary.Token.Value);
+
+            var binary = (BinaryExpr)ast;
+            Assert.Equal(TokenType.Slash, binary.Operator.Type);
+            Assert.NotNull(binary.Left);
+            Assert.Equal(6L, (binary.Left as LiteralExpr).Token.Value);
+            Assert.NotNull(binary.Right);
+            Assert.Equal(3L, (binary.Right as LiteralExpr).Token.Value);
         }
     }
 }

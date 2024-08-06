@@ -2,38 +2,42 @@
 
 namespace Tython.Model
 {
-    public class Expression
+    public interface IExpression
     {
-        public Token Token { get; }
-        public Expression? Primary { get; }
-        public Expression? Secondary { get; }
-        public ExpressionType Type { get; }
+        ExpressionType Type { get; }
+    }
 
-        public Expression(Token oper, Expression expr, ExpressionType type)
-        {
-            Token = oper;
-            Primary = expr;
-            Type = type;
-        }
+    public class UnaryExpr(Token oper, IExpression expr) : IExpression
+    {
+        public ExpressionType Type => ExpressionType.Unary;
+        public Token Operator => oper;
+        public IExpression Expr => expr;
+    }
 
-        public Expression(Token oper, Expression left, Expression right, ExpressionType type)
-        {
-            Token = oper;
-            Primary = left;
-            Secondary = right;
-            Type = type;
-        }
+    public class BinaryExpr(Token oper, IExpression left, IExpression right) : IExpression
+    {
+        public ExpressionType Type => ExpressionType.Binary;
+        public Token Operator => oper;
+        public IExpression Left => left;
+        public IExpression Right => right;
+    }
 
-        public Expression(Token token, ExpressionType type)
-        {
-            Token = token;
-            Type = type;
-        }
+    public class GroupingExpr(IExpression expr) : IExpression
+    {
+        public ExpressionType Type => ExpressionType.Grouping;
+        public IExpression Expr => expr;
+    }
 
-        public Expression(Expression expr, ExpressionType type)
-        {
-            Primary = expr;
-            Type = type;
-        }
+    public class LiteralExpr(Token token) : IExpression
+    {
+        public ExpressionType Type => ExpressionType.Literal;
+        public Token Token => token;
+    }
+
+    public class VariableExpr(Token token) : IExpression
+    {
+        public ExpressionType Type => ExpressionType.Variable;
+        public string Name => token.Value.ToString();
+        public TokenType VariableType => token.Type;
     }
 }
