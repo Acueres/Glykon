@@ -34,10 +34,9 @@ namespace Tython.Model
         public Token Token => token;
     }
 
-    public class VariableExpr(Token token) : IExpression
+    public class VariableExpr(string name) : IExpression
     {
         public ExpressionType Type => ExpressionType.Variable;
-        public string Name => token.Value.ToString();
-        public TokenType VariableType => token.Type;
+        public string Name => name;
     }
 }

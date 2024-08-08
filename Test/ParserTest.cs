@@ -16,9 +16,9 @@ namespace Test
             Assert.NotEmpty(stmts);
             Assert.Single(stmts);
             Assert.Equal(StatementType.Print, stmts.First().Type);
-            Assert.Equal(TokenType.Print, stmts.First().Token.Type);
-            Assert.NotNull(stmts[0].Expression);
-            Assert.Equal("Hello Tython", (stmts.First().Expression as LiteralExpr).Token.Value);
+            PrintStmt stmt = (PrintStmt)stmts.First();
+            Assert.NotNull(stmt.Expression);
+            Assert.Equal("Hello Tython", (stmt.Expression as LiteralExpr).Token.Value);
         }
 
         [Fact]
@@ -31,9 +31,10 @@ namespace Test
             Assert.NotEmpty(stmts);
             Assert.Single(stmts);
             Assert.Equal(StatementType.Variable, stmts.First().Type);
-            Assert.Equal(TokenType.Identifier, stmts.First().Token.Type);
-            Assert.NotNull(stmts.First().Expression);
-            Assert.Equal(42L, (stmts.First().Expression as LiteralExpr).Token.Value);
+            VariableStmt stmt = (VariableStmt)stmts.First();
+            Assert.Equal("value", stmt.Name);
+            Assert.NotNull(stmt.Expression);
+            Assert.Equal(42L, (stmt.Expression as LiteralExpr).Token.Value);
         }
 
         [Fact]

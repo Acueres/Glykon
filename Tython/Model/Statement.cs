@@ -2,10 +2,28 @@
 
 namespace Tython.Model
 {
-    public class Statement(Token token, IExpression expr, StatementType type)
+    public interface IStatement
     {
-        public Token Token => token;
+        StatementType Type { get; }
+        IExpression Expression { get; }
+    }
+
+    public class ExpressionStmt(IExpression expr) : IStatement
+    {
+        public StatementType Type => StatementType.Expression;
         public IExpression Expression => expr;
-        public StatementType Type => type;
+    }
+
+    public class PrintStmt(IExpression expr) : IStatement
+    {
+        public StatementType Type => StatementType.Print;
+        public IExpression Expression => expr;
+    }
+
+    public class VariableStmt(IExpression expr, string name) : IStatement
+    {
+        public StatementType Type => StatementType.Variable;
+        public IExpression Expression => expr;
+        public string Name => name;
     }
 }

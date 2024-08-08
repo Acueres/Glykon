@@ -3,18 +3,33 @@ using Tython.Model;
 
 namespace Tython
 {
-    public class Optimizer(Statement[] statements)
+    public class Optimizer(IStatement[] statements)
     {
-        readonly Statement[] statements = statements;
+        readonly IStatement[] statements = statements;
 
-        public Statement[] Execute()
+        public IStatement[] Execute()
         {
-            List<Statement> result = [];
+            List<IStatement> result = [];
 
             foreach (var statement in statements)
             {
-                IExpression expression = EvaluateExpression(statement.Expression);
-                result.Add(new(statement.Token, expression, statement.Type));
+                IExpression evaluatedExpr = EvaluateExpression(statement.Expression);
+                IStatement stmt;
+
+                if (statement.Type == StatementType.Print)
+                {
+                    stmt = new PrintStmt(evaluatedExpr);
+                }
+                else if (statement.Type == StatementType.Variable)
+                {
+                    stmt = new VariableStmt(evaluatedExpr, ((VariableStmt)statement).Name);
+                }
+                else
+                {
+                    stmt = new ExpressionStmt(evaluatedExpr);
+                }
+
+                result.Add(stmt);
             }
 
             return [.. result];

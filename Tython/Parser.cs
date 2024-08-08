@@ -10,19 +10,19 @@ namespace Tython
         bool AtEnd => currentToken >= tokens.Length;
 
         readonly Token[] tokens = tokens;
-        readonly List<Statement> statements = [];
+        readonly List<IStatement> statements = [];
         readonly SymbolTable symbolTable = new();
         readonly List<ITythonError> errors = [];
         int currentToken;
 
-        public (Statement[], SymbolTable symbolTable, List<ITythonError>) Execute()
+        public (IStatement[], SymbolTable symbolTable, List<ITythonError>) Execute()
         {
             try
             {
                 while (!AtEnd)
                 {
                     if (Peek().Type == TokenType.EOF) break;
-                    Statement stmt = ParseDeclaration();
+                    IStatement stmt = ParseDeclaration();
                     statements.Add(stmt);
                 }
                 return (statements.ToArray(), symbolTable, errors);
@@ -35,7 +35,7 @@ namespace Tython
             return ([], symbolTable, errors);
         }
 
-        public Statement ParseDeclaration()
+        public IStatement ParseDeclaration()
         {
             if (Match(TokenType.Let))
             {
@@ -45,7 +45,7 @@ namespace Tython
             return ParseStatement();
         }
 
-        Statement ParseVariableDeclaration()
+        VariableStmt ParseVariableDeclaration()
         {
             Token token = Consume(TokenType.Identifier, "Expect variable name");
             IExpression? initializer = null;
@@ -56,24 +56,24 @@ namespace Tython
 
             Consume(TokenType.Semicolon, "Expect ';' after variable declaration");
 
-            symbolTable.Add(token.Value.ToString());
-            return new(token, initializer, StatementType.Variable);
+            string name = token.Value.ToString();
+            symbolTable.Add(name);
+            return new(initializer, name);
 
         }
 
-        Statement ParseStatement()
+        IStatement ParseStatement()
         {
             Token token = Advance();
             IExpression expr = ParseExpression();
 
             Consume(TokenType.Semicolon, "Expect ';' after expression");
 
-            var stmtType = token.Type switch
+            return token.Type switch
             {
-                TokenType.Print => StatementType.Print,
-                _ => StatementType.Expression,
+                TokenType.Print => new PrintStmt(expr),
+                _ => new ExpressionStmt(expr)
             };
-            return new(token, expr, stmtType);
         }
 
         public IExpression ParseExpression()
@@ -156,7 +156,7 @@ namespace Tython
 
             if (Match(TokenType.Identifier))
             {
-                return new VariableExpr(Peek(-1));
+                return new VariableExpr(Peek(-1).Value.ToString());
             }
 
             if (Match(TokenType.ParenthesisLeft))

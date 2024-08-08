@@ -12,14 +12,14 @@ namespace Tython
     public class CodeGenerator
     {
         readonly string appname;
-        readonly Statement[] statements;
+        readonly IStatement[] statements;
         readonly SymbolTable symbolTable;
 
         readonly PersistedAssemblyBuilder ab;
         readonly MethodBuilder main;
         readonly ILGenerator il;
 
-        public CodeGenerator(Statement[] statements, SymbolTable symbolTable, string appname)
+        public CodeGenerator(IStatement[] statements, SymbolTable symbolTable, string appname)
         {
             this.appname = appname;
             this.statements = statements;
@@ -36,15 +36,15 @@ namespace Tython
             main = tb.DefineMethod("Main", MethodAttributes.HideBySig | MethodAttributes.Public | MethodAttributes.Static);
             il = main.GetILGenerator();
 
-            foreach (Statement statement in statements)
+            foreach (var statement in statements)
             {
                 if (statement.Type == StatementType.Print)
                 {
-                    EmitPrintStatement(statement);
+                    EmitPrintStatement((PrintStmt)statement);
                 }
                 else if (statement.Type == StatementType.Variable)
                 {
-                    EmitVariableDeclarationStatement(statement);
+                    EmitVariableDeclarationStatement((VariableStmt)statement);
                 }
             }
 
@@ -53,17 +53,17 @@ namespace Tython
             tb.CreateType();
         }
 
-        void EmitPrintStatement(Statement statement)
+        void EmitPrintStatement(PrintStmt statement)
         {
             EmitExpression(statement.Expression);
             il.EmitCall(OpCodes.Call, typeof(Console).GetMethod("WriteLine", [typeof(string)]), []);
         }
 
-        void EmitVariableDeclarationStatement(Statement statement)
+        void EmitVariableDeclarationStatement(VariableStmt statement)
         {
             il.DeclareLocal(typeof(string));
             EmitExpression(statement.Expression);
-            il.Emit(OpCodes.Stloc, symbolTable.Get(statement.Token.Value as string));
+            il.Emit(OpCodes.Stloc, symbolTable.Get(statement.Name));
         }
 
         void EmitExpression(IExpression expression)
