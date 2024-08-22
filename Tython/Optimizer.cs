@@ -22,7 +22,8 @@ namespace Tython
                 }
                 else if (statement.Type == StatementType.Variable)
                 {
-                    stmt = new VariableStmt(evaluatedExpr, ((VariableStmt)statement).Name);
+                    VariableStmt variableStmt = (VariableStmt)statement;
+                    stmt = new VariableStmt(evaluatedExpr, variableStmt.Name, variableStmt.VariableType);
                 }
                 else
                 {
@@ -96,7 +97,9 @@ namespace Tython
                         var right = EvaluateExpression(expr.Right);
 
                         if (left is not LiteralExpr leftLiteral || right is not LiteralExpr rightLiteral)
+                        {
                             return new BinaryExpr(expr.Operator, left, right);
+                        }
 
                         object leftValue = leftLiteral.Token.Value;
                         object rightValue = rightLiteral.Token.Value;

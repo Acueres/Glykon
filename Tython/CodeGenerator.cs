@@ -6,12 +6,13 @@ using Tython.Model;
 using System.Reflection.Emit;
 using System.Runtime.Loader;
 using Tython.Enum;
+using static System.Runtime.InteropServices.JavaScript.JSType;
 
 namespace Tython
 {
     public class CodeGenerator
     {
-        readonly string appname;
+        readonly string appName;
         readonly IStatement[] statements;
         readonly SymbolTable symbolTable;
 
@@ -21,7 +22,7 @@ namespace Tython
 
         public CodeGenerator(IStatement[] statements, SymbolTable symbolTable, string appname)
         {
-            this.appname = appname;
+            this.appName = appname;
             this.statements = statements;
             this.symbolTable = symbolTable;
 
@@ -30,8 +31,8 @@ namespace Tython
 
         void EmitMain(out PersistedAssemblyBuilder ab, out MethodBuilder main, out ILGenerator il)
         {
-            ab = new(new AssemblyName(appname), typeof(object).Assembly);
-            ModuleBuilder mob = ab.DefineDynamicModule(appname);
+            ab = new(new AssemblyName(appName), typeof(object).Assembly);
+            ModuleBuilder mob = ab.DefineDynamicModule(appName);
             TypeBuilder tb = mob.DefineType("Program", TypeAttributes.Public | TypeAttributes.Class);
             main = tb.DefineMethod("Main", MethodAttributes.HideBySig | MethodAttributes.Public | MethodAttributes.Static);
             il = main.GetILGenerator();
@@ -55,49 +56,126 @@ namespace Tython
 
         void EmitPrintStatement(PrintStmt statement)
         {
-            EmitExpression(statement.Expression);
-            il.EmitCall(OpCodes.Call, typeof(Console).GetMethod("WriteLine", [typeof(string)]), []);
+            var type = EmitExpression(statement.Expression);
+            MethodInfo method = type switch
+            {
+                TokenType.String => typeof(Console).GetMethod("WriteLine", [typeof(string)]),
+                TokenType.Int => typeof(Console).GetMethod("WriteLine", [typeof(long)]),
+                TokenType.Real => typeof(Console).GetMethod("WriteLine", [typeof(double)]),
+                TokenType.Bool => typeof(Console).GetMethod("WriteLine", [typeof(bool)]),
+                _ => typeof(Console).GetMethod("WriteLine", [typeof(object)]),
+            };
+            il.EmitCall(OpCodes.Call, method, []);
         }
 
         void EmitVariableDeclarationStatement(VariableStmt statement)
         {
-            il.DeclareLocal(typeof(string));
+            (int index, TokenType varType) = symbolTable.Get(statement.Name);
+
+            Type type = varType switch
+            {
+                TokenType.String => typeof(string),
+                TokenType.Int => typeof(long),
+                TokenType.Real => typeof(double),
+                _ => typeof(object),
+            };
+
+            il.DeclareLocal(type);
             EmitExpression(statement.Expression);
-            il.Emit(OpCodes.Stloc, symbolTable.Get(statement.Name));
+            il.Emit(OpCodes.Stloc, index);
         }
 
-        void EmitExpression(IExpression expression)
+        TokenType EmitExpression(IExpression expression)
         {
             switch (expression.Type)
             {
                 case ExpressionType.Literal:
                     {
                         var expr = (LiteralExpr)expression;
-                        il.Emit(OpCodes.Ldstr, expr.Token.Value.ToString());
+                        switch (expr.Token.Type)
+                        {
+                            case TokenType.String: il.Emit(OpCodes.Ldstr, expr.Token.Value.ToString()); return TokenType.String;
+                            case TokenType.Int: il.Emit(OpCodes.Ldc_I8, (long)expr.Token.Value); return TokenType.Int;
+                            case TokenType.Real: il.Emit(OpCodes.Ldc_R8, (double)expr.Token.Value); return TokenType.Real;
+                            case TokenType.True: il.Emit(OpCodes.Ldc_I4, 1); return TokenType.Bool;
+                            case TokenType.False: il.Emit(OpCodes.Ldc_I4, 0); return TokenType.Bool;
+                        }
                         break;
                     }
                 case ExpressionType.Variable:
                     {
                         var expr = (VariableExpr)expression;
-                        il.Emit(OpCodes.Ldloc, symbolTable.Get(expr.Name));
-                        break;
+                        (int index, TokenType varType) = symbolTable.Get(expr.Name);
+                        il.Emit(OpCodes.Ldloc, index);
+                        return varType;
                     }
                 case ExpressionType.Binary:
                     {
                         var expr = (BinaryExpr)expression;
-                        EmitExpression(expr.Left);
-                        EmitExpression(expr.Right);
+                        var typeLeft = EmitExpression(expr.Left);
+                        var typeRight = EmitExpression(expr.Right);
+
+                        if (typeLeft != typeRight)
+                        {
+                            ParseError error = new(expr.Operator, appName,
+                                $"Operator {expr.Operator.Type} cannot be applied between types '{typeLeft}' and '{typeRight}'");
+                            throw error.Exception();
+                        }
 
                         switch (expr.Operator.Type)
                         {
-                            case TokenType.Plus:
+                            case TokenType.Equal:
+                                il.Emit(OpCodes.Ceq);
+                                return TokenType.Bool;
+                            case TokenType.NotEqual:
+                                il.Emit(OpCodes.Ceq);
+                                il.Emit(OpCodes.Ldc_I4, 0);
+                                il.Emit(OpCodes.Ceq);
+                                return TokenType.Bool;
+                            case TokenType.Greater when typeLeft == TokenType.Int || typeLeft == TokenType.Real:
+                                il.Emit(OpCodes.Cgt);
+                                return TokenType.Bool;
+                            case TokenType.GreaterEqual when typeLeft == TokenType.Int || typeLeft == TokenType.Real:
+                                il.Emit(OpCodes.Clt);
+                                il.Emit(OpCodes.Ldc_I4, 0);
+                                il.Emit(OpCodes.Ceq);
+                                return TokenType.Bool;
+                            case TokenType.Less when typeLeft == TokenType.Int || typeLeft == TokenType.Real:
+                                il.Emit(OpCodes.Clt);
+                                return TokenType.Bool;
+                            case TokenType.LessEqual when typeLeft == TokenType.Int || typeLeft == TokenType.Real:
+                                il.Emit(OpCodes.Cgt);
+                                il.Emit(OpCodes.Ldc_I4, 0);
+                                il.Emit(OpCodes.Ceq);
+                                return TokenType.Bool;
+                            case TokenType.And when typeLeft == TokenType.Bool && typeLeft == TokenType.Bool:
+                                il.Emit(OpCodes.And);
+                                return TokenType.Bool;
+                            case TokenType.Or when typeLeft == TokenType.Bool && typeLeft == TokenType.Bool:
+                                il.Emit(OpCodes.Or);
+                                return TokenType.Bool;
+                            case TokenType.Plus when typeLeft == TokenType.String && typeRight == TokenType.String:
                                 il.EmitCall(OpCodes.Call, typeof(string).GetMethod("Concat", [typeof(string), typeof(string)]), []);
-                                break;
+                                return TokenType.String;
+                            case TokenType.Plus when typeLeft == TokenType.Int || typeLeft == TokenType.Real:
+                                il.Emit(OpCodes.Add);
+                                return typeLeft;
+                            case TokenType.Minus when typeLeft == TokenType.Int || typeLeft == TokenType.Real:
+                                il.Emit(OpCodes.Sub);
+                                return typeLeft;
+                            case TokenType.Slash when typeLeft == TokenType.Int || typeLeft == TokenType.Real:
+                                il.Emit(OpCodes.Div);
+                                return typeLeft;
+                            case TokenType.Star when typeLeft == TokenType.Int || typeLeft == TokenType.Real:
+                                il.Emit(OpCodes.Mul);
+                                return typeLeft;
                         }
 
                         break;
                     }
             }
+
+            return TokenType.None;
         }
 
         public Assembly GetAssembly()
@@ -124,7 +202,7 @@ namespace Tython
             BlobBuilder peBlob = new();
             peBuilder.Serialize(peBlob);
 
-            using var fileStream = new FileStream($"{appname}.exe", FileMode.Create, FileAccess.Write);
+            using var fileStream = new FileStream($"{appName}.exe", FileMode.Create, FileAccess.Write);
             peBlob.WriteContentTo(fileStream);
 
             const string runtimeconfig = @"{
@@ -138,7 +216,7 @@ namespace Tython
   }
 ";
 
-            using StreamWriter outputFile = new($"{appname}.runtimeconfig.json");
+            using StreamWriter outputFile = new($"{appName}.runtimeconfig.json");
             {
                 outputFile.WriteLine(runtimeconfig);
             }

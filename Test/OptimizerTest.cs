@@ -40,6 +40,7 @@ namespace Test
         public void TestBinaryExpressionWithIdentifierLiteralOptimization()
         {
             const string src = @"
+            let value: int = 100
             let result = (value * 2) / (2 + 2 * 3)
 ";
             const string name = "BinaryWithIdentifierLiteralOptimizationTest";
@@ -52,7 +53,7 @@ namespace Test
             Optimizer optimizer = new(stmts);
             var optimizedStmts = optimizer.Execute();
 
-            var division = (BinaryExpr)optimizedStmts.First().Expression;
+            var division = (BinaryExpr)optimizedStmts[1].Expression;
             var left = (BinaryExpr)division.Left;
             var valueVar = (VariableExpr)left.Left;
             var leftTwoConst = (LiteralExpr)left.Right;

@@ -48,18 +48,81 @@ namespace Tython
         VariableStmt ParseVariableDeclaration()
         {
             Token token = Consume(TokenType.Identifier, "Expect variable name");
+
+            TokenType declaredType = TokenType.None;
+            if (Match(TokenType.Colon))
+            {
+                declaredType = ParseTypeDeclaration();
+            }
+
             IExpression? initializer = null;
             if (Match(TokenType.Assignment))
             {
                 initializer = ParseExpression();
             }
+            if (initializer == null && declaredType == TokenType.None)
+            {
+                ParseError error = new(token, fileName, "Expect type declaration");
+                errors.Add(error);
+                throw error.Exception();
+            }
+            else
+            {
+                TokenType inferredType = InfereType(initializer, declaredType);
+                if (declaredType == TokenType.None)
+                {
+                    declaredType = inferredType;
+                }
+                else if (declaredType != inferredType)
+                {
+                    ParseError error = new(token, fileName, "Type mismatch");
+                    errors.Add(error);
+                    throw error.Exception();
+                }
+            }
 
             Consume(TokenType.Semicolon, "Expect ';' after variable declaration");
 
             string name = token.Value.ToString();
-            symbolTable.Add(name);
-            return new(initializer, name);
+            symbolTable.Add(name, declaredType);
+            return new(initializer, name, declaredType);
+        }
 
+        TokenType ParseTypeDeclaration()
+        {
+            TokenType type = Peek().Type;
+            Advance();
+            return type;
+        }
+
+        TokenType InfereType(IExpression expression, TokenType type)
+        {
+            switch (expression.Type)
+            {
+                case ExpressionType.Literal: return ((LiteralExpr)expression).Token.Type;
+                case ExpressionType.Unary:
+                    {
+                        UnaryExpr unaryExpr = (UnaryExpr)expression;
+                        return InfereType(unaryExpr.Expr, type);
+                    }
+                case ExpressionType.Binary:
+                    {
+                        BinaryExpr binaryExpr = (BinaryExpr)expression;
+                        TokenType typeLeft = InfereType(binaryExpr.Left, type);
+                        TokenType typeRight = InfereType(binaryExpr.Right, type);
+                        if (typeLeft != typeRight)
+                        {
+                            ParseError error = new(binaryExpr.Operator, fileName,
+                                $"Operator {binaryExpr.Operator.Type} cannot be applied between types '{typeLeft}' and '{typeRight}'");
+                            errors.Add(error);
+                            throw error.Exception();
+                        }
+                        return typeLeft;
+                    }
+                case ExpressionType.Variable: return symbolTable.GetType(((VariableExpr)expression).Name);
+                case ExpressionType.Grouping: return InfereType(((GroupingExpr)expression).Expr, type);
+                default: return type;
+            }
         }
 
         IStatement ParseStatement()
@@ -156,7 +219,8 @@ namespace Tython
 
             if (Match(TokenType.Identifier))
             {
-                return new VariableExpr(Peek(-1).Value.ToString());
+                string name = Peek(-1).Value.ToString();
+                return new VariableExpr(name);
             }
 
             if (Match(TokenType.ParenthesisLeft))

@@ -4,7 +4,7 @@
     {
         Null,
         //literals
-        Identifier, Int, Real, True, False, String, None,
+        Identifier, Int, Real, True, False, String, Bool, None,
 
         //symbols
         BracketLeft, BracketRight, //[]

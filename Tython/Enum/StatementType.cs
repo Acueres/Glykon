@@ -1,6 +1,6 @@
 ﻿namespace Tython.Enum
 {
-    public enum StatementType
+    public enum StatementType : byte
     {
         Expression,
         Print,

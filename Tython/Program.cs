@@ -6,22 +6,48 @@ namespace Tython
     {
         static void Main(string[] args)
         {
-            const string filename = "HelloTython";
+            const string filename = "Test";
             const string src = @"
-            print ""Hello Tython""
-            print 'test' == 'test'
-            let text = 'testing variables'
-            print text
-            print (2 * 4) / (2 + 2 * 3)
-            let text1 = 'another text'
-            print text1
-            print text + ' and printing ' + text1
+            print 'constant evaluation test'
+            print (2 * 4) / (2 + 2 * 3.0)
+
+            print 'arithmetic test'
+            let f = 4.7;
+            let i = 5;
+            print f + f
+            print f * f
+            print f / f
+            print f - f
+            print i + i
+            print i * i
+            print i - i
+            print i / i
+
+            print 'string ' + 'concatenation test'
+            
+            print 'logical operations test'
+            print i == i
+            print i != i
+            print 6 > i
+            print 5 >= i
+            print 6 < i
+            print 5 <= i
 ";
             Lexer lexer = new(src, filename);
-            var (tokens, _) = lexer.Execute();
+            var (tokens, lexerErrors) = lexer.Execute();
+
+            foreach (var error  in lexerErrors)
+            {
+                error.Report();
+            }
 
             Parser parser = new(tokens, filename);
-            var (stmts, symbolTable, _) = parser.Execute();
+            var (stmts, symbolTable, parserErrors) = parser.Execute();
+
+            foreach (var error in parserErrors)
+            {
+                error.Report();
+            }
 
             Optimizer optimizer = new(stmts);
             var optimizedStmts = optimizer.Execute();
