@@ -1,7 +1,6 @@
 ﻿using System.ComponentModel;
 using System.Xml.Serialization;
-using Tython;
-using Tython.Enum;
+using Tython.Component;
 using Tython.Model;
 
 namespace Test

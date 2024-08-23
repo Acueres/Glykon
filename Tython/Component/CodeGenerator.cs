@@ -5,10 +5,9 @@ using System.Reflection;
 using Tython.Model;
 using System.Reflection.Emit;
 using System.Runtime.Loader;
-using Tython.Enum;
 using static System.Runtime.InteropServices.JavaScript.JSType;
 
-namespace Tython
+namespace Tython.Component
 {
     public class CodeGenerator
     {
@@ -22,7 +21,7 @@ namespace Tython
 
         public CodeGenerator(IStatement[] statements, SymbolTable symbolTable, string appname)
         {
-            this.appName = appname;
+            appName = appname;
             this.statements = statements;
             this.symbolTable = symbolTable;
 

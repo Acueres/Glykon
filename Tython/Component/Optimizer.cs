@@ -1,7 +1,6 @@
-﻿using Tython.Enum;
-using Tython.Model;
+﻿using Tython.Model;
 
-namespace Tython
+namespace Tython.Component
 {
     public class Optimizer(IStatement[] statements)
     {
@@ -55,7 +54,7 @@ namespace Tython
                         var evaluatedExpr = EvaluateExpression(expr.Expr);
 
                         if (evaluatedExpr is not LiteralExpr literal) return new UnaryExpr(expr.Operator, evaluatedExpr);
-    
+
                         object value = literal.Token.Value;
                         bool isDouble = value is double;
                         bool isLong = value is long;
@@ -136,8 +135,8 @@ namespace Tython
                                 }
                             case TokenType.Slash:
                                 {
-                                    if ((isSecondaryDouble && (double)rightValue == 0)
-                                        || (isSecondaryLong && (long)rightValue == 0)) throw new Exception("Division by zero");
+                                    if (isSecondaryDouble && (double)rightValue == 0
+                                        || isSecondaryLong && (long)rightValue == 0) throw new Exception("Division by zero");
 
                                     if (isPrimaryLong && isSecondaryLong) value = (long)leftValue / (long)rightValue;
                                     else if (isPrimaryDouble && isSecondaryDouble) value = (double)leftValue / (double)rightValue;

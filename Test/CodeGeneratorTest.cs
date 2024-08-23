@@ -1,4 +1,4 @@
-﻿using Tython;
+﻿using Tython.Component;
 
 namespace Test
 {

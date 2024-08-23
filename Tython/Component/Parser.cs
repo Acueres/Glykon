@@ -1,7 +1,6 @@
-﻿using Tython.Enum;
-using Tython.Model;
+﻿using Tython.Model;
 
-namespace Tython
+namespace Tython.Component
 {
     public class Parser(Token[] tokens, string fileName)
     {

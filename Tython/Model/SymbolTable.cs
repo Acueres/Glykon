@@ -1,7 +1,6 @@
 ﻿using System;
-using Tython.Enum;
 
-namespace Tython
+namespace Tython.Model
 {
     public class SymbolTable
     {

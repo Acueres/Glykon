@@ -1,8 +1,7 @@
 ﻿using System.Globalization;
-using Tython.Enum;
 using Tython.Model;
 
-namespace Tython
+namespace Tython.Component
 {
     public class Lexer(string source, string fileName)
     {

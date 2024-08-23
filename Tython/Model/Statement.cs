@@ -1,6 +1,4 @@
-﻿using Tython.Enum;
-
-namespace Tython.Model
+﻿namespace Tython.Model
 {
     public interface IStatement
     {

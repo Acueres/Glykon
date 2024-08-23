@@ -1,4 +1,4 @@
-﻿namespace Tython.Enum
+﻿namespace Tython.Model
 {
     public enum ExpressionType : byte
     {
