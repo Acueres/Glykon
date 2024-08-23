@@ -32,6 +32,10 @@ namespace Tython
             print 5 >= i
             print 6 < i
             print 5 <= i
+            let b = true
+            print not true
+            print -i
+            print -f
 ";
             Lexer lexer = new(src, filename);
             var (tokens, lexerErrors) = lexer.Execute();

@@ -77,6 +77,7 @@ namespace Tython
                 TokenType.String => typeof(string),
                 TokenType.Int => typeof(long),
                 TokenType.Real => typeof(double),
+                TokenType.Bool => typeof(bool),
                 _ => typeof(object),
             };
 
@@ -108,6 +109,24 @@ namespace Tython
                         (int index, TokenType varType) = symbolTable.Get(expr.Name);
                         il.Emit(OpCodes.Ldloc, index);
                         return varType;
+                    }
+                case ExpressionType.Unary:
+                    {
+                        var expr = (UnaryExpr)expression;
+                        var type = EmitExpression(expr.Expr);
+
+                        switch (expr.Operator.Type)
+                        {
+                            case TokenType.Not when type == TokenType.Bool:
+                                il.Emit(OpCodes.Ldc_I4, 0);
+                                il.Emit(OpCodes.Ceq);
+                                return TokenType.Bool;
+                            case TokenType.Minus when type == TokenType.Int || type == TokenType.Real:
+                                il.Emit(OpCodes.Neg);
+                                return type;
+                        }
+
+                        break;
                     }
                 case ExpressionType.Binary:
                     {

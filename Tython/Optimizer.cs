@@ -54,7 +54,7 @@ namespace Tython
                         var expr = (UnaryExpr)expression;
                         var evaluatedExpr = EvaluateExpression(expr.Expr);
 
-                        if (evaluatedExpr is not LiteralExpr literal) return evaluatedExpr;
+                        if (evaluatedExpr is not LiteralExpr literal) return new UnaryExpr(expr.Operator, evaluatedExpr);
     
                         object value = literal.Token.Value;
                         bool isDouble = value is double;
