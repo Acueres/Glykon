@@ -129,8 +129,8 @@ namespace Test
 
             Assert.Equal(6, tokens.Length);  
             Assert.Equal(TokenType.Int, tokens[0].Type);
-            Assert.Equal(123L, tokens[0].Value);
-            Assert.Equal(42L, tokens[1].Value);
+            Assert.Equal(123, tokens[0].Value);
+            Assert.Equal(42, tokens[1].Value);
 
             Assert.Equal(TokenType.Real, tokens[2].Type);
             Assert.Equal(1.2, tokens[2].Value);

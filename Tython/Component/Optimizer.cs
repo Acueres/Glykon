@@ -57,14 +57,14 @@ namespace Tython.Component
 
                         object value = literal.Token.Value;
                         bool isDouble = value is double;
-                        bool isLong = value is long;
+                        bool isInt = value is int;
                         bool isBool = value is bool;
 
                         switch (expr.Operator.Type)
                         {
                             case TokenType.Minus:
                                 {
-                                    if (isLong) value = -(long)value;
+                                    if (isInt) value = -(int)value;
                                     else if (isDouble) value = -(double)value;
                                     else throw new Exception($"Operator - is not defined for {value}");
                                     break;
@@ -82,7 +82,7 @@ namespace Tython.Component
                         Token token;
                         if (isDouble)
                             token = new(value, literal.Token.Line, TokenType.Real);
-                        else if (isLong)
+                        else if (isInt)
                             token = new(value, literal.Token.Line, TokenType.Int);
                         else
                             token = new((bool)value ? TokenType.True : TokenType.False, literal.Token.Line);
@@ -105,86 +105,86 @@ namespace Tython.Component
                         object value;
 
                         bool isPrimaryDouble = leftValue is double;
-                        bool isPrimaryLong = leftValue is long;
+                        bool isPrimaryLong = leftValue is int;
                         bool isPrimaryString = leftValue is string;
 
                         bool isSecondaryDouble = rightValue is double;
-                        bool isSecondaryLong = rightValue is long;
+                        bool isSecondaryLong = rightValue is int;
                         bool isSecondaryString = rightValue is string;
 
                         switch (expr.Operator.Type)
                         {
                             case TokenType.Minus:
                                 {
-                                    if (isPrimaryLong && isSecondaryLong) value = (long)leftValue - (long)rightValue;
+                                    if (isPrimaryLong && isSecondaryLong) value = (int)leftValue - (int)rightValue;
                                     else if (isPrimaryDouble && isSecondaryDouble) value = (double)leftValue - (double)rightValue;
-                                    else if (isPrimaryLong && isSecondaryDouble) value = (long)leftValue - (double)rightValue;
-                                    else if (isPrimaryDouble && isSecondaryLong) value = (double)leftValue - (long)rightValue;
+                                    else if (isPrimaryLong && isSecondaryDouble) value = (int)leftValue - (double)rightValue;
+                                    else if (isPrimaryDouble && isSecondaryLong) value = (double)leftValue - (int)rightValue;
                                     else throw new Exception($"Operator - is not defined for {leftValue}, {rightValue}");
                                     break;
                                 }
                             case TokenType.Plus:
                                 {
                                     if (isPrimaryString && isSecondaryString) value = (string)leftValue + (string)rightValue;
-                                    else if (isPrimaryLong && isSecondaryLong) value = (long)leftValue + (long)rightValue;
+                                    else if (isPrimaryLong && isSecondaryLong) value = (int)leftValue + (int)rightValue;
                                     else if (isPrimaryDouble && isSecondaryDouble) value = (double)leftValue + (double)rightValue;
-                                    else if (isPrimaryLong && isSecondaryDouble) value = (long)leftValue + (double)rightValue;
-                                    else if (isPrimaryDouble && isSecondaryLong) value = (double)leftValue + (long)rightValue;
+                                    else if (isPrimaryLong && isSecondaryDouble) value = (int)leftValue + (double)rightValue;
+                                    else if (isPrimaryDouble && isSecondaryLong) value = (double)leftValue + (int)rightValue;
                                     else throw new Exception($"Operator + is not defined for {left}, {right}");
                                     break;
                                 }
                             case TokenType.Slash:
                                 {
                                     if (isSecondaryDouble && (double)rightValue == 0
-                                        || isSecondaryLong && (long)rightValue == 0) throw new Exception("Division by zero");
+                                        || isSecondaryLong && (int)rightValue == 0) throw new Exception("Division by zero");
 
-                                    if (isPrimaryLong && isSecondaryLong) value = (long)leftValue / (long)rightValue;
+                                    if (isPrimaryLong && isSecondaryLong) value = (int)leftValue / (int)rightValue;
                                     else if (isPrimaryDouble && isSecondaryDouble) value = (double)leftValue / (double)rightValue;
-                                    else if (isPrimaryLong && isSecondaryDouble) value = (long)leftValue / (double)rightValue;
-                                    else if (isPrimaryDouble && isSecondaryLong) value = (double)leftValue / (long)rightValue;
+                                    else if (isPrimaryLong && isSecondaryDouble) value = (int)leftValue / (double)rightValue;
+                                    else if (isPrimaryDouble && isSecondaryLong) value = (double)leftValue / (int)rightValue;
                                     else throw new Exception($"Operator / is not defined for {left}, {right}");
                                     break;
                                 }
                             case TokenType.Star:
-                                if (isPrimaryLong && isSecondaryLong) value = (long)leftValue * (long)rightValue;
+                                if (isPrimaryLong && isSecondaryLong) value = (int)leftValue * (int)rightValue;
                                 else if (isPrimaryDouble && isSecondaryDouble) value = (double)leftValue * (double)rightValue;
-                                else if (isPrimaryLong && isSecondaryDouble) value = (long)leftValue * (double)rightValue;
-                                else if (isPrimaryDouble && isSecondaryLong) value = (double)leftValue * (long)rightValue;
+                                else if (isPrimaryLong && isSecondaryDouble) value = (int)leftValue * (double)rightValue;
+                                else if (isPrimaryDouble && isSecondaryLong) value = (double)leftValue * (int)rightValue;
                                 else throw new Exception($"Operator * is not defined for {left}, {right}");
                                 break;
                             case TokenType.Greater:
                                 {
-                                    if (isPrimaryLong && isSecondaryLong) value = (long)leftValue > (long)rightValue;
+                                    if (isPrimaryLong && isSecondaryLong) value = (int)leftValue > (int)rightValue;
                                     else if (isPrimaryDouble && isSecondaryDouble) value = (double)leftValue > (double)rightValue;
-                                    else if (isPrimaryLong && isSecondaryDouble) value = (long)leftValue > (double)rightValue;
-                                    else if (isPrimaryDouble && isSecondaryLong) value = (double)leftValue > (long)rightValue;
+                                    else if (isPrimaryLong && isSecondaryDouble) value = (int)leftValue > (double)rightValue;
+                                    else if (isPrimaryDouble && isSecondaryLong) value = (double)leftValue > (int)rightValue;
                                     else throw new Exception($"Operator > is not defined for {left}, {right}");
                                     break;
                                 }
                             case TokenType.GreaterEqual:
                                 {
-                                    if (isPrimaryLong && isSecondaryLong) value = (long)leftValue >= (long)rightValue;
+                                    if (isPrimaryLong && isSecondaryLong) value = (int)leftValue >= (int)rightValue;
                                     else if (isPrimaryDouble && isSecondaryDouble) value = (double)leftValue >= (double)rightValue;
-                                    else if (isPrimaryLong && isSecondaryDouble) value = (long)leftValue >= (double)rightValue;
-                                    else if (isPrimaryDouble && isSecondaryLong) value = (double)leftValue >= (long)rightValue;
+                                    else if (isPrimaryLong && isSecondaryDouble) value = (int)leftValue >= (double)rightValue;
+                                    else if (isPrimaryDouble && isSecondaryLong) value = (double)leftValue >= (int)rightValue;
                                     else throw new Exception($"Operator >= is not defined for {left}, {right}");
                                     break;
                                 }
                             case TokenType.Less:
                                 {
-                                    if (isPrimaryLong && isSecondaryLong) value = (long)leftValue < (long)rightValue;
+                                    if (isPrimaryLong && isSecondaryLong) value = (int)leftValue < (int)rightValue;
                                     else if (isPrimaryDouble && isSecondaryDouble) value = (double)leftValue < (double)rightValue;
-                                    else if (isPrimaryLong && isSecondaryDouble) value = (long)leftValue < (double)rightValue;
-                                    else if (isPrimaryDouble && isSecondaryLong) value = (double)leftValue < (long)rightValue;
+                                    else if (isPrimaryLong && isSecondaryDouble) value = (int)leftValue < (double)rightValue;
+                                    else if (isPrimaryDouble && isSecondaryLong) value = (double)leftValue < (int)rightValue;
                                     else throw new Exception($"Operator < is not defined for {left}, {right}");
                                     break;
                                 }
                             case TokenType.LessEqual:
                                 {
-                                    if (isPrimaryLong && isSecondaryLong) value = (long)leftValue <= (long)rightValue;
+                                    if (isPrimaryLong && isSecondaryLong) value = (int)leftValue <= (int)rightValue;
                                     else if (isPrimaryDouble && isSecondaryDouble) value = (double)leftValue <= (double)rightValue;
-                                    else if (isPrimaryLong && isSecondaryDouble) value = (long)leftValue <= (double)rightValue;
-                                    else if (isPrimaryDouble && isSecondaryLong) value = (double)leftValue <= (long)rightValue;
+                                    else if (isPrimaryLong && isSecondaryDouble) value = (int)leftValue <= (double)rightValue;
+                                    else if (isPrimaryDouble && isSecondaryLong) value = (double)leftValue <= (int)rightValue;
                                     else throw new Exception($"Operator <= is not defined for {left}, {right}");
                                     break;
                                 }
@@ -205,7 +205,7 @@ namespace Tython.Component
                         Token token;
                         if (value is double)
                             token = new(value, leftLiteral.Token.Line, TokenType.Real);
-                        else if (value is long)
+                        else if (value is int)
                             token = new(value, leftLiteral.Token.Line, TokenType.Int);
                         else if (value is string)
                             token = new(value, leftLiteral.Token.Line, TokenType.String);

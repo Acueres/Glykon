@@ -1,5 +1,12 @@
 ﻿namespace Tython.Model
 {
+    public enum StatementType : byte
+    {
+        Expression,
+        Print,
+        Variable
+    }
+
     public interface IStatement
     {
         StatementType Type { get; }

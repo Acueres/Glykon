@@ -2,10 +2,10 @@
 using System.Reflection.Metadata;
 using System.Reflection.PortableExecutable;
 using System.Reflection;
-using Tython.Model;
 using System.Reflection.Emit;
 using System.Runtime.Loader;
-using static System.Runtime.InteropServices.JavaScript.JSType;
+
+using Tython.Model;
 
 namespace Tython.Component
 {
@@ -59,7 +59,7 @@ namespace Tython.Component
             MethodInfo method = type switch
             {
                 TokenType.String => typeof(Console).GetMethod("WriteLine", [typeof(string)]),
-                TokenType.Int => typeof(Console).GetMethod("WriteLine", [typeof(long)]),
+                TokenType.Int => typeof(Console).GetMethod("WriteLine", [typeof(int)]),
                 TokenType.Real => typeof(Console).GetMethod("WriteLine", [typeof(double)]),
                 TokenType.Bool => typeof(Console).GetMethod("WriteLine", [typeof(bool)]),
                 _ => typeof(Console).GetMethod("WriteLine", [typeof(object)]),
@@ -74,7 +74,7 @@ namespace Tython.Component
             Type type = varType switch
             {
                 TokenType.String => typeof(string),
-                TokenType.Int => typeof(long),
+                TokenType.Int => typeof(int),
                 TokenType.Real => typeof(double),
                 TokenType.Bool => typeof(bool),
                 _ => typeof(object),
@@ -95,7 +95,7 @@ namespace Tython.Component
                         switch (expr.Token.Type)
                         {
                             case TokenType.String: il.Emit(OpCodes.Ldstr, expr.Token.Value.ToString()); return TokenType.String;
-                            case TokenType.Int: il.Emit(OpCodes.Ldc_I8, (long)expr.Token.Value); return TokenType.Int;
+                            case TokenType.Int: il.Emit(OpCodes.Ldc_I4, (int)expr.Token.Value); return TokenType.Int;
                             case TokenType.Real: il.Emit(OpCodes.Ldc_R8, (double)expr.Token.Value); return TokenType.Real;
                             case TokenType.True: il.Emit(OpCodes.Ldc_I4, 1); return TokenType.Bool;
                             case TokenType.False: il.Emit(OpCodes.Ldc_I4, 0); return TokenType.Bool;

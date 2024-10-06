@@ -167,7 +167,7 @@ namespace Tython.Component
             }
             else
             {
-                value = long.Parse(number);
+                value = int.Parse(number);
             }
 
             return new(value, line, isFloat ? TokenType.Real : TokenType.Int);

@@ -8,7 +8,7 @@ namespace Test
         [Fact]
         public void TestBinaryExpressionLiteralOptimization()
         {
-            Token[] tokens = [new(TokenType.Let, 0), new("value", 0, TokenType.Identifier), new(TokenType.Assignment, 0), new(2L, 0, TokenType.Int), new(TokenType.Star, 0),  new(3L, 0, TokenType.Int), new(TokenType.Semicolon, 0)];
+            Token[] tokens = [new(TokenType.Let, 0), new("value", 0, TokenType.Identifier), new(TokenType.Assignment, 0), new(2, 0, TokenType.Int), new(TokenType.Star, 0),  new(3, 0, TokenType.Int), new(TokenType.Semicolon, 0)];
             Parser parser = new(tokens, "BinaryLiteralOptimizationTest");
             var (stmts, _, _) = parser.Execute();
 
@@ -17,7 +17,7 @@ namespace Test
 
             Assert.NotEmpty(optimizedStmts);
             Assert.Equal(ExpressionType.Literal, optimizedStmts.First().Expression.Type);
-            Assert.Equal(6L, (optimizedStmts.First().Expression as LiteralExpr).Token.Value);
+            Assert.Equal(6, (optimizedStmts.First().Expression as LiteralExpr).Token.Value);
         }
 
         [Fact]
@@ -64,7 +64,7 @@ namespace Test
             Assert.Equal(ExpressionType.Variable, valueVar.Type);
             Assert.Equal(ExpressionType.Literal, leftTwoConst.Type);
             Assert.Equal(ExpressionType.Literal, right.Type);
-            Assert.Equal(8L, right.Token.Value);
+            Assert.Equal(8, right.Token.Value);
         }
     }
 }
