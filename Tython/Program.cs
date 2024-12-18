@@ -9,34 +9,15 @@ namespace Tython
         {
             const string filename = "Test";
             const string src = @"
-            print 'constant evaluation test'
-            print (2 * 4) / (2 + 2 * 3.0)
+            let a = 1
+            let b = 2
+            b = 5
+            let c = a + b
+            print c
 
-            print 'arithmetic test'
-            let f = 4.7;
-            let i = 5;
-            print f + f
-            print f * f
-            print f / f
-            print f - f
-            print i + i
-            print i * i
-            print i - i
-            print i / i
-
-            print 'string ' + 'concatenation test'
-            
-            print 'logical operations test'
-            print i == i
-            print i != i
-            print 6 > i
-            print 5 >= i
-            print 6 < i
-            print 5 <= i
-            let b = true
-            print not true
-            print -i
-            print -f
+            let s = 'string1'
+            s = s + '1'
+            print s
 ";
             Lexer lexer = new(src, filename);
             var (tokens, lexerErrors) = lexer.Execute();

@@ -12,8 +12,9 @@ namespace Test
         {
             Token[] tokens = [new(TokenType.Print, 0), new("Hello Tython", 0, TokenType.String), new(TokenType.Semicolon, 0)];
             Parser parser = new(tokens, "PrintStmtTest");
-            var (stmts, _, _) = parser.Execute();
+            var (stmts, _, errors) = parser.Execute();
 
+            Assert.Empty(errors);
             Assert.NotEmpty(stmts);
             Assert.Single(stmts);
             Assert.Equal(StatementType.Print, stmts.First().Type);
@@ -23,10 +24,10 @@ namespace Test
         }
 
         [Fact]
-        public void VariableDeclarationStmtTest()
+        public void VariableDeclarationTest()
         {
             Token[] tokens = [new(TokenType.Let, 0), new("value", 0, TokenType.Identifier), new(TokenType.Assignment, 0), new(42L, 0, TokenType.Int), new(TokenType.Semicolon, 0)];
-            Parser parser = new(tokens, "VariableDeclarationStmtTest");
+            Parser parser = new(tokens, "VariableDeclarationTest");
             var (stmts, _, _) = parser.Execute();
 
             Assert.NotEmpty(stmts);
@@ -40,12 +41,12 @@ namespace Test
         }
 
         [Fact]
-        public void VariableDeclarationTypeDeclarationStmtTest()
+        public void VariableTypeDeclarationTest()
         {
             Token[] tokens = [new(TokenType.Let, 0), new("value", 0, TokenType.Identifier),
                 new(TokenType.Colon, 0), new(TokenType.Int, 0),
                 new(TokenType.Assignment, 0), new(42L, 0, TokenType.Int), new(TokenType.Semicolon, 0)];
-            Parser parser = new(tokens, "VariableDeclarationTypeDeclarationStmtTest");
+            Parser parser = new(tokens, "VariableTypeDeclarationTest");
             var (stmts, _, _) = parser.Execute();
 
             Assert.NotEmpty(stmts);
@@ -59,9 +60,9 @@ namespace Test
         }
 
         [Fact]
-        public void VariableDeclarationTypeInferenceStmtTest()
+        public void VariableTypeInferenceTest()
         {
-            const string fileName = "VariableDeclarationTypeInferenceStmtTest";
+            const string fileName = "VariableTypeInferenceTest";
             const string src = @"
             let i = 6
             let res = i + (2 + 2 * 3)
@@ -69,8 +70,9 @@ namespace Test
             Lexer lexer = new(src, fileName);
             (var tokens, _) = lexer.Execute();
             Parser parser = new(tokens, fileName);
-            var (stmts, _, _) = parser.Execute();
+            var (stmts, _, errors) = parser.Execute();
 
+            Assert.Empty(errors);
             Assert.NotEmpty(stmts);
             Assert.Equal(2, stmts.Length);
             Assert.Equal(StatementType.Variable, stmts[1].Type);
@@ -81,9 +83,9 @@ namespace Test
         }
 
         [Fact]
-        public void VariableDeclarationTypeInferenceFailureStmtTest()
+        public void VariableWrongTypeInferenceTest()
         {
-            const string fileName = "VariableDeclarationTypeInferenceFailureStmtTest";
+            const string fileName = "VariableWrongTypeInferenceTest";
             const string src = @"
             let res = (2 + 2 * 'text')
 ";
@@ -94,6 +96,25 @@ namespace Test
 
             Assert.Empty(stmts);
             Assert.Single(errors);
+        }
+        
+        [Fact]
+        public void AssignmentTest()
+        {
+            const string fileName = "AssignmentTest";
+            const string src = @"
+            let a = 5
+            a = 3
+            a = 'string ' + 'test'
+";
+            Lexer lexer = new(src, fileName);
+            (var tokens, _) = lexer.Execute();
+            Parser parser = new(tokens, fileName);
+            var (stmts, _, errors) = parser.Execute();
+
+            Assert.Single(errors);
+            Assert.Equal(3, stmts.Length);
+            Assert.Equal(ExpressionType.Assignment, stmts[1].Expression.Type);
         }
 
         [Fact]

@@ -46,6 +46,10 @@ namespace Tython.Component
                 {
                     EmitVariableDeclarationStatement((VariableStmt)statement);
                 }
+                else
+                {
+                    EmitExpression(statement.Expression);
+                }
             }
 
             il.Emit(OpCodes.Ret);
@@ -107,6 +111,14 @@ namespace Tython.Component
                         var expr = (VariableExpr)expression;
                         (int index, TokenType varType) = symbolTable.Get(expr.Name);
                         il.Emit(OpCodes.Ldloc, index);
+                        return varType;
+                    }
+                case ExpressionType.Assignment:
+                    {
+                        var expr = (AssignmentExpr)expression;
+                        (int index, TokenType varType) = symbolTable.Get(expr.Name);
+                        EmitExpression(expr.Right);
+                        il.Emit(OpCodes.Stloc, index);
                         return varType;
                     }
                 case ExpressionType.Unary:

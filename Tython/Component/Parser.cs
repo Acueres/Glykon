@@ -6,13 +6,13 @@ namespace Tython.Component
     {
         readonly string fileName = fileName;
 
-        bool AtEnd => currentToken >= tokens.Length;
+        bool AtEnd => nextToken >= tokens.Length;
 
         readonly Token[] tokens = tokens;
         readonly List<IStatement> statements = [];
         readonly SymbolTable symbolTable = new();
         readonly List<ITythonError> errors = [];
-        int currentToken;
+        int nextToken;
 
         public (IStatement[], SymbolTable symbolTable, List<ITythonError>) Execute()
         {
@@ -126,7 +126,12 @@ namespace Tython.Component
 
         IStatement ParseStatement()
         {
-            Token token = Advance();
+            Token token = Token.Null;
+            if (Match(TokenType.Print))
+            {
+                token = Current();
+            }
+
             IExpression expr = ParseExpression();
 
             Consume(TokenType.Semicolon, "Expect ';' after expression");
@@ -140,7 +145,39 @@ namespace Tython.Component
 
         public IExpression ParseExpression()
         {
-            return ParseEquality();
+            return ParseAssignment();
+        }
+
+        IExpression ParseAssignment()
+        {
+            IExpression expr = ParseEquality();
+
+            if (Match(TokenType.Assignment))
+            {
+                Token token = Previous();
+                IExpression value = ParseAssignment();
+
+                if (expr.Type == ExpressionType.Variable)
+                {
+                    string name = ((VariableExpr)expr).Name;
+
+                    TokenType variableType = symbolTable.GetType(name);
+                    TokenType valueType = InfereType(value, variableType);
+
+                    if (variableType != valueType)
+                    {
+                        errors.Add(new ParseError(token, fileName, $"Type mismatch; can't assign {valueType} to {variableType}"));
+                        return expr;
+                    }
+
+                    return new AssignmentExpr(name, value);
+                }
+
+                ParseError error = new(token, fileName, "Invalid assignment target");
+                errors.Add(error);
+            }
+
+            return expr;
         }
 
         IExpression ParseEquality()
@@ -149,7 +186,7 @@ namespace Tython.Component
 
             while (Match(TokenType.Equal, TokenType.NotEqual))
             {
-                Token oper = Peek(-1);
+                Token oper = Current();
                 IExpression right = ParseComparison();
                 expr = new BinaryExpr(oper, expr, right);
             }
@@ -163,7 +200,7 @@ namespace Tython.Component
 
             while (Match(TokenType.Greater, TokenType.GreaterEqual, TokenType.Less, TokenType.LessEqual))
             {
-                Token oper = Peek(-1);
+                Token oper = Current();
                 IExpression right = ParseTerm();
                 expr = new BinaryExpr(oper, expr, right);
             }
@@ -177,7 +214,7 @@ namespace Tython.Component
 
             while (Match(TokenType.Plus, TokenType.Minus))
             {
-                Token oper = Peek(-1);
+                Token oper = Current();
                 IExpression right = ParseFactor();
                 expr = new BinaryExpr(oper, expr, right);
             }
@@ -191,7 +228,7 @@ namespace Tython.Component
 
             while (Match(TokenType.Slash, TokenType.Star))
             {
-                Token oper = Peek(-1);
+                Token oper = Current();
                 IExpression right = ParseUnary();
                 expr = new BinaryExpr(oper, expr, right);
             }
@@ -203,7 +240,7 @@ namespace Tython.Component
         {
             if (Match(TokenType.Not, TokenType.Minus))
             {
-                Token oper = Peek(-1);
+                Token oper = Current();
                 IExpression right = ParseUnary();
                 return new UnaryExpr(oper, right);
             }
@@ -214,11 +251,11 @@ namespace Tython.Component
         IExpression ParsePrimary()
         {
             if (Match(TokenType.None, TokenType.True, TokenType.False, TokenType.Int, TokenType.Real, TokenType.String))
-                return new LiteralExpr(Peek(-1));
+                return new LiteralExpr(Current());
 
             if (Match(TokenType.Identifier))
             {
-                string name = Peek(-1).Value.ToString();
+                string name = Current().Value.ToString();
                 return new VariableExpr(name);
             }
 
@@ -240,7 +277,7 @@ namespace Tython.Component
 
             while (!AtEnd)
             {
-                if (Peek(-1).Type == TokenType.Semicolon) return;
+                if (Current().Type == TokenType.Semicolon) return;
                 switch (Peek().Type)
                 {
                     case TokenType.Class:
@@ -269,15 +306,19 @@ namespace Tython.Component
 
         Token Advance()
         {
-            return tokens[currentToken++];
+            return tokens[nextToken++];
         }
 
         Token Peek(int offset = 0)
         {
-            int nextTokenPos = currentToken + offset;
+            int nextTokenPos = nextToken + offset;
             Token token = AtEnd || nextTokenPos >= tokens.Length ? Token.Null : tokens[nextTokenPos];
             return token;
         }
+
+        Token Current() => tokens[nextToken - 1];
+
+        Token Previous() => tokens[nextToken - 2];
 
         bool Match(params TokenType[] values)
         {

@@ -6,7 +6,8 @@
         Binary,
         Grouping,
         Literal,
-        Variable
+        Variable,
+        Assignment
     }
 
     public interface IExpression
@@ -45,5 +46,12 @@
     {
         public ExpressionType Type => ExpressionType.Variable;
         public string Name => name;
+    }
+
+    public class AssignmentExpr(string name, IExpression value) : IExpression
+    {
+        public ExpressionType Type => ExpressionType.Assignment;
+        public string Name => name;
+        public IExpression Right => value;
     }
 }
