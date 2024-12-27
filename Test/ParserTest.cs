@@ -8,6 +8,29 @@ namespace Test
     public class ParserTest
     {
         [Fact]
+        public void BlockStatementTest()
+        {
+            const string fileName = "BlockStatementTest";
+            const string src = @"
+            let i = 6
+            {
+                let i = 5
+            }
+";
+            Lexer lexer = new(src, fileName);
+            (var tokens, _) = lexer.Execute();
+            Parser parser = new(tokens, fileName);
+            var (stmts, _, errors) = parser.Execute();
+
+            Assert.Empty(errors);
+            Assert.NotEmpty(stmts);
+            Assert.Equal(2, stmts.Length);
+            Assert.Equal(StatementType.Block, stmts[1].Type);
+            BlockStmt stmt = (BlockStmt)stmts[1];
+            Assert.Equal(1, stmt.Statements.Count);
+        }
+
+        [Fact]
         public void PrintStmtTest()
         {
             Token[] tokens = [new(TokenType.Print, 0), new("Hello Tython", 0, TokenType.String), new(TokenType.Semicolon, 0)];

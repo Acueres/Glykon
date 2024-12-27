@@ -2,6 +2,7 @@
 {
     public enum StatementType : byte
     {
+        Block,
         Expression,
         Print,
         Variable
@@ -13,23 +14,31 @@
         IExpression Expression { get; }
     }
 
+    public class BlockStmt(List<IStatement> statements, int index) : IStatement
+    {
+        public StatementType Type => StatementType.Block;
+        public IExpression Expression { get; }
+        public int Index { get; } = index;
+        public List<IStatement> Statements { get; } = statements;
+    }
+
     public class ExpressionStmt(IExpression expr) : IStatement
     {
         public StatementType Type => StatementType.Expression;
-        public IExpression Expression => expr;
+        public IExpression Expression { get; } = expr;
     }
 
     public class PrintStmt(IExpression expr) : IStatement
     {
         public StatementType Type => StatementType.Print;
-        public IExpression Expression => expr;
+        public IExpression Expression { get; } = expr;
     }
 
     public class VariableStmt(IExpression expr, string name, TokenType varType) : IStatement
     {
         public StatementType Type => StatementType.Variable;
-        public IExpression Expression => expr;
-        public string Name => name;
-        public TokenType VariableType => varType;
+        public IExpression Expression { get; } = expr;
+        public string Name { get; } = name;
+        public TokenType VariableType { get; } = varType;
     }
 }

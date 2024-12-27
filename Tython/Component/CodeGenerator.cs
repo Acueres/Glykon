@@ -36,25 +36,44 @@ namespace Tython.Component
             main = tb.DefineMethod("Main", MethodAttributes.HideBySig | MethodAttributes.Public | MethodAttributes.Static);
             il = main.GetILGenerator();
 
+            symbolTable.ResetScope();
             foreach (var statement in statements)
             {
-                if (statement.Type == StatementType.Print)
-                {
-                    EmitPrintStatement((PrintStmt)statement);
-                }
-                else if (statement.Type == StatementType.Variable)
-                {
-                    EmitVariableDeclarationStatement((VariableStmt)statement);
-                }
-                else
-                {
-                    EmitExpression(statement.Expression);
-                }
+                EmitStatement(statement);
             }
 
             il.Emit(OpCodes.Ret);
 
             tb.CreateType();
+        }
+
+        void EmitStatement(IStatement statement)
+        {
+            if (statement.Type == StatementType.Print)
+            {
+                EmitPrintStatement((PrintStmt)statement);
+            }
+            else if (statement.Type == StatementType.Variable)
+            {
+                EmitVariableDeclarationStatement((VariableStmt)statement);
+            }
+            else if (statement.Type == StatementType.Block)
+            {
+                var stmt = (BlockStmt)statement;
+
+                symbolTable.EnterScope(stmt.Index);
+
+                foreach (var s in stmt.Statements)
+                {
+                    EmitStatement(s);
+                }
+
+                symbolTable.ExitScope();
+            }
+            else
+            {
+                EmitExpression(statement.Expression);
+            }
         }
 
         void EmitPrintStatement(PrintStmt statement)
@@ -73,7 +92,7 @@ namespace Tython.Component
 
         void EmitVariableDeclarationStatement(VariableStmt statement)
         {
-            (int index, TokenType varType) = symbolTable.Get(statement.Name);
+            (int index, TokenType varType) = symbolTable.Get(statement.Name, false);
 
             Type type = varType switch
             {
@@ -87,6 +106,7 @@ namespace Tython.Component
             il.DeclareLocal(type);
             EmitExpression(statement.Expression);
             il.Emit(OpCodes.Stloc, index);
+            symbolTable.Initialize(statement.Name);
         }
 
         TokenType EmitExpression(IExpression expression)
@@ -109,14 +129,14 @@ namespace Tython.Component
                 case ExpressionType.Variable:
                     {
                         var expr = (VariableExpr)expression;
-                        (int index, TokenType varType) = symbolTable.Get(expr.Name);
+                        (int index, TokenType varType) = symbolTable.Get(expr.Name, true);
                         il.Emit(OpCodes.Ldloc, index);
                         return varType;
                     }
                 case ExpressionType.Assignment:
                     {
                         var expr = (AssignmentExpr)expression;
-                        (int index, TokenType varType) = symbolTable.Get(expr.Name);
+                        (int index, TokenType varType) = symbolTable.Get(expr.Name, true);
                         EmitExpression(expr.Right);
                         il.Emit(OpCodes.Stloc, index);
                         return varType;

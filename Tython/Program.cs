@@ -9,15 +9,18 @@ namespace Tython
         {
             const string filename = "Test";
             const string src = @"
-            let a = 1
-            let b = 2
-            b = 5
-            let c = a + b
-            print c
-
-            let s = 'string1'
-            s = s + '1'
-            print s
+            let i = 1
+            print i
+            {
+                let i = 2
+                print i
+                {
+                    let i = 3 + i
+                    print i
+                }
+                print i
+            }
+            print i
 ";
             Lexer lexer = new(src, filename);
             var (tokens, lexerErrors) = lexer.Execute();

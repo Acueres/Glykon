@@ -210,7 +210,7 @@ namespace Tython.Component
         Token ScanTerminator()
         {
             Token last = tokens.LastOrDefault();
-            if (last.Type != TokenType.Semicolon && last.Type != TokenType.Null)
+            if (!terminatorExceptions.Contains(last.Type))
             {
                 return new(TokenType.Semicolon, line);
             }
@@ -250,6 +250,7 @@ namespace Tython.Component
         }
 
         readonly static HashSet<string> keywords;
+        readonly static HashSet<TokenType> terminatorExceptions;
         readonly static Dictionary<string, TokenType> keywordToType;
 
         static Lexer()
@@ -260,6 +261,13 @@ namespace Tython.Component
                 "int", "real", "str", "true", "false", "none",
                 "and", "not", "or",
                 "if", "else", "elif", "for", "while", "return", "break", "continue",
+            ];
+
+            terminatorExceptions = [
+                TokenType.Semicolon, TokenType.Null, TokenType.EOF,
+                TokenType.BraceLeft, TokenType.BraceRight,
+                TokenType.BracketLeft, TokenType.BraceRight,
+                TokenType.Class, TokenType.Struct, TokenType.Interface, TokenType.Enum
             ];
 
             keywordToType = new()

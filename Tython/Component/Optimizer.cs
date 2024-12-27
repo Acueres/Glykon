@@ -12,27 +12,47 @@ namespace Tython.Component
 
             foreach (var statement in statements)
             {
-                IExpression evaluatedExpr = EvaluateExpression(statement.Expression);
-                IStatement stmt;
-
-                if (statement.Type == StatementType.Print)
-                {
-                    stmt = new PrintStmt(evaluatedExpr);
-                }
-                else if (statement.Type == StatementType.Variable)
-                {
-                    VariableStmt variableStmt = (VariableStmt)statement;
-                    stmt = new VariableStmt(evaluatedExpr, variableStmt.Name, variableStmt.VariableType);
-                }
-                else
-                {
-                    stmt = new ExpressionStmt(evaluatedExpr);
-                }
-
+                IStatement stmt = EvaluateStatement(statement);
                 result.Add(stmt);
             }
 
             return [.. result];
+        }
+
+        IStatement EvaluateStatement(IStatement statement)
+        {
+            IStatement stmt;
+
+            if (statement.Type == StatementType.Block)
+            {
+                var blockStmt = (BlockStmt)statement;
+                List<IStatement> blockStmts = [];
+                foreach (var s in blockStmt.Statements)
+                {
+                    IStatement evaluatedStatement = EvaluateStatement(s);
+                    blockStmts.Add(evaluatedStatement);
+                }
+
+                return new BlockStmt(blockStmts, blockStmt.Index);
+            }
+
+            IExpression evaluatedExpr = EvaluateExpression(statement.Expression);
+
+            if (statement.Type == StatementType.Print)
+            {
+                stmt = new PrintStmt(evaluatedExpr);
+            }
+            else if (statement.Type == StatementType.Variable)
+            {
+                VariableStmt variableStmt = (VariableStmt)statement;
+                stmt = new VariableStmt(evaluatedExpr, variableStmt.Name, variableStmt.VariableType);
+            }
+            else
+            {
+                stmt = new ExpressionStmt(evaluatedExpr);
+            }
+
+            return stmt;
         }
 
         IExpression EvaluateExpression(IExpression expression)

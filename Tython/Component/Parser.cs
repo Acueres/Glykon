@@ -21,7 +21,7 @@ namespace Tython.Component
                 while (!AtEnd)
                 {
                     if (Peek().Type == TokenType.EOF) break;
-                    IStatement stmt = ParseDeclaration();
+                    IStatement stmt = ParseStatement();
                     statements.Add(stmt);
                 }
                 return (statements.ToArray(), symbolTable, errors);
@@ -34,14 +34,51 @@ namespace Tython.Component
             return ([], symbolTable, errors);
         }
 
-        public IStatement ParseDeclaration()
+        IStatement ParseStatement()
         {
             if (Match(TokenType.Let))
             {
                 return ParseVariableDeclaration();
             }
 
-            return ParseStatement();
+            if (Match(TokenType.BraceLeft))
+            {
+                return ParseBlockStatement();
+            }
+
+            Token token = Token.Null;
+            if (Match(TokenType.Print))
+            {
+                token = Current();
+            }
+
+            IExpression expr = ParseExpression();
+
+            Consume(TokenType.Semicolon, "Expect ';' after expression");
+
+            return token.Type switch
+            {
+                TokenType.Print => new PrintStmt(expr),
+                _ => new ExpressionStmt(expr)
+            };
+        }
+
+        BlockStmt ParseBlockStatement()
+        {
+            int scopeIndex = symbolTable.BeginScope();
+
+            List<IStatement> statements = [];
+
+            while (Peek().Type != TokenType.BraceRight && !AtEnd)
+            {
+                statements.Add(ParseStatement());
+            }
+
+            Consume(TokenType.BraceRight, "Expect '}' after block");
+
+            symbolTable.ExitScope();
+
+            return new BlockStmt(statements, scopeIndex);
         }
 
         VariableStmt ParseVariableDeclaration()
@@ -122,25 +159,6 @@ namespace Tython.Component
                 case ExpressionType.Grouping: return InfereType(((GroupingExpr)expression).Expr, type);
                 default: return type;
             }
-        }
-
-        IStatement ParseStatement()
-        {
-            Token token = Token.Null;
-            if (Match(TokenType.Print))
-            {
-                token = Current();
-            }
-
-            IExpression expr = ParseExpression();
-
-            Consume(TokenType.Semicolon, "Expect ';' after expression");
-
-            return token.Type switch
-            {
-                TokenType.Print => new PrintStmt(expr),
-                _ => new ExpressionStmt(expr)
-            };
         }
 
         public IExpression ParseExpression()
