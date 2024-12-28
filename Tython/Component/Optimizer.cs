@@ -33,7 +33,7 @@ namespace Tython.Component
                     blockStmts.Add(evaluatedStatement);
                 }
 
-                return new BlockStmt(blockStmts, blockStmt.Index);
+                return new BlockStmt(blockStmts, blockStmt.ScopeIndex);
             }
 
             IExpression evaluatedExpr = EvaluateExpression(statement.Expression);

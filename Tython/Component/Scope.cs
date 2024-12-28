@@ -5,31 +5,29 @@ namespace Tython.Component
     public class Scope
     {
         readonly Scope root;
-        readonly Dictionary<int, int> symbols = [];
-        readonly Dictionary<int, TokenType> symbolTypes = [];
+        readonly Dictionary<int, Symbol> symbols = [];
         readonly HashSet<int> initialized = [];
 
         public Scope Root => root;
-        public int Index { get; }
+        public int ScopeIndex { get; }
 
         public Scope()
         {
             root = null;
-            Index = 0;
+            ScopeIndex = 0;
         }
 
-        public Scope(Scope root, int index)
+        public Scope(Scope root, int scopeIndex)
         {
             this.root = root;
-            Index = index;
+            ScopeIndex = scopeIndex;
         }
 
-        public int Add(int symbolId, TokenType type)
+        public Symbol Add(int symbolId, int index, TokenType type)
         {
-            int index = symbols.Count;
-            symbols.Add(symbolId, index);
-            symbolTypes.Add(index, type);
-            return index;
+            Symbol symbol = new(index, symbolId, type);
+            symbols.Add(symbolId, symbol);
+            return symbol;
         }
 
         public void Initialize(int symbolId)
@@ -37,21 +35,36 @@ namespace Tython.Component
             initialized.Add(symbolId);
         }
 
-        public (int, TokenType) Get(int symbolId, bool checkInitialization = false)
+        /**Search for symbol in scopes disregarding its initialization status.*/
+        public Symbol Get(int symbolId)
         {
-            if (!symbols.TryGetValue(symbolId, out int index)
-                || (checkInitialization && root is not null && !initialized.Contains(symbolId)))
+            if (!symbols.TryGetValue(symbolId, out Symbol symbol))
             {
                 if (root is null)
                 {
-                    return (-1, TokenType.Null);
+                    return Symbol.Null;
                 }
 
                 return root.Get(symbolId);
             }
 
-            TokenType type = symbolTypes[index];
-            return (index + Index, type);
+            return symbol;
+        }
+
+        /**Search for an initialized symbol in scopes.*/
+        public Symbol GetInitialized(int symbolId)
+        {
+            if (!initialized.Contains(symbolId))
+            {
+                if (root is null)
+                {
+                    return Symbol.Null;
+                }
+
+                return root.GetInitialized(symbolId);
+            }
+
+            return symbols[symbolId];
         }
     }
 }

@@ -9,6 +9,7 @@ namespace Tython.Component
         readonly Dictionary<string, int> symbolMap = [];
 
         Scope current;
+        int symbolCounter = 0;
 
         public SymbolTable()
         {
@@ -16,7 +17,7 @@ namespace Tython.Component
             current = global;
         }
 
-        public int Add(string name, TokenType type)
+        public Symbol Add(string name, TokenType type)
         {
             if (!symbolMap.TryGetValue(name, out int symbolIndex))
             {
@@ -24,18 +25,25 @@ namespace Tython.Component
                 symbolMap.Add(name, symbolIndex);
             }
 
-            int index = current.Add(symbolIndex, type);
-            return index;
+            Symbol symbol = current.Add(symbolIndex, symbolCounter++, type);
+            return symbol;
         }
 
-        public (int, TokenType) Get(string name, bool checkInitialization)
+        public Symbol Get(string name)
         {
             int symbolIndex = symbolMap[name];
-            (int index, TokenType type) = current.Get(symbolIndex, checkInitialization);
-            return (index, type);
+            Symbol symbol = current.Get(symbolIndex);
+            return symbol;
         }
 
-        public void Initialize(string name)
+        public Symbol GetInitialized(string name)
+        {
+            int symbolIndex = symbolMap[name];
+            Symbol symbol = current.GetInitialized(symbolIndex);
+            return symbol;
+        }
+
+        public void InitializeSymbol(string name)
         {
             int symbolIndex = symbolMap[name];
             current.Initialize(symbolIndex);
@@ -59,12 +67,15 @@ namespace Tython.Component
             current = scopes[index];
         }
 
-        public void ResetScope() => current = global;
+        public void ResetScope()
+        {
+            current = global;
+        }
 
         public TokenType GetType(string name)
         {
             int symbolIndex = symbolMap[name];
-            return current.Get(symbolIndex).Item2;
+            return current.Get(symbolIndex).Type;
         }
     }
 }

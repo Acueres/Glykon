@@ -10,12 +10,13 @@ namespace Tython
             const string filename = "Test";
             const string src = @"
             let i = 1
+            let j = 10
             print i
             {
-                let i = 2
+                let i = 2 + i
                 print i
                 {
-                    let i = 3 + i
+                    let i = 3 + i + j
                     print i
                 }
                 print i
@@ -41,7 +42,7 @@ namespace Tython
             Optimizer optimizer = new(stmts);
             var optimizedStmts = optimizer.Execute();
 
-            var generator = new CodeGenerator(optimizedStmts, symbolTable, filename);
+            var generator = new CodeGenerator(stmts, symbolTable, filename);
 
             Assembly assembly = generator.GetAssembly();
 

@@ -37,6 +37,7 @@ namespace Tython.Component
             il = main.GetILGenerator();
 
             symbolTable.ResetScope();
+
             foreach (var statement in statements)
             {
                 EmitStatement(statement);
@@ -61,7 +62,7 @@ namespace Tython.Component
             {
                 var stmt = (BlockStmt)statement;
 
-                symbolTable.EnterScope(stmt.Index);
+                symbolTable.EnterScope(stmt.ScopeIndex);
 
                 foreach (var s in stmt.Statements)
                 {
@@ -92,9 +93,9 @@ namespace Tython.Component
 
         void EmitVariableDeclarationStatement(VariableStmt statement)
         {
-            (int index, TokenType varType) = symbolTable.Get(statement.Name, false);
+            Symbol symbol = symbolTable.Get(statement.Name);
 
-            Type type = varType switch
+            Type type = symbol.Type switch
             {
                 TokenType.String => typeof(string),
                 TokenType.Int => typeof(int),
@@ -105,8 +106,9 @@ namespace Tython.Component
 
             il.DeclareLocal(type);
             EmitExpression(statement.Expression);
-            il.Emit(OpCodes.Stloc, index);
-            symbolTable.Initialize(statement.Name);
+            il.Emit(OpCodes.Stloc, symbol.Index);
+
+            symbolTable.InitializeSymbol(statement.Name);
         }
 
         TokenType EmitExpression(IExpression expression)
@@ -129,17 +131,17 @@ namespace Tython.Component
                 case ExpressionType.Variable:
                     {
                         var expr = (VariableExpr)expression;
-                        (int index, TokenType varType) = symbolTable.Get(expr.Name, true);
-                        il.Emit(OpCodes.Ldloc, index);
-                        return varType;
+                        Symbol symbol = symbolTable.GetInitialized(expr.Name);
+                        il.Emit(OpCodes.Ldloc, symbol.Index);
+                        return symbol.Type;
                     }
                 case ExpressionType.Assignment:
                     {
                         var expr = (AssignmentExpr)expression;
-                        (int index, TokenType varType) = symbolTable.Get(expr.Name, true);
+                        Symbol symbol = symbolTable.GetInitialized(expr.Name);
                         EmitExpression(expr.Right);
-                        il.Emit(OpCodes.Stloc, index);
-                        return varType;
+                        il.Emit(OpCodes.Stloc, symbol.Index);
+                        return symbol.Type;
                     }
                 case ExpressionType.Unary:
                     {
