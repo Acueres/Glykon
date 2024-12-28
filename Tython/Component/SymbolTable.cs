@@ -6,6 +6,8 @@ namespace Tython.Component
     {
         readonly Scope global = new();
         readonly List<Scope> scopes;
+        readonly Dictionary<string, int> symbolMap = [];
+
         Scope current;
 
         public SymbolTable()
@@ -16,19 +18,27 @@ namespace Tython.Component
 
         public int Add(string name, TokenType type)
         {
-            int index = current.Add(name, type);
+            if (!symbolMap.TryGetValue(name, out int symbolIndex))
+            {
+                symbolIndex = symbolMap.Count;
+                symbolMap.Add(name, symbolIndex);
+            }
+
+            int index = current.Add(symbolIndex, type);
             return index;
         }
 
         public (int, TokenType) Get(string name, bool checkInitialization)
         {
-            (int index, TokenType type) = current.Get(name, checkInitialization);
+            int symbolIndex = symbolMap[name];
+            (int index, TokenType type) = current.Get(symbolIndex, checkInitialization);
             return (index, type);
         }
 
         public void Initialize(string name)
         {
-            current.Initialize(name);
+            int symbolIndex = symbolMap[name];
+            current.Initialize(symbolIndex);
         }
 
         public int BeginScope()
@@ -51,6 +61,10 @@ namespace Tython.Component
 
         public void ResetScope() => current = global;
 
-        public TokenType GetType(string name) => current.Get(name).Item2;
+        public TokenType GetType(string name)
+        {
+            int symbolIndex = symbolMap[name];
+            return current.Get(symbolIndex).Item2;
+        }
     }
 }

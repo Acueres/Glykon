@@ -5,9 +5,9 @@ namespace Tython.Component
     public class Scope
     {
         readonly Scope root;
-        readonly Dictionary<string, int> symbols = [];
+        readonly Dictionary<int, int> symbols = [];
         readonly Dictionary<int, TokenType> symbolTypes = [];
-        readonly HashSet<string> initialized = [];
+        readonly HashSet<int> initialized = [];
 
         public Scope Root => root;
         public int Index { get; }
@@ -24,30 +24,30 @@ namespace Tython.Component
             Index = index;
         }
 
-        public int Add(string name, TokenType type)
+        public int Add(int symbolId, TokenType type)
         {
             int index = symbols.Count;
-            symbols.Add(name, index);
+            symbols.Add(symbolId, index);
             symbolTypes.Add(index, type);
             return index;
         }
 
-        public void Initialize(string name)
+        public void Initialize(int symbolId)
         {
-            initialized.Add(name);
+            initialized.Add(symbolId);
         }
 
-        public (int, TokenType) Get(string name, bool checkInitialization = false)
+        public (int, TokenType) Get(int symbolId, bool checkInitialization = false)
         {
-            if (!symbols.TryGetValue(name, out int index)
-                || (checkInitialization && root is not null && !initialized.Contains(name)))
+            if (!symbols.TryGetValue(symbolId, out int index)
+                || (checkInitialization && root is not null && !initialized.Contains(symbolId)))
             {
                 if (root is null)
                 {
                     return (-1, TokenType.Null);
                 }
 
-                return root.Get(name);
+                return root.Get(symbolId);
             }
 
             TokenType type = symbolTypes[index];
