@@ -1,6 +1,4 @@
-﻿using System.ComponentModel;
-using System.Xml.Serialization;
-using Tython.Component;
+﻿using Tython.Component;
 using Tython.Model;
 
 namespace Test
@@ -16,7 +14,7 @@ namespace Test
             {
                 let i = 5
             }
-";
+            ";
             Lexer lexer = new(src, fileName);
             (var tokens, _) = lexer.Execute();
             Parser parser = new(tokens, fileName);
@@ -27,7 +25,53 @@ namespace Test
             Assert.Equal(2, stmts.Length);
             Assert.Equal(StatementType.Block, stmts[1].Type);
             BlockStmt stmt = (BlockStmt)stmts[1];
-            Assert.Equal(1, stmt.Statements.Count);
+            Assert.Single(stmt.Statements);
+        }
+
+        [Fact]
+        public void IfStatementTest()
+        {
+            const string fileName = "IfStatementTest";
+            const string src = @"
+            let condition = true
+            let second_condition = false
+            if condition {
+                let i = 0
+                print i
+            }
+            elif second_condition {
+                let i = 1
+                print i
+            }
+            else if not second_condition {
+                let i = 2
+                print i
+            }
+            else {
+                let i = 3
+                print i
+            }
+            ";
+
+            Lexer lexer = new(src, fileName);
+            (var tokens, var lexerErrors) = lexer.Execute();
+
+            Assert.Empty(lexerErrors);
+
+            Parser parser = new(tokens, fileName);
+            var (stmts, _, errors) = parser.Execute();
+
+            Assert.Empty(errors);
+            Assert.Equal(3, stmts.Length);
+
+            IfStmt ifStmt = (IfStmt)stmts[2];
+            Assert.NotNull(ifStmt.ElseStatement);
+
+            IfStmt elifStmt = (IfStmt)ifStmt.ElseStatement;
+            Assert.NotNull(elifStmt.ElseStatement);
+
+            IfStmt elseifStmt = (IfStmt)elifStmt.ElseStatement;
+            Assert.NotNull(elseifStmt.ElseStatement);
         }
 
         [Fact]
@@ -177,7 +221,7 @@ namespace Test
         [Fact]
         public void ComparisonTest()
         {
-            Token[] tokens = [new(2L, 0, TokenType.Int), new(TokenType.Greater, 0), new(1L, 0, TokenType.Int), new(TokenType.Semicolon, 0)];
+            Token[] tokens = [new(2, 0, TokenType.Int), new(TokenType.Greater, 0), new(1, 0, TokenType.Int), new(TokenType.Semicolon, 0)];
             Parser parser = new(tokens, "ComparisonTest");
             var ast = parser.ParseExpression();
 
@@ -187,15 +231,15 @@ namespace Test
             var binary = (BinaryExpr)ast;
             Assert.Equal(TokenType.Greater, binary.Operator.Type);
             Assert.NotNull(binary.Left);
-            Assert.Equal(2L, (binary.Left as LiteralExpr).Token.Value);
+            Assert.Equal(2, (binary.Left as LiteralExpr).Token.Value);
             Assert.NotNull(binary.Right);
-            Assert.Equal(1L, (binary.Right as LiteralExpr).Token.Value);
+            Assert.Equal(1, (binary.Right as LiteralExpr).Token.Value);
         }
 
         [Fact]
         public void TermTest()
         {
-            Token[] tokens = [new(2L, 0, TokenType.Int), new(TokenType.Minus, 0), new(3L, 0, TokenType.Int), new(TokenType.Semicolon, 0)];
+            Token[] tokens = [new(2, 0, TokenType.Int), new(TokenType.Minus, 0), new(3, 0, TokenType.Int), new(TokenType.Semicolon, 0)];
             Parser parser = new(tokens, "TermTest");
             var ast = parser.ParseExpression();
 
@@ -205,15 +249,15 @@ namespace Test
             var binary = (BinaryExpr)ast;
             Assert.Equal(TokenType.Minus, binary.Operator.Type);
             Assert.NotNull(binary.Left);
-            Assert.Equal(2L, (binary.Left as LiteralExpr).Token.Value);
+            Assert.Equal(2, (binary.Left as LiteralExpr).Token.Value);
             Assert.NotNull(binary.Right);
-            Assert.Equal(3L, (binary.Right as LiteralExpr).Token.Value);
+            Assert.Equal(3, (binary.Right as LiteralExpr).Token.Value);
         }
 
         [Fact]
         public void FactorTest()
         {
-            Token[] tokens = [new(6L, 0, TokenType.Int), new(TokenType.Slash, 0), new(3L, 0, TokenType.Int), new(TokenType.Semicolon, 0)];
+            Token[] tokens = [new(6, 0, TokenType.Int), new(TokenType.Slash, 0), new(3, 0, TokenType.Int), new(TokenType.Semicolon, 0)];
             Parser parser = new(tokens, "FactorTest");
             var ast = parser.ParseExpression();
 
@@ -223,9 +267,9 @@ namespace Test
             var binary = (BinaryExpr)ast;
             Assert.Equal(TokenType.Slash, binary.Operator.Type);
             Assert.NotNull(binary.Left);
-            Assert.Equal(6L, (binary.Left as LiteralExpr).Token.Value);
+            Assert.Equal(6, (binary.Left as LiteralExpr).Token.Value);
             Assert.NotNull(binary.Right);
-            Assert.Equal(3L, (binary.Right as LiteralExpr).Token.Value);
+            Assert.Equal(3, (binary.Right as LiteralExpr).Token.Value);
         }
     }
 }

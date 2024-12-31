@@ -40,4 +40,15 @@
         public ParseException(string message) : base(message) { }
         public ParseException(string message, Exception inner) : base(message, inner) { }
     }
+
+    public class TypeError(string filename, string message) : ITythonError
+    {
+        readonly string filename = filename;
+        readonly string message = message;
+
+        public void Report()
+        {
+            Console.WriteLine($"{message} ({filename}");
+        }
+    }
 }

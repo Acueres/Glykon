@@ -46,6 +46,11 @@ namespace Tython.Component
                 return ParseBlockStatement();
             }
 
+            if (Match(TokenType.If))
+            {
+                return ParseIfStatement();
+            }
+
             Token token = Token.Null;
             if (Match(TokenType.Print))
             {
@@ -79,6 +84,35 @@ namespace Tython.Component
             symbolTable.ExitScope();
 
             return new BlockStmt(statements, scopeIndex);
+        }
+
+        IfStmt ParseIfStatement()
+        {
+            IExpression condition = ParseExpression();
+            
+            TokenType conditionType = InfereType(condition, TokenType.Bool);
+            if (!(conditionType == TokenType.Bool
+            || conditionType == TokenType.True
+            || conditionType == TokenType.False))
+            {
+                errors.Add(new TypeError($"Type mismatch: expected bool, got {conditionType}", fileName));
+            }
+
+            Consume(TokenType.BraceLeft, "Expect '{' after if condition");
+
+            IStatement stmt = ParseBlockStatement();
+
+            IStatement? elseStmt = null;
+            if (Match(TokenType.Else))
+            {
+                elseStmt = ParseStatement();
+            }
+            else if (Match(TokenType.Elif))
+            {
+                elseStmt = ParseIfStatement();
+            }
+
+            return new IfStmt(condition, stmt, elseStmt);
         }
 
         VariableStmt ParseVariableDeclaration()

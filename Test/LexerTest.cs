@@ -110,7 +110,7 @@ namespace Test
             tokens = tokens.Where(t => t.Type != TokenType.Semicolon && t.Type != TokenType.EOF).ToArray();
 
             Assert.Equal(3, tokens.Length);
-            Assert.Equal("multiline string\n", (tokens[0].Value as string).Replace("\r", string.Empty));
+            Assert.Equal("multiline string\n", (tokens.First().Value as string).Replace("\r", string.Empty));
             Assert.Equal("regular string", tokens[1].Value);
             Assert.Equal(2, tokens[1].Line);
             Assert.Equal("another 'multiline' string\n text\n", (tokens[2].Value as string).Replace("\r", string.Empty));

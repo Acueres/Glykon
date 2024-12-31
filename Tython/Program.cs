@@ -9,19 +9,17 @@ namespace Tython
         {
             const string filename = "Test";
             const string src = @"
-            let i = 1
-            let j = 10
-            print i
-            {
-                let i = 2 + i
-                print i
-                {
-                    let i = 3 + i + j
-                    print i
-                }
-                print i
+            let i = 0
+            if i == 1 {
+                print 'success'
             }
-            print i
+            else {
+                print 'failure'
+            }
+
+            if i == 0 {
+                print 'success'
+            }
 ";
             Lexer lexer = new(src, filename);
             var (tokens, lexerErrors) = lexer.Execute();
@@ -42,7 +40,7 @@ namespace Tython
             Optimizer optimizer = new(stmts);
             var optimizedStmts = optimizer.Execute();
 
-            var generator = new CodeGenerator(stmts, symbolTable, filename);
+            var generator = new CodeGenerator(optimizedStmts, symbolTable, filename);
 
             Assembly assembly = generator.GetAssembly();
 

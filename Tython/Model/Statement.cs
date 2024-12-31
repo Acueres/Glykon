@@ -5,7 +5,8 @@
         Block,
         Expression,
         Print,
-        Variable
+        Variable,
+        If
     }
 
     public interface IStatement
@@ -40,5 +41,13 @@
         public IExpression Expression { get; } = expr;
         public string Name { get; } = name;
         public TokenType VariableType { get; } = varType;
+    }
+
+    public class IfStmt(IExpression expr, IStatement statement, IStatement? elseStatement) : IStatement
+    {
+        public StatementType Type => StatementType.If;
+        public IExpression Expression { get; } = expr;
+        public IStatement Statement { get; } = statement;
+        public IStatement? ElseStatement { get; } = elseStatement;
     }
 }

@@ -47,6 +47,13 @@ namespace Tython.Component
                 VariableStmt variableStmt = (VariableStmt)statement;
                 stmt = new VariableStmt(evaluatedExpr, variableStmt.Name, variableStmt.VariableType);
             }
+            else if (statement.Type == StatementType.If)
+            {
+                IfStmt ifStmt = (IfStmt)statement;
+                IStatement evaluatedStatement = EvaluateStatement(ifStmt.Statement);
+                IStatement? evaluatedElseStatement = ifStmt.ElseStatement is not null ? EvaluateStatement(ifStmt.ElseStatement) : null;
+                stmt = new IfStmt(evaluatedExpr, evaluatedStatement, evaluatedElseStatement);
+            }
             else
             {
                 stmt = new ExpressionStmt(evaluatedExpr);

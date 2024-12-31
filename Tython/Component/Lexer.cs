@@ -132,7 +132,7 @@ namespace Tython.Component
         {
             int identifierStart = currentChar - 1;
 
-            while (char.IsLetterOrDigit(Peek())) Advance();
+            while (IsAllowedIdentifierCharacter(Peek())) Advance();
 
             string identifier = source[identifierStart..currentChar];
 
@@ -247,6 +247,11 @@ namespace Tython.Component
         char Advance()
         {
             return source[currentChar++];
+        }
+
+        static bool IsAllowedIdentifierCharacter(char c)
+        {
+            return char.IsLetterOrDigit(c) || c == '_';
         }
 
         readonly static HashSet<string> keywords;

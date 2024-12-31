@@ -58,23 +58,30 @@ namespace Tython.Component
             {
                 EmitVariableDeclarationStatement((VariableStmt)statement);
             }
+            else if (statement.Type == StatementType.If)
+            {
+                EmitIfStatement((IfStmt)statement);
+            }
             else if (statement.Type == StatementType.Block)
             {
-                var stmt = (BlockStmt)statement;
-
-                symbolTable.EnterScope(stmt.ScopeIndex);
-
-                foreach (var s in stmt.Statements)
-                {
-                    EmitStatement(s);
-                }
-
-                symbolTable.ExitScope();
+                EmitBlockStatement((BlockStmt)statement);
             }
             else
             {
                 EmitExpression(statement.Expression);
             }
+        }
+
+        void EmitBlockStatement(BlockStmt blockStmt)
+        {
+            symbolTable.EnterScope(blockStmt.ScopeIndex);
+
+            foreach (var s in blockStmt.Statements)
+            {
+                EmitStatement(s);
+            }
+
+            symbolTable.ExitScope();
         }
 
         void EmitPrintStatement(PrintStmt statement)
@@ -109,6 +116,39 @@ namespace Tython.Component
             il.Emit(OpCodes.Stloc, symbol.Index);
 
             symbolTable.InitializeSymbol(statement.Name);
+        }
+
+        void EmitIfStatement(IfStmt ifStmt)
+        {
+            EmitExpression(ifStmt.Expression);
+
+            if (ifStmt.ElseStatement is not null)
+            {
+                Label elseLabel = il.DefineLabel();
+
+                il.Emit(OpCodes.Brfalse_S, elseLabel);
+
+                EmitStatement(ifStmt.Statement);
+
+                Label endLabel = il.DefineLabel();
+                il.Emit(OpCodes.Br_S, endLabel);
+
+                il.MarkLabel(elseLabel);
+
+                EmitStatement(ifStmt.ElseStatement);
+
+                il.MarkLabel(endLabel);
+            }
+            else
+            {
+                Label endLabel = il.DefineLabel();
+
+                il.Emit(OpCodes.Brfalse_S, endLabel);
+
+                EmitStatement(ifStmt.Statement);
+
+                il.MarkLabel(endLabel);
+            }
         }
 
         TokenType EmitExpression(IExpression expression)
