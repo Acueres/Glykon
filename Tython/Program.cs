@@ -9,16 +9,14 @@ namespace Tython
         {
             const string filename = "Test";
             const string src = @"
-            let i = 0
-            if i == 1 {
-                print 'success'
-            }
-            else {
-                print 'failure'
-            }
+            let first = true
+            let second = false
 
-            if i == 0 {
-                print 'success'
+            if first and second {
+                print 0
+            }
+            elif first or second { 
+                print 1
             }
 ";
             Lexer lexer = new(src, filename);

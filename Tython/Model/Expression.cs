@@ -7,7 +7,8 @@
         Grouping,
         Literal,
         Variable,
-        Assignment
+        Assignment,
+        Logical
     }
 
     public interface IExpression
@@ -53,5 +54,13 @@
         public ExpressionType Type => ExpressionType.Assignment;
         public string Name { get; } = name;
         public IExpression Right { get; } = value;
+    }
+
+    public class LogicalExpr(Token oper, IExpression left, IExpression right) : IExpression
+    {
+        public ExpressionType Type => ExpressionType.Logical;
+        public Token Operator { get; } = oper;
+        public IExpression Left { get; } = left;
+        public IExpression Right { get; } = right;
     }
 }

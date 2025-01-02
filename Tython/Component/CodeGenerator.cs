@@ -108,6 +108,8 @@ namespace Tython.Component
                 TokenType.Int => typeof(int),
                 TokenType.Real => typeof(double),
                 TokenType.Bool => typeof(bool),
+                TokenType.True => typeof(bool),
+                TokenType.False => typeof(bool),
                 _ => typeof(object),
             };
 
@@ -173,7 +175,7 @@ namespace Tython.Component
                         var expr = (VariableExpr)expression;
                         Symbol symbol = symbolTable.GetInitialized(expr.Name);
                         il.Emit(OpCodes.Ldloc, symbol.Index);
-                        return symbol.Type;
+                        return symbol.Type == TokenType.True || symbol.Type == TokenType.False ? TokenType.Bool : symbol.Type;
                     }
                 case ExpressionType.Assignment:
                     {
@@ -240,12 +242,6 @@ namespace Tython.Component
                                 il.Emit(OpCodes.Ldc_I4, 0);
                                 il.Emit(OpCodes.Ceq);
                                 return TokenType.Bool;
-                            case TokenType.And when typeLeft == TokenType.Bool && typeLeft == TokenType.Bool:
-                                il.Emit(OpCodes.And);
-                                return TokenType.Bool;
-                            case TokenType.Or when typeLeft == TokenType.Bool && typeLeft == TokenType.Bool:
-                                il.Emit(OpCodes.Or);
-                                return TokenType.Bool;
                             case TokenType.Plus when typeLeft == TokenType.String && typeRight == TokenType.String:
                                 il.EmitCall(OpCodes.Call, typeof(string).GetMethod("Concat", [typeof(string), typeof(string)]), []);
                                 return TokenType.String;
@@ -264,6 +260,32 @@ namespace Tython.Component
                         }
 
                         break;
+                    }
+
+                case ExpressionType.Logical:
+                    {
+                        var expr = (LogicalExpr)expression;
+
+                        TokenType typeLeft = EmitExpression(expr.Left);
+                        TokenType typeRight = EmitExpression(expr.Right);
+
+                        if (typeLeft != TokenType.Bool && typeLeft != typeRight)
+                        {
+                            ParseError error = new(expr.Operator, appName,
+                                $"Operator {expr.Operator.Type} cannot be applied between types '{typeLeft}' and '{typeRight}'");
+                            throw error.Exception();
+                        }
+
+                        if (expr.Operator.Type == TokenType.And)
+                        {
+                            il.Emit(OpCodes.And);
+                        }
+                        else
+                        {
+                            il.Emit(OpCodes.Or);
+                        }
+
+                        return TokenType.Bool;
                     }
             }
 

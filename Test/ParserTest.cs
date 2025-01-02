@@ -112,7 +112,7 @@ namespace Test
         {
             Token[] tokens = [new(TokenType.Let, 0), new("value", 0, TokenType.Identifier),
                 new(TokenType.Colon, 0), new(TokenType.Int, 0),
-                new(TokenType.Assignment, 0), new(42L, 0, TokenType.Int), new(TokenType.Semicolon, 0)];
+                new(TokenType.Assignment, 0), new(42, 0, TokenType.Int), new(TokenType.Semicolon, 0)];
             Parser parser = new(tokens, "VariableTypeDeclarationTest");
             var (stmts, _, _) = parser.Execute();
 
@@ -123,7 +123,7 @@ namespace Test
             Assert.Equal("value", stmt.Name);
             Assert.NotNull(stmt.Expression);
             Assert.Equal(TokenType.Int, stmt.VariableType);
-            Assert.Equal(42L, (stmt.Expression as LiteralExpr).Token.Value);
+            Assert.Equal(42, (stmt.Expression as LiteralExpr).Token.Value);
         }
 
         [Fact]
@@ -164,7 +164,7 @@ namespace Test
             Assert.Empty(stmts);
             Assert.Single(errors);
         }
-        
+
         [Fact]
         public void AssignmentTest()
         {
@@ -270,6 +270,44 @@ namespace Test
             Assert.Equal(6, (binary.Left as LiteralExpr).Token.Value);
             Assert.NotNull(binary.Right);
             Assert.Equal(3, (binary.Right as LiteralExpr).Token.Value);
+        }
+
+        [Fact]
+        public void LogicalAndTest()
+        {
+            Token[] tokens = [
+                new(TokenType.True, 0), new(TokenType.And, 0), new(TokenType.False, 0), new(TokenType.Semicolon, 0)];
+            Parser parser = new(tokens, "LogicalAndTest");
+            var ast = parser.ParseExpression();
+
+            Assert.NotNull(ast);
+            Assert.Equal(ExpressionType.Logical, ast.Type);
+
+            var logicalAnd = (LogicalExpr)ast;
+            Assert.Equal(TokenType.And, logicalAnd.Operator.Type);
+            Assert.NotNull(logicalAnd.Left);
+            Assert.Equal(TokenType.True, (logicalAnd.Left as LiteralExpr).Token.Type);
+            Assert.NotNull(logicalAnd.Right);
+            Assert.Equal(TokenType.False, (logicalAnd.Right as LiteralExpr).Token.Type);
+        }
+
+        [Fact]
+        public void LogicalOrTest()
+        {
+            Token[] tokens = [
+                new(TokenType.True, 0), new(TokenType.Or, 0), new(TokenType.False, 0), new(TokenType.Semicolon, 0)];
+            Parser parser = new(tokens, "LogicalOrTest");
+            var ast = parser.ParseExpression();
+
+            Assert.NotNull(ast);
+            Assert.Equal(ExpressionType.Logical, ast.Type);
+
+            var logicalAnd = (LogicalExpr)ast;
+            Assert.Equal(TokenType.Or, logicalAnd.Operator.Type);
+            Assert.NotNull(logicalAnd.Left);
+            Assert.Equal(TokenType.True, (logicalAnd.Left as LiteralExpr).Token.Type);
+            Assert.NotNull(logicalAnd.Right);
+            Assert.Equal(TokenType.False, (logicalAnd.Right as LiteralExpr).Token.Type);
         }
     }
 }

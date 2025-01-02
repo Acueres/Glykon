@@ -20,7 +20,7 @@ namespace Tython.Component
             {
                 while (!AtEnd)
                 {
-                    if (Peek().Type == TokenType.EOF) break;
+                    if (Current.Type == TokenType.EOF) break;
                     IStatement stmt = ParseStatement();
                     statements.Add(stmt);
                 }
@@ -54,7 +54,7 @@ namespace Tython.Component
             Token token = Token.Null;
             if (Match(TokenType.Print))
             {
-                token = Current();
+                token = Previous;
             }
 
             IExpression expr = ParseExpression();
@@ -74,7 +74,7 @@ namespace Tython.Component
 
             List<IStatement> statements = [];
 
-            while (Peek().Type != TokenType.BraceRight && !AtEnd)
+            while (Current.Type != TokenType.BraceRight && !AtEnd)
             {
                 statements.Add(ParseStatement());
             }
@@ -89,7 +89,7 @@ namespace Tython.Component
         IfStmt ParseIfStatement()
         {
             IExpression condition = ParseExpression();
-            
+
             TokenType conditionType = InfereType(condition, TokenType.Bool);
             if (!(conditionType == TokenType.Bool
             || conditionType == TokenType.True
@@ -160,7 +160,7 @@ namespace Tython.Component
 
         TokenType ParseTypeDeclaration()
         {
-            TokenType type = Peek().Type;
+            TokenType type = Current.Type;
             Advance();
             return type;
         }
@@ -202,11 +202,11 @@ namespace Tython.Component
 
         IExpression ParseAssignment()
         {
-            IExpression expr = ParseEquality();
+            IExpression expr = ParseLogicalOr();
 
             if (Match(TokenType.Assignment))
             {
-                Token token = Previous();
+                Token token = Previous2;
                 IExpression value = ParseAssignment();
 
                 if (expr.Type == ExpressionType.Variable)
@@ -232,13 +232,67 @@ namespace Tython.Component
             return expr;
         }
 
+        IExpression ParseLogicalOr()
+        {
+            IExpression expr = ParseLogicalAnd();
+
+            while (Match(TokenType.Or))
+            {
+                Token oper = Previous;
+                IExpression right = ParseLogicalAnd();
+
+                TokenType leftType = InfereType(expr, TokenType.Bool);
+                TokenType rightType = InfereType(right, TokenType.Bool);
+
+                bool isLeftBool = leftType == TokenType.True || leftType == TokenType.False || leftType == TokenType.Bool;
+                bool isRightBool = rightType == TokenType.True || rightType == TokenType.False || rightType == TokenType.Bool;
+
+                if (!(isLeftBool && isRightBool))
+                {
+                    errors.Add(new ParseError(oper, fileName, $"Type mismatch; operator {oper.Type} cannot be applied between types {leftType} and {rightType}"));
+                    return expr;
+                }
+
+                expr = new LogicalExpr(oper, expr, right);
+            }
+
+            return expr;
+        }
+
+        IExpression ParseLogicalAnd()
+        {
+            IExpression expr = ParseEquality();
+
+            while (Match(TokenType.And))
+            {
+                Token oper = Previous;
+                IExpression right = ParseEquality();
+
+                TokenType leftType = InfereType(expr, TokenType.Bool);
+                TokenType rightType = InfereType(right, TokenType.Bool);
+
+                bool isLeftBool = leftType == TokenType.True || leftType == TokenType.False || leftType == TokenType.Bool;
+                bool isRightBool = rightType == TokenType.True || rightType == TokenType.False || rightType == TokenType.Bool;
+
+                if (!(isLeftBool && isRightBool))
+                {
+                    errors.Add(new ParseError(oper, fileName, $"Type mismatch; operator {oper.Type} cannot be applied between types {leftType} and {rightType}"));
+                    return expr;
+                }
+                
+                expr = new LogicalExpr(oper, expr, right);
+            }
+
+            return expr;
+        }
+
         IExpression ParseEquality()
         {
             IExpression expr = ParseComparison();
 
             while (Match(TokenType.Equal, TokenType.NotEqual))
             {
-                Token oper = Current();
+                Token oper = Previous;
                 IExpression right = ParseComparison();
                 expr = new BinaryExpr(oper, expr, right);
             }
@@ -252,7 +306,7 @@ namespace Tython.Component
 
             while (Match(TokenType.Greater, TokenType.GreaterEqual, TokenType.Less, TokenType.LessEqual))
             {
-                Token oper = Current();
+                Token oper = Previous;
                 IExpression right = ParseTerm();
                 expr = new BinaryExpr(oper, expr, right);
             }
@@ -266,7 +320,7 @@ namespace Tython.Component
 
             while (Match(TokenType.Plus, TokenType.Minus))
             {
-                Token oper = Current();
+                Token oper = Previous;
                 IExpression right = ParseFactor();
                 expr = new BinaryExpr(oper, expr, right);
             }
@@ -280,7 +334,7 @@ namespace Tython.Component
 
             while (Match(TokenType.Slash, TokenType.Star))
             {
-                Token oper = Current();
+                Token oper = Previous;
                 IExpression right = ParseUnary();
                 expr = new BinaryExpr(oper, expr, right);
             }
@@ -292,7 +346,7 @@ namespace Tython.Component
         {
             if (Match(TokenType.Not, TokenType.Minus))
             {
-                Token oper = Current();
+                Token oper = Previous;
                 IExpression right = ParseUnary();
                 return new UnaryExpr(oper, right);
             }
@@ -303,11 +357,11 @@ namespace Tython.Component
         IExpression ParsePrimary()
         {
             if (Match(TokenType.None, TokenType.True, TokenType.False, TokenType.Int, TokenType.Real, TokenType.String))
-                return new LiteralExpr(Current());
+                return new LiteralExpr(Previous);
 
             if (Match(TokenType.Identifier))
             {
-                string name = Current().Value.ToString();
+                string name = Previous.Value.ToString();
                 return new VariableExpr(name);
             }
 
@@ -318,7 +372,7 @@ namespace Tython.Component
                 return new GroupingExpr(expr);
             }
 
-            ParseError error = new(Peek(), fileName, "Expect expression");
+            ParseError error = new(Current, fileName, "Expect expression");
             errors.Add(error);
             throw error.Exception();
         }
@@ -329,8 +383,8 @@ namespace Tython.Component
 
             while (!AtEnd)
             {
-                if (Current().Type == TokenType.Semicolon) return;
-                switch (Peek().Type)
+                if (Current.Type == TokenType.Semicolon) return;
+                switch (Current.Type)
                 {
                     case TokenType.Class:
                     case TokenType.Struct:
@@ -350,8 +404,8 @@ namespace Tython.Component
 
         Token Consume(TokenType symbol, string message)
         {
-            if (Peek().Type == symbol) return Advance();
-            ParseError error = new(Peek(), fileName, message);
+            if (Current.Type == symbol) return Advance();
+            ParseError error = new(Current, fileName, message);
             errors.Add(error);
             throw error.Exception();
         }
@@ -361,22 +415,24 @@ namespace Tython.Component
             return tokens[nextToken++];
         }
 
-        Token Peek(int offset = 0)
+        Token GetToken(int offset)
         {
             int nextTokenPos = nextToken + offset;
             Token token = AtEnd || nextTokenPos >= tokens.Length ? Token.Null : tokens[nextTokenPos];
             return token;
         }
 
-        Token Current() => tokens[nextToken - 1];
+        Token Current => GetToken(0);
 
-        Token Previous() => tokens[nextToken - 2];
+        Token Previous => GetToken(-1);
+
+        Token Previous2 => GetToken(-2);
 
         bool Match(params TokenType[] values)
         {
             foreach (TokenType value in values)
             {
-                if (Peek().Type == value)
+                if (Current.Type == value)
                 {
                     Advance();
                     return true;
