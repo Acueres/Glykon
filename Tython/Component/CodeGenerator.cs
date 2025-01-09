@@ -266,23 +266,72 @@ namespace Tython.Component
                     {
                         var expr = (LogicalExpr)expression;
 
-                        TokenType typeLeft = EmitExpression(expr.Left);
-                        TokenType typeRight = EmitExpression(expr.Right);
-
-                        if (typeLeft != TokenType.Bool && typeLeft != typeRight)
+                        if ((expr.Left.Type == ExpressionType.Literal || expr.Left.Type == ExpressionType.Variable)
+                            && (expr.Right.Type == ExpressionType.Literal || expr.Right.Type == ExpressionType.Variable))
                         {
-                            ParseError error = new(expr.Operator, appName,
-                                $"Operator {expr.Operator.Type} cannot be applied between types '{typeLeft}' and '{typeRight}'");
-                            throw error.Exception();
-                        }
+                            TokenType typeLeft = EmitExpression(expr.Left);
+                            TokenType typeRight = EmitExpression(expr.Right);
 
-                        if (expr.Operator.Type == TokenType.And)
-                        {
-                            il.Emit(OpCodes.And);
+                            if (typeLeft != TokenType.Bool && typeLeft != typeRight)
+                            {
+                                ParseError error = new(expr.Operator, appName,
+                                    $"Operator {expr.Operator.Type} cannot be applied between types '{typeLeft}' and '{typeRight}'");
+                                throw error.Exception();
+                            }
+
+                            if (expr.Operator.Type == TokenType.And)
+                            {
+                                il.Emit(OpCodes.And);
+                            }
+                            else
+                            {
+                                il.Emit(OpCodes.Or);
+                            }
                         }
                         else
                         {
-                            il.Emit(OpCodes.Or);
+                            TokenType typeLeft = EmitExpression(expr.Left);
+
+                            if (expr.Operator.Type == TokenType.And)
+                            {
+                                Label leftTrue = il.DefineLabel();
+                                il.Emit(OpCodes.Brtrue_S, leftTrue);
+                                il.Emit(OpCodes.Ldc_I4, 0);
+                                Label endLabel = il.DefineLabel();
+                                il.Emit(OpCodes.Br_S, endLabel);
+
+                                il.MarkLabel(leftTrue);
+                                TokenType typeRight = EmitExpression(expr.Right);
+
+                                if (typeLeft != TokenType.Bool && typeLeft != typeRight)
+                                {
+                                    ParseError error = new(expr.Operator, appName,
+                                        $"Operator {expr.Operator.Type} cannot be applied between types '{typeLeft}' and '{typeRight}'");
+                                    throw error.Exception();
+                                }
+
+                                il.MarkLabel(endLabel);
+                            }
+                            else
+                            {
+                                Label leftTrue = il.DefineLabel();
+                                il.Emit(OpCodes.Brtrue_S, leftTrue);
+                                TokenType typeRight = EmitExpression(expr.Right);
+
+                                if (typeLeft != TokenType.Bool && typeLeft != typeRight)
+                                {
+                                    ParseError error = new(expr.Operator, appName,
+                                        $"Operator {expr.Operator.Type} cannot be applied between types '{typeLeft}' and '{typeRight}'");
+                                    throw error.Exception();
+                                }
+                                Label endLabel = il.DefineLabel();
+                                il.Emit(OpCodes.Br_S, endLabel);
+
+                                il.MarkLabel(leftTrue);
+                                il.Emit(OpCodes.Ldc_I4, 1);
+
+                                il.MarkLabel(endLabel);
+                            }
                         }
 
                         return TokenType.Bool;

@@ -187,6 +187,17 @@ namespace Tython.Component
                             errors.Add(error);
                             throw error.Exception();
                         }
+
+                        if (binaryExpr.Operator.Type == TokenType.Equal
+                            || binaryExpr.Operator.Type == TokenType.NotEqual
+                            || binaryExpr.Operator.Type == TokenType.Greater
+                            || binaryExpr.Operator.Type == TokenType.Less
+                            || binaryExpr.Operator.Type == TokenType.GreaterEqual
+                            || binaryExpr.Operator.Type == TokenType.LessEqual)
+                        {
+                            return TokenType.Bool;
+                        }
+
                         return typeLeft;
                     }
                 case ExpressionType.Variable: return symbolTable.GetType(((VariableExpr)expression).Name);
