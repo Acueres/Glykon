@@ -6,7 +6,8 @@
         Expression,
         Print,
         Variable,
-        If
+        If,
+        While
     }
 
     public interface IStatement
@@ -43,11 +44,18 @@
         public TokenType VariableType { get; } = varType;
     }
 
-    public class IfStmt(IExpression expr, IStatement statement, IStatement? elseStatement) : IStatement
+    public class IfStmt(IExpression condition, IStatement statement, IStatement? elseStatement) : IStatement
     {
         public StatementType Type => StatementType.If;
-        public IExpression Expression { get; } = expr;
+        public IExpression Expression { get; } = condition;
         public IStatement Statement { get; } = statement;
         public IStatement? ElseStatement { get; } = elseStatement;
+    }
+
+    public class WhileStmt(IExpression condition, IStatement statement) : IStatement
+    {
+        public StatementType Type => StatementType.While;
+        public IExpression Expression { get; } = condition;
+        public IStatement Statement { get; } = statement;
     }
 }

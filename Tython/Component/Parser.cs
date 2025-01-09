@@ -51,6 +51,11 @@ namespace Tython.Component
                 return ParseIfStatement();
             }
 
+            if (Match(TokenType.While))
+            {
+                return ParseWhileStatement();
+            }
+
             Token token = Token.Null;
             if (Match(TokenType.Print))
             {
@@ -113,6 +118,25 @@ namespace Tython.Component
             }
 
             return new IfStmt(condition, stmt, elseStmt);
+        }
+
+        WhileStmt ParseWhileStatement()
+        {
+            IExpression condition = ParseExpression();
+
+            TokenType conditionType = InfereType(condition, TokenType.Bool);
+            if (!(conditionType == TokenType.Bool
+            || conditionType == TokenType.True
+            || conditionType == TokenType.False))
+            {
+                errors.Add(new TypeError($"Type mismatch: expected bool, got {conditionType}", fileName));
+            }
+
+            Consume(TokenType.BraceLeft, "Expect '{' after if condition");
+
+            IStatement body = ParseBlockStatement();
+
+            return new WhileStmt(condition, body);
         }
 
         VariableStmt ParseVariableDeclaration()
@@ -290,7 +314,7 @@ namespace Tython.Component
                     errors.Add(new ParseError(oper, fileName, $"Type mismatch; operator {oper.Type} cannot be applied between types {leftType} and {rightType}"));
                     return expr;
                 }
-                
+
                 expr = new LogicalExpr(oper, expr, right);
             }
 

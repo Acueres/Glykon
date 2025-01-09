@@ -9,11 +9,10 @@ namespace Tython
         {
             const string filename = "Test";
             const string src = @"
-            let first = 1
-            let second = false
-
-            if first == 1 or second {
-                print 'ok'
+            let i = 0
+            while i < 10 {
+                print i
+                i = i + 1
             }
 ";
             Lexer lexer = new(src, filename);

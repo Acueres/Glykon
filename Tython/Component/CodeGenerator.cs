@@ -62,6 +62,10 @@ namespace Tython.Component
             {
                 EmitIfStatement((IfStmt)statement);
             }
+            else if (statement.Type == StatementType.While)
+            {
+                EmitWhileStatement((WhileStmt)statement);
+            }
             else if (statement.Type == StatementType.Block)
             {
                 EmitBlockStatement((BlockStmt)statement);
@@ -151,6 +155,23 @@ namespace Tython.Component
 
                 il.MarkLabel(endLabel);
             }
+        }
+
+        void EmitWhileStatement(WhileStmt whileStmt)
+        {
+            Label loopStart = il.DefineLabel();
+            Label loopEnd = il.DefineLabel();
+
+            il.MarkLabel(loopStart);
+            EmitExpression(whileStmt.Expression);
+
+            il.Emit(OpCodes.Brfalse_S, loopEnd);
+
+            EmitStatement(whileStmt.Statement);
+
+            il.Emit(OpCodes.Br_S, loopStart);
+
+            il.MarkLabel(loopEnd);
         }
 
         TokenType EmitExpression(IExpression expression)

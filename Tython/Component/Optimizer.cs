@@ -54,6 +54,12 @@ namespace Tython.Component
                 IStatement? evaluatedElseStatement = ifStmt.ElseStatement is not null ? EvaluateStatement(ifStmt.ElseStatement) : null;
                 stmt = new IfStmt(evaluatedExpr, evaluatedStatement, evaluatedElseStatement);
             }
+            else if (statement.Type == StatementType.While)
+            {
+                WhileStmt whileStmt = (WhileStmt)statement;
+                IStatement evaluatedStatement = EvaluateStatement(whileStmt.Statement);
+                stmt = new WhileStmt(evaluatedExpr, evaluatedStatement);
+            }
             else
             {
                 stmt = new ExpressionStmt(evaluatedExpr);

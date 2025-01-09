@@ -75,6 +75,33 @@ namespace Test
         }
 
         [Fact]
+        public void WhileStatementTest()
+        {
+            const string fileName = "WhileStatementTest";
+            const string src = @"
+            let condition = true
+            while condition {
+                print 'ok'
+            }
+            ";
+
+            Lexer lexer = new(src, fileName);
+            (var tokens, var lexerErrors) = lexer.Execute();
+
+            Assert.Empty(lexerErrors);
+
+            Parser parser = new(tokens, fileName);
+            var (stmts, _, errors) = parser.Execute();
+
+            Assert.Empty(errors);
+            Assert.Equal(2, stmts.Length);
+
+            WhileStmt whileStmt = (WhileStmt)stmts[1];
+            Assert.NotNull(whileStmt.Statement);
+            Assert.NotNull(whileStmt.Expression);
+        }
+
+        [Fact]
         public void PrintStmtTest()
         {
             Token[] tokens = [new(TokenType.Print, 0), new("Hello Tython", 0, TokenType.String), new(TokenType.Semicolon, 0)];
