@@ -7,7 +7,8 @@
         Print,
         Variable,
         If,
-        While
+        While,
+        Jump
     }
 
     public interface IStatement
@@ -57,5 +58,12 @@
         public StatementType Type => StatementType.While;
         public IExpression Expression { get; } = condition;
         public IStatement Statement { get; } = statement;
+    }
+
+    public class JumpStmt(Token token): IStatement
+    {
+        public StatementType Type => StatementType.Jump;
+        public IExpression Expression { get; }
+        public Token Token { get; } = token;
     }
 }

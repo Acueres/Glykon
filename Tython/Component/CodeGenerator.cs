@@ -19,6 +19,9 @@ namespace Tython.Component
         readonly MethodBuilder main;
         readonly ILGenerator il;
 
+        Label loopStart;
+        Label loopEnd;
+
         public CodeGenerator(IStatement[] statements, SymbolTable symbolTable, string appname)
         {
             appName = appname;
@@ -69,6 +72,10 @@ namespace Tython.Component
             else if (statement.Type == StatementType.Block)
             {
                 EmitBlockStatement((BlockStmt)statement);
+            }
+            else if (statement is JumpStmt jumpStmt)
+            {
+                EmitJumpStatement(jumpStmt);
             }
             else
             {
@@ -159,8 +166,8 @@ namespace Tython.Component
 
         void EmitWhileStatement(WhileStmt whileStmt)
         {
-            Label loopStart = il.DefineLabel();
-            Label loopEnd = il.DefineLabel();
+            loopStart = il.DefineLabel();
+            loopEnd = il.DefineLabel();
 
             il.MarkLabel(loopStart);
             EmitExpression(whileStmt.Expression);
@@ -172,6 +179,18 @@ namespace Tython.Component
             il.Emit(OpCodes.Br_S, loopStart);
 
             il.MarkLabel(loopEnd);
+        }
+
+        void EmitJumpStatement(JumpStmt jumpStatement)
+        {
+            if (jumpStatement.Token.Type == TokenType.Break)
+            {
+                il.Emit(OpCodes.Br_S, loopEnd);
+            }
+            else if (jumpStatement.Token.Type == TokenType.Continue)
+            {
+                il.Emit(OpCodes.Br_S, loopStart);
+            }
         }
 
         TokenType EmitExpression(IExpression expression)

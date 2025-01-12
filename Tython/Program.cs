@@ -9,16 +9,33 @@ namespace Tython
         {
             const string filename = "Test";
             const string src = @"
+            let a = 0
+            let temp = 0
+            let b = 1
+
+            while a < 10000 {
+                print a
+                if a == 8 {
+                    break
+                }
+                temp = a
+                a = b
+                b = temp + b
+            }
+
             let i = 0
             while i < 10 {
-                print i
                 i = i + 1
+                if i == 5 {
+                    continue
+                }
+                print i
             }
 ";
             Lexer lexer = new(src, filename);
             var (tokens, lexerErrors) = lexer.Execute();
 
-            foreach (var error  in lexerErrors)
+            foreach (var error in lexerErrors)
             {
                 error.Report();
             }
@@ -30,6 +47,8 @@ namespace Tython
             {
                 error.Report();
             }
+
+            if (lexerErrors.Count != 0 || parserErrors.Count != 0) return;
 
             Optimizer optimizer = new(stmts);
             var optimizedStmts = optimizer.Execute();

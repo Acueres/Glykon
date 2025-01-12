@@ -24,6 +24,12 @@ namespace Tython.Component
                     IStatement stmt = ParseStatement();
                     statements.Add(stmt);
                 }
+
+                foreach (IStatement statement in statements)
+                {
+                    CheckUnenclosedJumpStatements(statement);
+                }
+
                 return (statements.ToArray(), symbolTable, errors);
             }
             catch (ParseException)
@@ -38,7 +44,7 @@ namespace Tython.Component
         {
             if (Match(TokenType.Let))
             {
-                return ParseVariableDeclaration();
+                return ParseVariableDeclarationStatement();
             }
 
             if (Match(TokenType.BraceLeft))
@@ -56,21 +62,25 @@ namespace Tython.Component
                 return ParseWhileStatement();
             }
 
-            Token token = Token.Null;
+            if (Match(TokenType.Break, TokenType.Continue))
+            {
+                JumpStmt jumpStmt = new(Previous);
+                Consume(TokenType.Semicolon, "Expect ';' after break or continue");
+                return jumpStmt;
+
+            }
+
             if (Match(TokenType.Print))
             {
-                token = Previous;
+                PrintStmt printStmt = new(ParseExpression());
+                Consume(TokenType.Semicolon, "Expect ';' after expression");
+                return printStmt;
             }
 
             IExpression expr = ParseExpression();
-
             Consume(TokenType.Semicolon, "Expect ';' after expression");
 
-            return token.Type switch
-            {
-                TokenType.Print => new PrintStmt(expr),
-                _ => new ExpressionStmt(expr)
-            };
+            return new ExpressionStmt(expr);
         }
 
         BlockStmt ParseBlockStatement()
@@ -139,7 +149,7 @@ namespace Tython.Component
             return new WhileStmt(condition, body);
         }
 
-        VariableStmt ParseVariableDeclaration()
+        VariableStmt ParseVariableDeclarationStatement()
         {
             Token token = Consume(TokenType.Identifier, "Expect variable name");
 
@@ -475,6 +485,38 @@ namespace Tython.Component
             }
 
             return false;
+        }
+
+        void CheckUnenclosedJumpStatements(IStatement statement)
+        {
+            if (statement.Type == StatementType.While) return;
+
+            if (statement is IfStmt ifStmt)
+            {
+                CheckUnenclosedJumpStatements(ifStmt.Statement);
+
+                if (ifStmt.ElseStatement is not null)
+                {
+                    CheckUnenclosedJumpStatements(ifStmt.ElseStatement);
+                }
+                return;
+            }
+
+            if (statement is BlockStmt blockStmt)
+            {
+                foreach (IStatement s in blockStmt.Statements)
+                {
+                    CheckUnenclosedJumpStatements(s);
+                }
+
+                return;
+            }
+
+            if (statement is JumpStmt jumpStmt)
+            {
+                ParseError error = new(jumpStmt.Token, fileName, "No enclosing loop out of which to break or continue");
+                errors.Add(error);
+            }
         }
     }
 }

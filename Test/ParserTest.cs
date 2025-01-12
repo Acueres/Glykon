@@ -29,6 +29,32 @@ namespace Test
         }
 
         [Fact]
+        public void JumpStatementsTest()
+        {
+            const string fileName = "JumpStatementsTest";
+            const string src = @"
+            while true {
+                break
+            }
+
+            continue
+
+            if true {
+                break
+            }
+            ";
+            Lexer lexer = new(src, fileName);
+            (var tokens, _) = lexer.Execute();
+            Parser parser = new(tokens, fileName);
+            var (stmts, _, errors) = parser.Execute();
+
+            Assert.Equal(2, errors.Count);
+            Assert.NotEmpty(stmts);
+            Assert.Equal(3, stmts.Length);
+            Assert.Equal(StatementType.Jump, stmts[1].Type);
+        }
+
+        [Fact]
         public void IfStatementTest()
         {
             const string fileName = "IfStatementTest";
