@@ -70,6 +70,11 @@ namespace Tython.Component
 
             }
 
+            if (Match(TokenType.Def))
+            {
+                return ParseFunctionDeclaration();
+            }
+
             if (Match(TokenType.Print))
             {
                 PrintStmt printStmt = new(ParseExpression());
@@ -147,6 +152,37 @@ namespace Tython.Component
             IStatement body = ParseBlockStatement();
 
             return new WhileStmt(condition, body);
+        }
+
+        FunctionStmt ParseFunctionDeclaration()
+        {
+            Token functionName = Consume(TokenType.Identifier, "Expect function name");
+            Consume(TokenType.ParenthesisLeft, "Expect '(' after function name");
+            List<Parameter> parameters = [];
+            if (Current.Type != TokenType.ParenthesisRight)
+            {
+                do
+                {
+                    if (parameters.Count > ushort.MaxValue)
+                    {
+                        errors.Add(new ParseError(Current, fileName, "Argument count exceeded"));
+                    }
+
+                    Token name = Consume(TokenType.Identifier, "Expect parameter name");
+                    Consume(TokenType.Colon, "Expect colon before type declaration");
+                    Token type = Advance();
+
+                    Parameter parameter = new(name.Value as string, type.Type);
+                    parameters.Add(parameter);
+                }
+                while (Match(TokenType.Comma));
+            }
+
+            Consume(TokenType.ParenthesisRight, "Expect ')' after parameters");
+
+            Consume(TokenType.BraceLeft, "Expect '{' before function body");
+            BlockStmt body = ParseBlockStatement();
+            return new FunctionStmt(functionName.Value as string, parameters, body);
         }
 
         VariableStmt ParseVariableDeclarationStatement()
@@ -396,7 +432,39 @@ namespace Tython.Component
                 return new UnaryExpr(oper, right);
             }
 
-            return ParsePrimary();
+            return ParseCall();
+        }
+
+        IExpression ParseCall()
+        {
+            IExpression expr = ParsePrimary();
+
+            while (Match(TokenType.ParenthesisLeft))
+            {
+                expr = CompleteCall(expr);
+            }
+
+            return expr;
+        }
+
+        CallExpr CompleteCall(IExpression callee)
+        {
+            List<IExpression> args = [];
+            if (Current.Type != TokenType.ParenthesisRight)
+            {
+                do
+                {
+                    if (args.Count > ushort.MaxValue)
+                    {
+                        errors.Add(new ParseError(Current, fileName, "Argument count exceeded"));
+                    }
+
+                    args.Add(ParseExpression());
+                }
+                while (Match(TokenType.Comma));
+            }
+            Token closingParenthesis = Consume(TokenType.ParenthesisRight, "Expect ')' after arguments.");
+            return new CallExpr(callee, closingParenthesis, args);
         }
 
         IExpression ParsePrimary()

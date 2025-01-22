@@ -144,6 +144,34 @@ namespace Test
         }
 
         [Fact]
+        public void FunctionDeclarationTest()
+        {
+            const string fileName = "FunctionDeclarationTest";
+            const string src = @"
+            def f(a: int, b: int) {
+                print a + b
+            }
+            ";
+
+            Lexer lexer = new(src, fileName);
+            (var tokens, _) = lexer.Execute();
+
+            Parser parser = new(tokens, fileName);
+            var (stmts, _, errors) = parser.Execute();
+
+            Assert.Empty(errors);
+            Assert.Single(stmts);
+            Assert.Equal(StatementType.Function, stmts.First().Type);
+
+            FunctionStmt function = stmts.First() as FunctionStmt;
+            Assert.Equal("f", function.Name);
+            Assert.Equal(2, function.Parameters.Count);
+            Assert.NotNull(function.Body);
+            Assert.Single(function.Body.Statements);
+
+        }
+
+        [Fact]
         public void VariableDeclarationTest()
         {
             Token[] tokens = [new(TokenType.Let, 0), new("value", 0, TokenType.Identifier), new(TokenType.Assignment, 0), new(42L, 0, TokenType.Int), new(TokenType.Semicolon, 0)];
@@ -216,6 +244,24 @@ namespace Test
 
             Assert.Empty(stmts);
             Assert.Single(errors);
+        }
+
+        [Fact]
+        public void CallTest()
+        {
+            const string fileName = "CallTest";
+            const string src = @"
+            function('call test')
+            ";
+
+            Lexer lexer = new(src, fileName);
+            (var tokens, _) = lexer.Execute();
+            Parser parser = new(tokens, fileName);
+            var (stmts, _, errors) = parser.Execute();
+
+            Assert.Empty(errors);
+            Assert.Single(stmts);
+            Assert.True(stmts.First().Expression.Type == ExpressionType.Call);
         }
 
         [Fact]

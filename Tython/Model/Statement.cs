@@ -6,6 +6,7 @@
         Expression,
         Print,
         Variable,
+        Function,
         If,
         While,
         Jump
@@ -43,6 +44,15 @@
         public IExpression Expression { get; } = expr;
         public string Name { get; } = name;
         public TokenType VariableType { get; } = varType;
+    }
+
+    public class FunctionStmt(string name, List<Parameter> parameters, BlockStmt body) : IStatement
+    {
+        public StatementType Type => StatementType.Function;
+        public IExpression Expression { get; }
+        public string Name { get; } = name;
+        public List<Parameter> Parameters { get; } = parameters;
+        public BlockStmt Body { get; } = body;
     }
 
     public class IfStmt(IExpression condition, IStatement statement, IStatement? elseStatement) : IStatement

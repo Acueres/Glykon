@@ -4,6 +4,7 @@
     {
         Unary,
         Binary,
+        Call,
         Grouping,
         Literal,
         Variable,
@@ -29,6 +30,14 @@
         public Token Operator { get; } = oper;
         public IExpression Left { get; } = left;
         public IExpression Right { get; } = right;
+    }
+
+    public class CallExpr(IExpression callee, Token closingParenthesis, List<IExpression> args) : IExpression
+    {
+        public ExpressionType Type => ExpressionType.Call;
+        public IExpression Callee { get; } = callee;
+        public Token ClosingParenthesis { get; } = closingParenthesis;
+        public List<IExpression> Args { get; } = args;
     }
 
     public class GroupingExpr(IExpression expr) : IExpression
