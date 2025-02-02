@@ -7,9 +7,10 @@ namespace Tython.Component
         readonly Scope global = new();
         readonly List<Scope> scopes;
         readonly Dictionary<string, int> symbolMap = [];
+        readonly Stack<int> localCounters = [];
+        int localIndex;
 
         Scope current;
-        int symbolCounter = 0;
 
         public SymbolTable()
         {
@@ -17,7 +18,7 @@ namespace Tython.Component
             current = global;
         }
 
-        public Symbol Add(string name, TokenType type)
+        public FunctionSymbol RegisterFunction(string name, TokenType returnType, TokenType[] parameterTypes)
         {
             if (!symbolMap.TryGetValue(name, out int symbolIndex))
             {
@@ -25,28 +26,47 @@ namespace Tython.Component
                 symbolMap.Add(name, symbolIndex);
             }
 
-            Symbol symbol = current.Add(symbolIndex, symbolCounter++, type);
+            FunctionSymbol symbol = current.AddFunction(symbolIndex, returnType, parameterTypes);
             return symbol;
         }
 
-        public Symbol Get(string name)
+        public FunctionSymbol? GetFunction(string name)
         {
             int symbolIndex = symbolMap[name];
-            Symbol symbol = current.Get(symbolIndex);
-            return symbol;
+            FunctionSymbol? function = current.GetFunction(symbolIndex);
+            return function;
         }
 
-        public Symbol GetInitialized(string name)
+        public VariableSymbol RegisterVariable(string name, TokenType type)
         {
-            int symbolIndex = symbolMap[name];
-            Symbol symbol = current.GetInitialized(symbolIndex);
-            return symbol;
+            if (!symbolMap.TryGetValue(name, out int symbolIndex))
+            {
+                symbolIndex = symbolMap.Count;
+                symbolMap.Add(name, symbolIndex);
+            }
+
+            VariableSymbol variable = current.AddVariable(localIndex++, symbolIndex, type);
+            return variable;
         }
 
-        public void InitializeSymbol(string name)
+        public VariableSymbol? GetVariable(string name)
         {
             int symbolIndex = symbolMap[name];
-            current.Initialize(symbolIndex);
+            VariableSymbol? variable = current.GetVariable(symbolIndex);
+            return variable;
+        }
+
+        public VariableSymbol? GetInitializedVariable(string name)
+        {
+            int symbolIndex = symbolMap[name];
+            VariableSymbol? variable = current.GetInitializedVariable(symbolIndex);
+            return variable;
+        }
+
+        public void Initializevariable(string name)
+        {
+            int symbolIndex = symbolMap[name];
+            current.InitializeVariable(symbolIndex);
         }
 
         public int BeginScope()
@@ -72,10 +92,21 @@ namespace Tython.Component
             current = global;
         }
 
+        public void BeginLocalCount()
+        {
+            localCounters.Push(localIndex);
+            localIndex = 0;
+        }
+
+        public void ExitLocalCount()
+        {
+            localIndex = localCounters.Pop();
+        }
+
         public TokenType GetType(string name)
         {
             int symbolIndex = symbolMap[name];
-            return current.Get(symbolIndex).Type;
+            return current.GetVariable(symbolIndex).Type;
         }
     }
 }

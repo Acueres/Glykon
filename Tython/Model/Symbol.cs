@@ -1,11 +1,16 @@
 ﻿namespace Tython.Model
 {
-    public readonly struct Symbol(int index, int symbolId, TokenType type)
+    public class VariableSymbol(int index, int symbolId, TokenType type)
     {
-        public int Index { get; } = index;
+        public int LocalIndex { get; } = index;
         public int SymbolId { get; } = symbolId;
         public TokenType Type { get; } = type;
+    }
 
-        public static Symbol Null => new(-1, -1, TokenType.Null);
+    public class FunctionSymbol(int symbolId, TokenType returnType, TokenType[] parameterTypes)
+    {
+        public int SymbolId { get; } = symbolId;
+        public TokenType ReturnType { get; } = returnType;
+        public TokenType[] ParameterTypes { get; } = parameterTypes;
     }
 }

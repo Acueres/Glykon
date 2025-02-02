@@ -9,27 +9,14 @@ namespace Tython
         {
             const string filename = "Test";
             const string src = @"
-            let a = 0
-            let temp = 0
-            let b = 1
-
-            while a < 10000 {
-                print a
-                if a == 8 {
-                    break
-                }
-                temp = a
-                a = b
-                b = temp + b
+            def main() {
+                let a = 1
+                let b = 2
+                add(a, b)
             }
 
-            let i = 0
-            while i < 10 {
-                i = i + 1
-                if i == 5 {
-                    continue
-                }
-                print i
+            def add(a: int, b: int) {
+                print a + b
             }
 ";
             Lexer lexer = new(src, filename);
@@ -50,15 +37,13 @@ namespace Tython
 
             if (lexerErrors.Count != 0 || parserErrors.Count != 0) return;
 
-            Optimizer optimizer = new(stmts);
-            var optimizedStmts = optimizer.Execute();
-
-            var generator = new CodeGenerator(optimizedStmts, symbolTable, filename);
+            var generator = new CodeGenerator(stmts, symbolTable, filename);
+            generator.GenerateAssembly();
 
             Assembly assembly = generator.GetAssembly();
 
             Type program = assembly.GetType("Program");
-            var main = program.GetMethod("Main", []);
+            var main = program.GetMethod("main", []);
             main.Invoke(null, []);
         }
     }

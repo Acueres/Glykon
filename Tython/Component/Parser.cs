@@ -6,13 +6,13 @@ namespace Tython.Component
     {
         readonly string fileName = fileName;
 
-        bool AtEnd => nextToken >= tokens.Length;
+        bool AtEnd => tokenIndex >= tokens.Length;
 
         readonly Token[] tokens = tokens;
         readonly List<IStatement> statements = [];
         readonly SymbolTable symbolTable = new();
         readonly List<ITythonError> errors = [];
-        int nextToken;
+        int tokenIndex;
 
         public (IStatement[], SymbolTable symbolTable, List<ITythonError>) Execute()
         {
@@ -159,6 +159,7 @@ namespace Tython.Component
             Token functionName = Consume(TokenType.Identifier, "Expect function name");
             Consume(TokenType.ParenthesisLeft, "Expect '(' after function name");
             List<Parameter> parameters = [];
+
             if (Current.Type != TokenType.ParenthesisRight)
             {
                 do
@@ -182,7 +183,10 @@ namespace Tython.Component
 
             Consume(TokenType.BraceLeft, "Expect '{' before function body");
             BlockStmt body = ParseBlockStatement();
-            return new FunctionStmt(functionName.Value as string, parameters, body);
+
+            symbolTable.RegisterFunction((string)functionName.Value, TokenType.None, parameters.Select(p => p.Type).ToArray());
+
+            return new FunctionStmt((string)functionName.Value, parameters, body);
         }
 
         VariableStmt ParseVariableDeclarationStatement()
@@ -224,7 +228,7 @@ namespace Tython.Component
             Consume(TokenType.Semicolon, "Expect ';' after variable declaration");
 
             string name = token.Value.ToString();
-            symbolTable.Add(name, declaredType);
+            symbolTable.RegisterVariable(name, declaredType);
             return new(initializer, name, declaredType);
         }
 
@@ -525,12 +529,12 @@ namespace Tython.Component
 
         Token Advance()
         {
-            return tokens[nextToken++];
+            return tokens[tokenIndex++];
         }
 
         Token GetToken(int offset)
         {
-            int nextTokenPos = nextToken + offset;
+            int nextTokenPos = tokenIndex + offset;
             Token token = AtEnd || nextTokenPos >= tokens.Length ? Token.Null : tokens[nextTokenPos];
             return token;
         }

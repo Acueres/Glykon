@@ -35,6 +35,10 @@ namespace Tython.Component
 
                 return new BlockStmt(blockStmts, blockStmt.ScopeIndex);
             }
+            else if (statement.Type == StatementType.Function)
+            {
+                return statement;
+            }
             else if (statement.Type == StatementType.Jump)
             {
                 return statement;

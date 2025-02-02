@@ -1,11 +1,13 @@
 ﻿using Tython.Model;
+using static System.Runtime.InteropServices.JavaScript.JSType;
 
 namespace Tython.Component
 {
     public class Scope
     {
         readonly Scope root;
-        readonly Dictionary<int, Symbol> symbols = [];
+        readonly Dictionary<int, VariableSymbol> variables = [];
+        readonly Dictionary<int, FunctionSymbol> functions = [];
         readonly HashSet<int> initialized = [];
 
         public Scope Root => root;
@@ -23,48 +25,70 @@ namespace Tython.Component
             ScopeIndex = scopeIndex;
         }
 
-        public Symbol Add(int symbolId, int index, TokenType type)
+        public FunctionSymbol AddFunction(int symbolId, TokenType returnType, TokenType[] parameterTypes)
         {
-            Symbol symbol = new(index, symbolId, type);
-            symbols.Add(symbolId, symbol);
+            FunctionSymbol symbol = new(symbolId, returnType, parameterTypes);
+            functions.Add(symbolId, symbol);
             return symbol;
         }
 
-        public void Initialize(int symbolId)
+        public FunctionSymbol? GetFunction(int symbolId)
+        {
+            if (!functions.TryGetValue(symbolId, out FunctionSymbol? symbol))
+            {
+                if (root is null)
+                {
+                    return null;
+                }
+
+                return root.GetFunction(symbolId);
+            }
+
+            return symbol;
+        }
+
+        public VariableSymbol AddVariable(int index, int symbolId, TokenType type)
+        {
+            VariableSymbol symbol = new(index, symbolId, type);
+            variables.Add(symbolId, symbol);
+            return symbol;
+        }
+
+        public void InitializeVariable(int symbolId)
         {
             initialized.Add(symbolId);
         }
 
         /**Search for symbol in scopes disregarding its initialization status.*/
-        public Symbol Get(int symbolId)
+        public VariableSymbol? GetVariable(int symbolId)
         {
-            if (!symbols.TryGetValue(symbolId, out Symbol symbol))
+            if (!variables.TryGetValue(symbolId, out VariableSymbol? symbol))
             {
                 if (root is null)
                 {
-                    return Symbol.Null;
+                    return null;
                 }
 
-                return root.Get(symbolId);
+                return root.GetVariable(symbolId);
             }
 
             return symbol;
         }
 
         /**Search for an initialized symbol in scopes.*/
-        public Symbol GetInitialized(int symbolId)
+        public VariableSymbol? GetInitializedVariable(int symbolId)
         {
             if (!initialized.Contains(symbolId))
             {
                 if (root is null)
                 {
-                    return Symbol.Null;
+                    return null;
                 }
 
-                return root.GetInitialized(symbolId);
+                return root.GetInitializedVariable(symbolId);
             }
 
-            return symbols[symbolId];
+            return variables[symbolId];
         }
     }
 }
