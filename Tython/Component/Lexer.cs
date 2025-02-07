@@ -262,7 +262,7 @@ namespace Tython.Component
         {
             keywords =
             [
-                "class", "struct", "interface", "enum", "def", "let", "print",
+                "class", "struct", "interface", "enum", "def", "let", "const", "print",
                 "int", "real", "str", "true", "false", "none",
                 "and", "not", "or",
                 "if", "else", "elif", "for", "while", "return", "break", "continue",
@@ -283,6 +283,7 @@ namespace Tython.Component
                 { "enum", TokenType.Enum },
                 { "def", TokenType.Def },
                 { "let", TokenType.Let },
+                { "const", TokenType.Const },
                 { "print", TokenType.Print },
                 { "int", TokenType.Int },
                 { "real", TokenType.Real },

@@ -22,6 +22,7 @@ namespace Tython.Component
                 {
                     if (Current.Type == TokenType.EOF) break;
                     IStatement stmt = ParseStatement();
+                    if (stmt is null) continue;
                     statements.Add(stmt);
                 }
 
@@ -42,6 +43,12 @@ namespace Tython.Component
 
         IStatement ParseStatement()
         {
+            if (Match(TokenType.Const))
+            {
+                ParseConstantDeclarationStatement();
+                return null;
+            }
+
             if (Match(TokenType.Let))
             {
                 return ParseVariableDeclarationStatement();
@@ -96,7 +103,9 @@ namespace Tython.Component
 
             while (Current.Type != TokenType.BraceRight && !AtEnd)
             {
-                statements.Add(ParseStatement());
+                IStatement stmt = ParseStatement();
+                if (stmt is null) continue;
+                statements.Add(stmt);
             }
 
             Consume(TokenType.BraceRight, "Expect '}' after block");
@@ -223,13 +232,45 @@ namespace Tython.Component
                     errors.Add(error);
                     throw error.Exception();
                 }
+
+
+                Consume(TokenType.Semicolon, "Expect ';' after variable declaration");
+
+                string name = token.Value.ToString();
+                symbolTable.RegisterVariable(name, declaredType);
+                return new(initializer, name, declaredType);
+            }
+        }
+
+        void ParseConstantDeclarationStatement()
+        {
+            Token token = Consume(TokenType.Identifier, "Expect constant name");
+
+            Consume(TokenType.Colon, "Expect type declaration");
+            TokenType declaredType = ParseTypeDeclaration();
+
+            Consume(TokenType.Assignment, "Expect constant value");
+            IExpression initializer = ParseExpression();
+
+            if (initializer is not LiteralExpr literal)
+            {
+                ParseError error = new(token, fileName, "Const value must be literal");
+                errors.Add(error);
+                throw error.Exception();
             }
 
-            Consume(TokenType.Semicolon, "Expect ';' after variable declaration");
+            TokenType inferredType = InfereType(literal, declaredType);
+            if (declaredType != inferredType)
+            {
+                ParseError error = new(token, fileName, "Type mismatch");
+                errors.Add(error);
+                throw error.Exception();
+            }
 
-            string name = token.Value.ToString();
-            symbolTable.RegisterVariable(name, declaredType);
-            return new(initializer, name, declaredType);
+            Consume(TokenType.Semicolon, "Expect ';' after constant declaration");
+
+            string name = (string)token.Value;
+            symbolTable.RegisterConstant(name, literal.Token.Value, declaredType);
         }
 
         TokenType ParseTypeDeclaration()

@@ -10,7 +10,8 @@ namespace Tython
             const string filename = "Test";
             const string src = @"
             def main() {
-                let a = 1
+                const p: int = 10
+                let a = 1 + 10
                 let b = 2
                 add(a, b)
             }

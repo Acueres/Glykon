@@ -20,12 +20,7 @@ namespace Tython.Component
 
         public FunctionSymbol RegisterFunction(string name, TokenType returnType, TokenType[] parameterTypes)
         {
-            if (!symbolMap.TryGetValue(name, out int symbolIndex))
-            {
-                symbolIndex = symbolMap.Count;
-                symbolMap.Add(name, symbolIndex);
-            }
-
+            int symbolIndex = GetSymbolId(name);
             FunctionSymbol symbol = current.AddFunction(symbolIndex, returnType, parameterTypes);
             return symbol;
         }
@@ -37,14 +32,23 @@ namespace Tython.Component
             return function;
         }
 
+        public ConstantSymbol RegisterConstant(string name, object value, TokenType type)
+        {
+            int symbolIndex = GetSymbolId(name);
+            ConstantSymbol constant = current.AddConstant(symbolIndex, value, type);
+            return constant;
+        }
+
+        public ConstantSymbol? GetConstant(string name)
+        {
+            int symbolIndex = symbolMap[name];
+            ConstantSymbol? constant = current.GetConstant(symbolIndex);
+            return constant;
+        }
+
         public VariableSymbol RegisterVariable(string name, TokenType type)
         {
-            if (!symbolMap.TryGetValue(name, out int symbolIndex))
-            {
-                symbolIndex = symbolMap.Count;
-                symbolMap.Add(name, symbolIndex);
-            }
-
+            int symbolIndex = GetSymbolId(name);
             VariableSymbol variable = current.AddVariable(localIndex++, symbolIndex, type);
             return variable;
         }
@@ -107,6 +111,17 @@ namespace Tython.Component
         {
             int symbolIndex = symbolMap[name];
             return current.GetVariable(symbolIndex).Type;
+        }
+
+        int GetSymbolId(string name)
+        {
+            if (!symbolMap.TryGetValue(name, out int symbolIndex))
+            {
+                symbolIndex = symbolMap.Count;
+                symbolMap.Add(name, symbolIndex);
+            }
+
+            return symbolIndex;
         }
     }
 }

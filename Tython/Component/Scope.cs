@@ -1,5 +1,4 @@
 ﻿using Tython.Model;
-using static System.Runtime.InteropServices.JavaScript.JSType;
 
 namespace Tython.Component
 {
@@ -7,6 +6,7 @@ namespace Tython.Component
     {
         readonly Scope root;
         readonly Dictionary<int, VariableSymbol> variables = [];
+        readonly Dictionary<int, ConstantSymbol> constants = [];
         readonly Dictionary<int, FunctionSymbol> functions = [];
         readonly HashSet<int> initialized = [];
 
@@ -27,7 +27,7 @@ namespace Tython.Component
 
         public FunctionSymbol AddFunction(int symbolId, TokenType returnType, TokenType[] parameterTypes)
         {
-            FunctionSymbol symbol = new(symbolId, returnType, parameterTypes);
+            FunctionSymbol symbol = new(returnType, parameterTypes);
             functions.Add(symbolId, symbol);
             return symbol;
         }
@@ -47,9 +47,31 @@ namespace Tython.Component
             return symbol;
         }
 
+        public ConstantSymbol AddConstant(int symbolId, object value, TokenType type)
+        {
+            ConstantSymbol symbol = new(value, type);
+            constants.Add(symbolId, symbol);
+            return symbol;
+        }
+
+        public ConstantSymbol? GetConstant(int symbolId)
+        {
+            if (!constants.TryGetValue(symbolId, out ConstantSymbol? symbol))
+            {
+                if (root is null)
+                {
+                    return null;
+                }
+
+                return root.GetConstant(symbolId);
+            }
+
+            return symbol;
+        }
+
         public VariableSymbol AddVariable(int index, int symbolId, TokenType type)
         {
-            VariableSymbol symbol = new(index, symbolId, type);
+            VariableSymbol symbol = new(index, type);
             variables.Add(symbolId, symbol);
             return symbol;
         }

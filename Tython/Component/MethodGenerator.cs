@@ -21,11 +21,11 @@ namespace Tython.Component
 
         public MethodGenerator(FunctionStmt stmt, SymbolTable symbolTable, TypeBuilder typeBuilder, string appName)
         {
-            var ts = TranslateTypes(stmt.Parameters.Select(p => p.Type).ToArray());
+            var ts = TranslateTypes([.. stmt.Parameters.Select(p => p.Type)]);
 
             mb = typeBuilder.DefineMethod(stmt.Name,
                 MethodAttributes.HideBySig | MethodAttributes.Public | MethodAttributes.Static,
-                typeof(void), TranslateTypes(stmt.Parameters.Select(p => p.Type).ToArray()));
+                typeof(void), TranslateTypes([.. stmt.Parameters.Select(p => p.Type)]));
 
             for (int i = 0; i < stmt.Parameters.Count; i++)
             {
@@ -208,7 +208,7 @@ namespace Tython.Component
                             case TokenType.True: il.Emit(OpCodes.Ldc_I4, 1); return TokenType.Bool;
                             case TokenType.False: il.Emit(OpCodes.Ldc_I4, 0); return TokenType.Bool;
                         }
-                        break;
+                        return TokenType.None;
                     }
                 case ExpressionType.Variable:
                     {
@@ -234,6 +234,21 @@ namespace Tython.Component
                             il.EmitCall(OpCodes.Call, methods[expr.Name], []);
 
                             return function.ReturnType;
+                        }
+
+                        ConstantSymbol? constant = st.GetConstant(expr.Name);
+                        if (constant is not null)
+                        {
+                            switch (constant.Type)
+                            {
+                                case TokenType.String: il.Emit(OpCodes.Ldstr, (string)constant.Value); return TokenType.String;
+                                case TokenType.Int: il.Emit(OpCodes.Ldc_I4, (int)constant.Value); return TokenType.Int;
+                                case TokenType.Real: il.Emit(OpCodes.Ldc_R8, (double)constant.Value); return TokenType.Real;
+                                case TokenType.True: il.Emit(OpCodes.Ldc_I4, 1); return TokenType.Bool;
+                                case TokenType.False: il.Emit(OpCodes.Ldc_I4, 0); return TokenType.Bool;
+                            }
+
+                            return constant.Type;
                         }
 
                         return TokenType.Null;

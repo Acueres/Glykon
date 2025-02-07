@@ -18,7 +18,7 @@
         Less, LessEqual, //< <=
 
         //keywords
-        Class, Struct, Interface, Enum, Def, Let, Print,
+        Class, Struct, Interface, Enum, Def, Let, Const, Print,
         And, Not, Or,
         If, Else, Elif, For, While, Return, Break, Continue,
 

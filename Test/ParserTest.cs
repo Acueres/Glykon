@@ -172,9 +172,26 @@ namespace Test
         }
 
         [Fact]
+        public void ConstantDeclarationTest()
+        {
+            Token[] tokens = [new(TokenType.Const, 0), new("pi", 0, TokenType.Identifier),
+            new(TokenType.Colon, 0), new(TokenType.Real, 0),
+            new(TokenType.Assignment, 0), new(3.14, 0, TokenType.Real), new(TokenType.Semicolon, 0)];
+            Parser parser = new(tokens, "ConstantDeclarationTest");
+            var (stmts, st, errors) = parser.Execute();
+
+            Assert.Empty(errors);
+            Assert.Empty(stmts);
+            
+            var constant = st.GetConstant("pi");
+            Assert.NotNull(constant);
+            Assert.Equal(3.14, (double)constant.Value);
+        }
+
+        [Fact]
         public void VariableDeclarationTest()
         {
-            Token[] tokens = [new(TokenType.Let, 0), new("value", 0, TokenType.Identifier), new(TokenType.Assignment, 0), new(42L, 0, TokenType.Int), new(TokenType.Semicolon, 0)];
+            Token[] tokens = [new(TokenType.Let, 0), new("value", 0, TokenType.Identifier), new(TokenType.Assignment, 0), new(42, 0, TokenType.Int), new(TokenType.Semicolon, 0)];
             Parser parser = new(tokens, "VariableDeclarationTest");
             var (stmts, _, _) = parser.Execute();
 
@@ -185,7 +202,7 @@ namespace Test
             Assert.Equal("value", stmt.Name);
             Assert.NotNull(stmt.Expression);
             Assert.Equal(TokenType.Int, stmt.VariableType);
-            Assert.Equal(42L, (stmt.Expression as LiteralExpr).Token.Value);
+            Assert.Equal(42, (stmt.Expression as LiteralExpr).Token.Value);
         }
 
         [Fact]
