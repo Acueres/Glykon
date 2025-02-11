@@ -65,6 +65,11 @@ namespace Tython.Component
                 case '+':
                     return new(TokenType.Plus, line);
                 case '-':
+                    if (Match('>'))
+                    {
+                        return new(TokenType.Arrow, line);
+                    }
+
                     return new(TokenType.Minus, line);
                 case '<':
                     return new(Match('=') ? TokenType.LessEqual : TokenType.Less, line);

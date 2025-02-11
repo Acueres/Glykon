@@ -49,14 +49,14 @@ namespace Test
         [Fact]
         public void ScanSymbolsTest()
         {
-            const string symbols = "(( )){} *+-/=<> <= == != >= // ** , .";
+            const string symbols = "(( )){} *+-/=<> <= == != >= // ** , . ->";
 
             Lexer lexer = new(symbols, "SymbolsTest");
             var (tokens, _) = lexer.Execute();
 
             tokens = tokens.Where(t => t.Type != TokenType.EOF).ToArray();
 
-            Assert.Equal(21, tokens.Length);
+            Assert.Equal(22, tokens.Length);
         }
 
         [Fact]

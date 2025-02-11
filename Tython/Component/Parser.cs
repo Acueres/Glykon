@@ -54,6 +54,11 @@ namespace Tython.Component
                 return ParseVariableDeclarationStatement();
             }
 
+            if (Match(TokenType.Return))
+            {
+                return ParseReturnStatement();
+            }
+
             if (Match(TokenType.BraceLeft))
             {
                 return ParseBlockStatement();
@@ -190,12 +195,36 @@ namespace Tython.Component
 
             Consume(TokenType.ParenthesisRight, "Expect ')' after parameters");
 
+            TokenType returnType = TokenType.None;
+            if (Match(TokenType.Arrow))
+            {
+                returnType = ParseTypeDeclaration();
+            }
+
             Consume(TokenType.BraceLeft, "Expect '{' before function body");
             BlockStmt body = ParseBlockStatement();
 
-            symbolTable.RegisterFunction((string)functionName.Value, TokenType.None, parameters.Select(p => p.Type).ToArray());
+            if (body.Statements.Last().Type != StatementType.Return)
+            {
+                body.Statements.Add(new ReturnStmt(null));
+            }
 
-            return new FunctionStmt((string)functionName.Value, parameters, body);
+            symbolTable.RegisterFunction((string)functionName.Value, returnType, parameters.Select(p => p.Type).ToArray());
+
+            return new FunctionStmt((string)functionName.Value, parameters, returnType, body);
+        }
+
+        ReturnStmt ParseReturnStatement()
+        {
+            if (Match(TokenType.Semicolon))
+            {
+                return new ReturnStmt(null);
+            }
+
+            IExpression value = ParseExpression();
+
+            Consume(TokenType.Semicolon, "Expect ';' after return value");
+            return new ReturnStmt(value);
         }
 
         VariableStmt ParseVariableDeclarationStatement()
@@ -275,9 +304,7 @@ namespace Tython.Component
 
         TokenType ParseTypeDeclaration()
         {
-            TokenType type = Current.Type;
-            Advance();
-            return type;
+            return Advance().Type;
         }
 
         TokenType InfereType(IExpression expression, TokenType type)

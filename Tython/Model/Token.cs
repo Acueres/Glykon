@@ -11,7 +11,7 @@
         ParenthesisLeft, ParenthesisRight, //()
         BraceLeft, BraceRight, //{}
 
-        Comma, Dot, Minus, Plus, Semicolon, Colon, Slash, SlashDouble, Star, StarDouble, Assignment, //, . - + ; : / // * ** =
+        Comma, Dot, Minus, Plus, Semicolon, Colon, Slash, SlashDouble, Star, StarDouble, Assignment, Arrow, //, . - + ; : / // * ** = ->
 
         NotEqual, Equal, //!= ==
         Greater, GreaterEqual, //> >=

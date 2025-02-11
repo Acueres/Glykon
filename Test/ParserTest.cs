@@ -148,8 +148,8 @@ namespace Test
         {
             const string fileName = "FunctionDeclarationTest";
             const string src = @"
-            def f(a: int, b: int) {
-                print a + b
+            def f(a: int, b: int) -> int {
+                return a + b
             }
             ";
 
@@ -165,10 +165,11 @@ namespace Test
 
             FunctionStmt function = stmts.First() as FunctionStmt;
             Assert.Equal("f", function.Name);
+            Assert.Equal(TokenType.Int, function.ReturnType);
             Assert.Equal(2, function.Parameters.Count);
             Assert.NotNull(function.Body);
             Assert.Single(function.Body.Statements);
-
+            Assert.Equal(StatementType.Return, function.Body.Statements.Single().Type);
         }
 
         [Fact]

@@ -13,11 +13,19 @@ namespace Tython
                 const p: int = 10
                 let a = 1 + 10
                 let b = 2
-                add(a, b)
+                print add(a, b)
+                print hi('John', 'Doe')
             }
 
-            def add(a: int, b: int) {
-                print a + b
+            def add(a: int, b: int) -> int {
+                if a == 11 {
+                    return -1
+                }
+                return a + b
+            }
+
+            def hi(first: str, last: str) -> str {
+                return ""Hi, "" + first + "" "" + last + ""!""
             }
 ";
             Lexer lexer = new(src, filename);
