@@ -1,8 +1,14 @@
 ﻿namespace Tython.Model
 {
-    public class VariableSymbol(int index, TokenType type)
+    public class VariableSymbol(TokenType type)
     {
-        public int LocalIndex { get; } = index;
+        public int LocalIndex { get; set; }
+        public TokenType Type { get; } = type;
+    }
+
+    public class ParameterSymbol(int index, TokenType type)
+    {
+        public int Index { get; } = index;
         public TokenType Type { get; } = type;
     }
 

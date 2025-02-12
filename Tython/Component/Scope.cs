@@ -4,14 +4,18 @@ namespace Tython.Component
 {
     public class Scope
     {
-        readonly Scope root;
-        readonly Dictionary<int, VariableSymbol> variables = [];
-        readonly Dictionary<int, ConstantSymbol> constants = [];
-        readonly Dictionary<int, FunctionSymbol> functions = [];
-        readonly HashSet<int> initialized = [];
-
         public Scope Root => root;
         public int ScopeIndex { get; }
+
+        readonly Scope root;
+        readonly Dictionary<int, VariableSymbol> variables = [];
+        readonly Dictionary<int, ParameterSymbol> parameters = [];
+        readonly Dictionary<int, ConstantSymbol> constants = [];
+        readonly Dictionary<int, FunctionSymbol> functions = [];
+
+        readonly HashSet<int> initialized = [];
+
+        int parameterCount = 0;
 
         public Scope()
         {
@@ -69,9 +73,31 @@ namespace Tython.Component
             return symbol;
         }
 
-        public VariableSymbol AddVariable(int index, int symbolId, TokenType type)
+        public ParameterSymbol AddParameter(int symbolId, TokenType type)
         {
-            VariableSymbol symbol = new(index, type);
+            ParameterSymbol symbol = new(parameterCount++, type);
+            parameters.Add(symbolId, symbol);
+            return symbol;
+        }
+
+        public ParameterSymbol GetParameter(int symbolId)
+        {
+            if (!parameters.TryGetValue(symbolId, out ParameterSymbol? symbol))
+            {
+                if (root is null)
+                {
+                    return null;
+                }
+
+                return root.GetParameter(symbolId);
+            }
+
+            return symbol;
+        }
+
+        public VariableSymbol AddVariable(int symbolId, TokenType type)
+        {
+            VariableSymbol symbol = new(type);
             variables.Add(symbolId, symbol);
             return symbol;
         }

@@ -1,6 +1,6 @@
 ﻿using System.Reflection;
 using System.Reflection.Emit;
-using System.Reflection.Metadata;
+
 using Tython.Model;
 
 namespace Tython.Component
@@ -14,11 +14,13 @@ namespace Tython.Component
         readonly SymbolTable st;
         readonly string appName;
 
-        readonly Dictionary<string, (int, TokenType)> parameters = [];
-
         Dictionary<string, MethodBuilder> methods = [];
-        Label loopStart;
-        Label loopEnd;
+
+        readonly Label returnLabel;
+        readonly LocalBuilder? returnLocal; 
+
+        readonly Stack<Label> loopStart = [];
+        readonly Stack<Label> loopEnd = [];
 
         public MethodGenerator(FunctionStmt stmt, SymbolTable symbolTable, TypeBuilder typeBuilder, string appName)
         {
@@ -32,7 +34,6 @@ namespace Tython.Component
             for (int i = 0; i < stmt.Parameters.Count; i++)
             {
                 mb.DefineParameter(i + 1, ParameterAttributes.None, stmt.Parameters[i].Name);
-                parameters.Add(stmt.Parameters[i].Name, (i, stmt.Parameters[i].Type));
             }
 
             il = mb.GetILGenerator();
@@ -40,6 +41,13 @@ namespace Tython.Component
             fStmt = stmt;
             st = symbolTable;
             this.appName = appName;
+
+            returnLabel = il.DefineLabel();
+
+            if (stmt.ReturnType != TokenType.None)
+            {
+                returnLocal = il.DeclareLocal(TranslateType(stmt.ReturnType));
+            }
         }
 
         public MethodBuilder GetMethodBuilder() => mb;
@@ -48,21 +56,53 @@ namespace Tython.Component
         {
             this.methods = methods;
 
-            EmitStatement(fStmt.Body);
+            st.EnterScope(fStmt.ScopeIndex);
+
+            foreach (IStatement stmt in fStmt.Body)
+            {
+                EmitStatement(stmt);
+            }
+
+            st.ExitScope();
+
+            il.MarkLabel(returnLabel);
+
+            if (returnLocal != null)
+            {
+                il.Emit(OpCodes.Ldloc, returnLocal.LocalIndex);
+            }
+
+            il.Emit(OpCodes.Ret);
         }
 
         void EmitStatement(IStatement statement)
         {
             switch (statement.Type)
             {
-                case StatementType.Print: EmitPrintStatement((PrintStmt)statement); break;
-                case StatementType.Variable: EmitVariableDeclarationStatement((VariableStmt)statement); break;
-                case StatementType.If: EmitIfStatement((IfStmt)statement); break;
-                case StatementType.While: EmitWhileStatement((WhileStmt)statement); break;
-                case StatementType.Block: EmitBlockStatement((BlockStmt)statement); break;
-                case StatementType.Jump: EmitJumpStatement((JumpStmt)statement); break;
-                case StatementType.Return: EmitReturnStatement((ReturnStmt)statement); break;
-                default: EmitExpression(statement.Expression); break;
+                case StatementType.Print:
+                    EmitPrintStatement((PrintStmt)statement);
+                    break;
+                case StatementType.Variable:
+                    EmitVariableDeclarationStatement((VariableStmt)statement);
+                    break;
+                case StatementType.If:
+                    EmitIfStatement((IfStmt)statement);
+                    break;
+                case StatementType.While:
+                    EmitWhileStatement((WhileStmt)statement);
+                    break;
+                case StatementType.Block:
+                    EmitBlockStatement((BlockStmt)statement);
+                    break;
+                case StatementType.Jump:
+                    EmitJumpStatement((JumpStmt)statement);
+                    break;
+                case StatementType.Return:
+                    EmitReturnStatement((ReturnStmt)statement);
+                    break;
+                default:
+                    EmitExpression(statement.Expression);
+                    break;
             }
         }
 
@@ -96,18 +136,11 @@ namespace Tython.Component
         {
             VariableSymbol symbol = st.GetVariable(statement.Name);
 
-            Type type = symbol.Type switch
-            {
-                TokenType.String => typeof(string),
-                TokenType.Int => typeof(int),
-                TokenType.Real => typeof(double),
-                TokenType.Bool => typeof(bool),
-                TokenType.True => typeof(bool),
-                TokenType.False => typeof(bool),
-                _ => typeof(object),
-            };
+            Type type = TranslateType(symbol.Type);
 
-            il.DeclareLocal(type);
+            var lb = il.DeclareLocal(type);
+            symbol.LocalIndex = lb.LocalIndex;
+
             EmitExpression(statement.Expression);
             il.Emit(OpCodes.Stloc, symbol.LocalIndex);
 
@@ -119,9 +152,10 @@ namespace Tython.Component
             if (returnStmt.Expression != null)
             {
                 EmitExpression(returnStmt.Expression);
+                il.Emit(OpCodes.Stloc, returnLocal.LocalIndex);
             }
 
-            il.Emit(OpCodes.Ret);
+            il.Emit(OpCodes.Br_S, returnLabel);
         }
 
         void EmitIfStatement(IfStmt ifStmt)
@@ -159,30 +193,36 @@ namespace Tython.Component
 
         void EmitWhileStatement(WhileStmt whileStmt)
         {
-            loopStart = il.DefineLabel();
-            loopEnd = il.DefineLabel();
+            var loopStartLabel = il.DefineLabel();
+            var loopEndLabel = il.DefineLabel();
 
-            il.MarkLabel(loopStart);
+            loopStart.Push(loopStartLabel);
+            loopEnd.Push(loopEndLabel);
+
+            il.MarkLabel(loopStartLabel);
             EmitExpression(whileStmt.Expression);
 
-            il.Emit(OpCodes.Brfalse_S, loopEnd);
+            il.Emit(OpCodes.Brfalse_S, loopEndLabel);
 
             EmitStatement(whileStmt.Statement);
 
-            il.Emit(OpCodes.Br_S, loopStart);
+            il.Emit(OpCodes.Br_S, loopStartLabel);
 
-            il.MarkLabel(loopEnd);
+            il.MarkLabel(loopEndLabel);
+
+            loopStart.Pop();
+            loopEnd.Pop();
         }
 
         void EmitJumpStatement(JumpStmt jumpStatement)
         {
             if (jumpStatement.Token.Type == TokenType.Break)
             {
-                il.Emit(OpCodes.Br_S, loopEnd);
+                il.Emit(OpCodes.Br_S, loopEnd.Last());
             }
             else if (jumpStatement.Token.Type == TokenType.Continue)
             {
-                il.Emit(OpCodes.Br_S, loopStart);
+                il.Emit(OpCodes.Br_S, loopStart.Last());
             }
         }
 
@@ -199,10 +239,11 @@ namespace Tython.Component
                     {
                         var expr = (VariableExpr)expression;
 
-                        if (parameters.TryGetValue(expr.Name, out var p))
+                        ParameterSymbol? parameter = st.GetParameter(expr.Name);
+                        if (parameter is not null)
                         {
-                            il.Emit(OpCodes.Ldarg, p.Item1);
-                            return p.Item2 == TokenType.True || p.Item2 == TokenType.False ? TokenType.Bool : p.Item2;
+                            il.Emit(OpCodes.Ldarg, parameter.Index);
+                            return parameter.Type == TokenType.True || parameter.Type == TokenType.False ? TokenType.Bool : parameter.Type;
                         }
 
                         VariableSymbol? variable = st.GetInitializedVariable(expr.Name);
@@ -233,10 +274,11 @@ namespace Tython.Component
                     {
                         var expr = (AssignmentExpr)expression;
 
-                        if (parameters.TryGetValue(expr.Name, out var p))
+                        ParameterSymbol? parameter = st.GetParameter(expr.Name);
+                        if (parameter is not null)
                         {
-                            il.Emit(OpCodes.Starg, p.Item1);
-                            return p.Item2 == TokenType.True || p.Item2 == TokenType.False ? TokenType.Bool : p.Item2;
+                            il.Emit(OpCodes.Starg, parameter.Index);
+                            return parameter.Type == TokenType.True || parameter.Type == TokenType.False ? TokenType.Bool : parameter.Type;
                         }
                         else
                         {
@@ -430,16 +472,16 @@ namespace Tython.Component
 
         static Type TranslateType(TokenType type)
         {
-            switch (type)
+            return type switch
             {
-                case TokenType.Bool: return typeof(bool);
-                case TokenType.True: return typeof(bool);
-                case TokenType.False: return typeof(bool);
-                case TokenType.Int: return typeof(int);
-                case TokenType.Real: return typeof(double);
-                case TokenType.String: return typeof(string);
-                default: return typeof(void);
-            }
+                TokenType.Bool => typeof(bool),
+                TokenType.True => typeof(bool),
+                TokenType.False => typeof(bool),
+                TokenType.Int => typeof(int),
+                TokenType.Real => typeof(double),
+                TokenType.String => typeof(string),
+                _ => typeof(void),
+            };
         }
 
         static Type[] TranslateTypes(TokenType[] types)

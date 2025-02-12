@@ -168,8 +168,8 @@ namespace Test
             Assert.Equal(TokenType.Int, function.ReturnType);
             Assert.Equal(2, function.Parameters.Count);
             Assert.NotNull(function.Body);
-            Assert.Single(function.Body.Statements);
-            Assert.Equal(StatementType.Return, function.Body.Statements.Single().Type);
+            Assert.Single(function.Body);
+            Assert.Equal(StatementType.Return, function.Body.Single().Type);
         }
 
         [Fact]

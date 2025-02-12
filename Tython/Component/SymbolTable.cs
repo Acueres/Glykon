@@ -7,8 +7,6 @@ namespace Tython.Component
         readonly Scope global = new();
         readonly List<Scope> scopes;
         readonly Dictionary<string, int> symbolMap = [];
-        readonly Stack<int> localCounters = [];
-        int localIndex;
 
         Scope current;
 
@@ -46,10 +44,24 @@ namespace Tython.Component
             return constant;
         }
 
+        public ParameterSymbol RegisterParameter(string name, TokenType type)
+        {
+            int symbolIndex = GetSymbolId(name);
+            ParameterSymbol parameter = current.AddParameter(symbolIndex, type);
+            return parameter;
+        }
+
+        public ParameterSymbol? GetParameter(string name)
+        {
+            int symbolIndex = symbolMap[name];
+            ParameterSymbol? parameter = current.GetParameter(symbolIndex);
+            return parameter;
+        }
+
         public VariableSymbol RegisterVariable(string name, TokenType type)
         {
             int symbolIndex = GetSymbolId(name);
-            VariableSymbol variable = current.AddVariable(localIndex++, symbolIndex, type);
+            VariableSymbol variable = current.AddVariable(symbolIndex, type);
             return variable;
         }
 
@@ -96,21 +108,29 @@ namespace Tython.Component
             current = global;
         }
 
-        public void BeginLocalCount()
-        {
-            localCounters.Push(localIndex);
-            localIndex = 0;
-        }
-
-        public void ExitLocalCount()
-        {
-            localIndex = localCounters.Pop();
-        }
-
         public TokenType GetType(string name)
         {
             int symbolIndex = symbolMap[name];
-            return current.GetVariable(symbolIndex).Type;
+
+            ParameterSymbol? parameter = current.GetParameter(symbolIndex);
+            if (parameter != null)
+            {
+                return parameter.Type;
+            }
+
+            VariableSymbol? variableSymbol = current.GetVariable(symbolIndex);
+            if (variableSymbol != null)
+            {
+                return variableSymbol.Type;
+            }
+
+            ConstantSymbol? constantSymbol = current.GetConstant(symbolIndex);
+            if (constantSymbol != null)
+            {
+                return constantSymbol.Type;
+            }
+
+            return TokenType.None;
         }
 
         int GetSymbolId(string name)

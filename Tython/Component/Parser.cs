@@ -45,7 +45,7 @@ namespace Tython.Component
         {
             if (Match(TokenType.Const))
             {
-                ParseConstantDeclarationStatement();
+                ParseConstantDeclaration();
                 return null;
             }
 
@@ -174,6 +174,7 @@ namespace Tython.Component
             Consume(TokenType.ParenthesisLeft, "Expect '(' after function name");
             List<Parameter> parameters = [];
 
+            int scopeIndex = symbolTable.BeginScope();
             if (Current.Type != TokenType.ParenthesisRight)
             {
                 do
@@ -189,6 +190,8 @@ namespace Tython.Component
 
                     Parameter parameter = new(name.Value as string, type.Type);
                     parameters.Add(parameter);
+
+                    symbolTable.RegisterParameter(parameter.Name, parameter.Type);
                 }
                 while (Match(TokenType.Comma));
             }
@@ -202,16 +205,22 @@ namespace Tython.Component
             }
 
             Consume(TokenType.BraceLeft, "Expect '{' before function body");
-            BlockStmt body = ParseBlockStatement();
+            List<IStatement> body = [];
 
-            if (body.Statements.Last().Type != StatementType.Return)
+            while (Current.Type != TokenType.BraceRight && !AtEnd)
             {
-                body.Statements.Add(new ReturnStmt(null));
+                IStatement stmt = ParseStatement();
+                if (stmt is null) continue;
+                body.Add(stmt);
             }
 
-            symbolTable.RegisterFunction((string)functionName.Value, returnType, parameters.Select(p => p.Type).ToArray());
+            Consume(TokenType.BraceRight, "Expect '}' after function body");
 
-            return new FunctionStmt((string)functionName.Value, parameters, returnType, body);
+            symbolTable.ExitScope();
+
+            symbolTable.RegisterFunction((string)functionName.Value, returnType, [.. parameters.Select(p => p.Type)]);
+
+            return new FunctionStmt((string)functionName.Value, scopeIndex, parameters, returnType, body);
         }
 
         ReturnStmt ParseReturnStatement()
@@ -271,7 +280,7 @@ namespace Tython.Component
             }
         }
 
-        void ParseConstantDeclarationStatement()
+        void ParseConstantDeclaration()
         {
             Token token = Consume(TokenType.Identifier, "Expect constant name");
 
