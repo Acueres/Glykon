@@ -16,7 +16,7 @@ namespace Tython.Component
 
         Dictionary<string, MethodBuilder> methods = [];
 
-        readonly Label returnLabel;
+        readonly Label? returnLabel;
         readonly LocalBuilder? returnLocal; 
 
         readonly Stack<Label> loopStart = [];
@@ -42,9 +42,15 @@ namespace Tython.Component
             st = symbolTable;
             this.appName = appName;
 
-            returnLabel = il.DefineLabel();
+            int n = CountReturnStatements(stmt);
+            bool multipleReturns = CountReturnStatements(stmt) > 1;
 
-            if (stmt.ReturnType != TokenType.None)
+            if (multipleReturns || (stmt.ReturnType == TokenType.None && n > 0))
+            {
+                returnLabel = il.DefineLabel();
+            }
+
+            if (stmt.ReturnType != TokenType.None && multipleReturns)
             {
                 returnLocal = il.DeclareLocal(TranslateType(stmt.ReturnType));
             }
@@ -65,9 +71,12 @@ namespace Tython.Component
 
             st.ExitScope();
 
-            il.MarkLabel(returnLabel);
+            if (returnLabel is not null)
+            {
+                il.MarkLabel((Label)returnLabel);
+            }
 
-            if (returnLocal != null)
+            if (returnLocal is not null)
             {
                 il.Emit(OpCodes.Ldloc, returnLocal.LocalIndex);
             }
@@ -152,10 +161,17 @@ namespace Tython.Component
             if (returnStmt.Expression != null)
             {
                 EmitExpression(returnStmt.Expression);
-                il.Emit(OpCodes.Stloc, returnLocal.LocalIndex);
+
+                if (returnLocal != null)
+                {
+                    il.Emit(OpCodes.Stloc, returnLocal.LocalIndex);
+                }
             }
 
-            il.Emit(OpCodes.Br_S, returnLabel);
+            if (returnLabel is not null)
+            {
+                il.Emit(OpCodes.Br_S, (Label)returnLabel);
+            }
         }
 
         void EmitIfStatement(IfStmt ifStmt)
@@ -494,6 +510,40 @@ namespace Tython.Component
             }
 
             return [.. result];
+        }
+
+        static int CountReturnStatements(IStatement statement)
+        {
+            if (statement is ReturnStmt)
+            {
+                return 1;
+            }
+
+            int count = 0;
+            if (statement is FunctionStmt fStmt)
+            {
+                foreach (var stmt in fStmt.Body)
+                {
+                    count += CountReturnStatements(stmt);
+                }
+            }
+            else if (statement is BlockStmt blockStmt)
+            {
+                foreach (var stmt in blockStmt.Statements)
+                {
+                    count += CountReturnStatements(stmt);
+                }
+            }
+            else if (statement is IfStmt ifStmt)
+            {
+                count += CountReturnStatements(ifStmt.Statement);
+            }
+            else if (statement is WhileStmt whileStmt)
+            {
+                count += CountReturnStatements(whileStmt.Statement);
+            }
+
+            return count;
         }
     }
 }

@@ -11,6 +11,11 @@ namespace Tython
             const string src = @"
             def main() {
                 const p: int = 10
+
+                if p == 9 {
+                    return
+                }
+
                 let a = 1 + 10
                 let b = 2
                 print add(a, b)
@@ -19,7 +24,7 @@ namespace Tython
 
             def add(a: int, b: int) -> int {
                 if a == 11 {
-                    return -1
+                    return b
                 }
                 return a + b
             }
