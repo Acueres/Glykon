@@ -1,6 +1,12 @@
-﻿using Tython.Model;
+﻿using TythonCompiler.Syntax;
+using TythonCompiler.Tokenization;
+using TythonCompiler.SemanticAnalysis;
+using TythonCompiler.Diagnostics.Exceptions;
+using TythonCompiler.Diagnostics.Errors;
+using TythonCompiler.Syntax.Expressions;
+using TythonCompiler.Syntax.Statements;
 
-namespace Tython.Component
+namespace TythonCompiler.Parsing
 {
     public class Parser(Token[] tokens, string fileName)
     {

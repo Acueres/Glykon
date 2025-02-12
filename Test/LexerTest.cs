@@ -1,5 +1,4 @@
-using Tython.Component;
-using Tython.Model;
+using TythonCompiler.Tokenization;
 
 namespace Test
 {

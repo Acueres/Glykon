@@ -1,4 +1,6 @@
-﻿namespace Tython.Model
+﻿using TythonCompiler.Tokenization;
+
+namespace TythonCompiler.Syntax
 {
     public readonly struct Parameter(string name, TokenType type)
     {

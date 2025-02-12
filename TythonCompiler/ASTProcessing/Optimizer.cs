@@ -1,6 +1,8 @@
-﻿using Tython.Model;
+﻿using TythonCompiler.Syntax.Expressions;
+using TythonCompiler.Syntax.Statements;
+using TythonCompiler.Tokenization;
 
-namespace Tython.Component
+namespace TythonCompiler.ASTProcessing
 {
     public class Optimizer(IStatement[] statements)
     {

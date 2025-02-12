@@ -1,7 +1,7 @@
 ﻿using System.Globalization;
-using Tython.Model;
+using TythonCompiler.Diagnostics.Errors;
 
-namespace Tython.Component
+namespace TythonCompiler.Tokenization
 {
     public class Lexer(string source, string fileName)
     {

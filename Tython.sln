@@ -3,9 +3,9 @@ Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio Version 17
 VisualStudioVersion = 17.9.34622.214
 MinimumVisualStudioVersion = 10.0.40219.1
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Tython", "Tython\Tython.csproj", "{8A7C80C5-48B6-4527-A862-491017AF979E}"
-EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Test", "Test\Test.csproj", "{A549FC1F-AEA3-44F2-8915-73E673991AEB}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "TythonCompiler", "TythonCompiler\TythonCompiler.csproj", "{A9EDC82E-C408-85F3-E974-49382EAF5C9E}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -13,14 +13,14 @@ Global
 		Release|Any CPU = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(ProjectConfigurationPlatforms) = postSolution
-		{8A7C80C5-48B6-4527-A862-491017AF979E}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-		{8A7C80C5-48B6-4527-A862-491017AF979E}.Debug|Any CPU.Build.0 = Debug|Any CPU
-		{8A7C80C5-48B6-4527-A862-491017AF979E}.Release|Any CPU.ActiveCfg = Release|Any CPU
-		{8A7C80C5-48B6-4527-A862-491017AF979E}.Release|Any CPU.Build.0 = Release|Any CPU
 		{A549FC1F-AEA3-44F2-8915-73E673991AEB}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
 		{A549FC1F-AEA3-44F2-8915-73E673991AEB}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{A549FC1F-AEA3-44F2-8915-73E673991AEB}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{A549FC1F-AEA3-44F2-8915-73E673991AEB}.Release|Any CPU.Build.0 = Release|Any CPU
+		{A9EDC82E-C408-85F3-E974-49382EAF5C9E}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{A9EDC82E-C408-85F3-E974-49382EAF5C9E}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{A9EDC82E-C408-85F3-E974-49382EAF5C9E}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{A9EDC82E-C408-85F3-E974-49382EAF5C9E}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

@@ -1,7 +1,10 @@
 ﻿using System.Reflection;
-using Tython.Component;
 
-namespace Tython
+using TythonCompiler.Parsing;
+using TythonCompiler.Tokenization;
+using TythonCompiler.CodeGeneration;
+
+namespace TythonCompiler
 {
     internal class Program
     {
@@ -51,7 +54,7 @@ namespace Tython
 
             if (lexerErrors.Count != 0 || parserErrors.Count != 0) return;
 
-            var generator = new CodeGenerator(stmts, symbolTable, filename);
+            var generator = new TypeGenerator(stmts, symbolTable, filename);
             generator.GenerateAssembly();
 
             Assembly assembly = generator.GetAssembly();

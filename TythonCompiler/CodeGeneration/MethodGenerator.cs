@@ -1,9 +1,13 @@
 ﻿using System.Reflection;
 using System.Reflection.Emit;
+using TythonCompiler.Tokenization;
+using TythonCompiler.SemanticAnalysis;
+using TythonCompiler.Diagnostics.Errors;
+using TythonCompiler.SemanticAnalysis.Symbols;
+using TythonCompiler.Syntax.Expressions;
+using TythonCompiler.Syntax.Statements;
 
-using Tython.Model;
-
-namespace Tython.Component
+namespace TythonCompiler.CodeGeneration
 {
     internal class MethodGenerator
     {

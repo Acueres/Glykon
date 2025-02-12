@@ -1,4 +1,4 @@
-﻿namespace Tython.Model
+﻿namespace TythonCompiler.Tokenization
 {
     public enum TokenType : byte
     {

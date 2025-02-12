@@ -4,12 +4,12 @@ using System.Reflection.PortableExecutable;
 using System.Reflection;
 using System.Reflection.Emit;
 using System.Runtime.Loader;
+using TythonCompiler.SemanticAnalysis;
+using TythonCompiler.Syntax.Statements;
 
-using Tython.Model;
-
-namespace Tython.Component
+namespace TythonCompiler.CodeGeneration
 {
-    public class CodeGenerator
+    public class TypeGenerator
     {
         readonly string appName;
         readonly IStatement[] statements;
@@ -18,7 +18,7 @@ namespace Tython.Component
         readonly PersistedAssemblyBuilder ab;
         MethodBuilder main;
 
-        public CodeGenerator(IStatement[] statements, SymbolTable symbolTable, string appname)
+        public TypeGenerator(IStatement[] statements, SymbolTable symbolTable, string appname)
         {
             appName = appname;
             this.statements = statements;

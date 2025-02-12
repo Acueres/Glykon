@@ -1,5 +1,7 @@
-﻿using Tython.Component;
-using Tython.Model;
+﻿using TythonCompiler.Parsing;
+using TythonCompiler.Syntax.Expressions;
+using TythonCompiler.Syntax.Statements;
+using TythonCompiler.Tokenization;
 
 namespace Test
 {

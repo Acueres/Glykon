@@ -1,6 +1,7 @@
-﻿using Tython.Model;
+﻿using TythonCompiler.SemanticAnalysis.Symbols;
+using TythonCompiler.Tokenization;
 
-namespace Tython.Component
+namespace TythonCompiler.SemanticAnalysis
 {
     public class SymbolTable
     {
