@@ -1,7 +1,8 @@
 ﻿using System.Reflection;
 
-using TythonCompiler.Parsing;
 using TythonCompiler.Tokenization;
+using TythonCompiler.Parsing;
+using TythonCompiler.SemanticRefinement;
 using TythonCompiler.CodeGeneration;
 
 namespace TythonCompiler
@@ -13,27 +14,20 @@ namespace TythonCompiler
             const string filename = "Test";
             const string src = @"
             def main() {
-                const p: int = 10
+                let i = 0
 
-                if p == 9 {
-                    return
+                while i < 20 {
+                    print fib(i)
+                    i = i + 1
                 }
 
-                let a = 1 + 10
-                let b = 2
-                print add(a, b)
-                print hi('John', 'Doe')
-            }
+                def fib(n: int) -> int {
+                    if n <= 1 {
+                        return n
+                    }
 
-            def add(a: int, b: int) -> int {
-                if a == 11 {
-                    return b
+                    return fib(n - 2) + fib(n - 1)
                 }
-                return a + b
-            }
-
-            def hi(first: str, last: str) -> str {
-                return ""Hi, "" + first + "" "" + last + ""!""
             }
 ";
             Lexer lexer = new(src, filename);
@@ -52,7 +46,10 @@ namespace TythonCompiler
                 error.Report();
             }
 
-            if (lexerErrors.Count != 0 || parserErrors.Count != 0) return;
+            SemanticRefiner refiner = new(stmts, symbolTable, filename);
+            var refinerErrors = refiner.Execute();
+
+            if (lexerErrors.Count != 0 || parserErrors.Count != 0 || refinerErrors.Count != 0) return;
 
             var generator = new TypeGenerator(stmts, symbolTable, filename);
             generator.GenerateAssembly();

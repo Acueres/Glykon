@@ -7,7 +7,7 @@ namespace TythonCompiler.Syntax.Statements
     {
         public StatementType Type => StatementType.Function;
         public IExpression Expression { get; }
-        public string Name { get; } = name;
+        public string Name { get; set; } = name;
         public int ScopeIndex { get; } = scopeIndex;
         public List<Parameter> Parameters { get; } = parameters;
         public TokenType ReturnType { get; } = returnType;

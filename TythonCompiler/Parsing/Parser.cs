@@ -32,11 +32,6 @@ namespace TythonCompiler.Parsing
                     statements.Add(stmt);
                 }
 
-                foreach (IStatement statement in statements)
-                {
-                    CheckUnenclosedJumpStatements(statement);
-                }
-
                 return (statements.ToArray(), symbolTable, errors);
             }
             catch (ParseException)
@@ -330,7 +325,7 @@ namespace TythonCompiler.Parsing
                 case ExpressionType.Unary:
                     {
                         UnaryExpr unaryExpr = (UnaryExpr)expression;
-                        return InfereType(unaryExpr.Expr, type);
+                        return InfereType(unaryExpr.Expression, type);
                     }
                 case ExpressionType.Binary:
                     {
@@ -358,7 +353,7 @@ namespace TythonCompiler.Parsing
                         return typeLeft;
                     }
                 case ExpressionType.Variable: return symbolTable.GetType(((VariableExpr)expression).Name);
-                case ExpressionType.Grouping: return InfereType(((GroupingExpr)expression).Expr, type);
+                case ExpressionType.Grouping: return InfereType(((GroupingExpr)expression).Expression, type);
                 default: return type;
             }
         }
@@ -640,38 +635,6 @@ namespace TythonCompiler.Parsing
             }
 
             return false;
-        }
-
-        void CheckUnenclosedJumpStatements(IStatement statement)
-        {
-            if (statement.Type == StatementType.While) return;
-
-            if (statement is IfStmt ifStmt)
-            {
-                CheckUnenclosedJumpStatements(ifStmt.Statement);
-
-                if (ifStmt.ElseStatement is not null)
-                {
-                    CheckUnenclosedJumpStatements(ifStmt.ElseStatement);
-                }
-                return;
-            }
-
-            if (statement is BlockStmt blockStmt)
-            {
-                foreach (IStatement s in blockStmt.Statements)
-                {
-                    CheckUnenclosedJumpStatements(s);
-                }
-
-                return;
-            }
-
-            if (statement is JumpStmt jumpStmt)
-            {
-                ParseError error = new(jumpStmt.Token, fileName, "No enclosing loop out of which to break or continue");
-                errors.Add(error);
-            }
         }
     }
 }

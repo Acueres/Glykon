@@ -2,7 +2,7 @@
 using TythonCompiler.Syntax.Statements;
 using TythonCompiler.Tokenization;
 
-namespace TythonCompiler.ASTProcessing
+namespace TythonCompiler.SemanticRefinement
 {
     public class Optimizer(IStatement[] statements)
     {
@@ -89,12 +89,12 @@ namespace TythonCompiler.ASTProcessing
                 case ExpressionType.Grouping:
                     {
                         var expr = (GroupingExpr)expression;
-                        return EvaluateExpression(expr.Expr);
+                        return EvaluateExpression(expr.Expression);
                     }
                 case ExpressionType.Unary:
                     {
                         var expr = (UnaryExpr)expression;
-                        var evaluatedExpr = EvaluateExpression(expr.Expr);
+                        var evaluatedExpr = EvaluateExpression(expr.Expression);
 
                         if (evaluatedExpr is not LiteralExpr literal) return new UnaryExpr(expr.Operator, evaluatedExpr);
 

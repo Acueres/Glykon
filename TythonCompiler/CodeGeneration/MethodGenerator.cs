@@ -18,7 +18,9 @@ namespace TythonCompiler.CodeGeneration
         readonly SymbolTable st;
         readonly string appName;
 
-        Dictionary<string, MethodBuilder> methods = [];
+        Dictionary<string, MethodBuilder> combinedMethods = [];
+        readonly Dictionary<string, MethodBuilder> localFunctions = [];
+        readonly List<MethodGenerator> methodGenerators = [];
 
         readonly Label? returnLabel;
         readonly LocalBuilder? returnLocal; 
@@ -34,7 +36,7 @@ namespace TythonCompiler.CodeGeneration
             mb = typeBuilder.DefineMethod(stmt.Name,
                 MethodAttributes.HideBySig | MethodAttributes.Public | MethodAttributes.Static,
                 returnType, parameterTypes);
-
+            
             for (int i = 0; i < stmt.Parameters.Count; i++)
             {
                 mb.DefineParameter(i + 1, ParameterAttributes.None, stmt.Parameters[i].Name);
@@ -58,19 +60,32 @@ namespace TythonCompiler.CodeGeneration
             {
                 returnLocal = il.DeclareLocal(TranslateType(stmt.ReturnType));
             }
+
+            var locals = stmt.Body.Where(s => s.Type == StatementType.Function).Select(s => (FunctionStmt)s);
+            foreach (var f in locals)
+            {
+                MethodGenerator mg = new(f, symbolTable, typeBuilder, appName);
+                methodGenerators.Add(mg);
+                localFunctions.Add(f.Name, mg.GetMethodBuilder());
+            }
         }
 
         public MethodBuilder GetMethodBuilder() => mb;
 
         public void EmitMethod(Dictionary<string, MethodBuilder> methods)
         {
-            this.methods = methods;
+            combinedMethods = methods.Concat(localFunctions).ToDictionary();
 
             st.EnterScope(fStmt.ScopeIndex);
 
             foreach (IStatement stmt in fStmt.Body)
             {
                 EmitStatement(stmt);
+            }
+
+            foreach (var mg in methodGenerators)
+            {
+                mg.EmitMethod(combinedMethods);
             }
 
             st.ExitScope();
@@ -113,6 +128,7 @@ namespace TythonCompiler.CodeGeneration
                 case StatementType.Return:
                     EmitReturnStatement((ReturnStmt)statement);
                     break;
+                case StatementType.Function: break;
                 default:
                     EmitExpression(statement.Expression);
                     break;
@@ -277,7 +293,7 @@ namespace TythonCompiler.CodeGeneration
                         FunctionSymbol? function = st.GetFunction(expr.Name);
                         if (function is not null)
                         {
-                            il.EmitCall(OpCodes.Call, methods[expr.Name], []);
+                            il.EmitCall(OpCodes.Call, combinedMethods[expr.Name], []);
 
                             return function.ReturnType;
                         }
@@ -324,7 +340,7 @@ namespace TythonCompiler.CodeGeneration
                 case ExpressionType.Unary:
                     {
                         var expr = (UnaryExpr)expression;
-                        var type = EmitExpression(expr.Expr);
+                        var type = EmitExpression(expr.Expression);
 
                         switch (expr.Operator.Type)
                         {

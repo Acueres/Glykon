@@ -315,8 +315,8 @@ namespace Test
 
             var unary = (UnaryExpr)ast;
             Assert.Equal(TokenType.Not, unary.Operator.Type);
-            Assert.NotNull(unary.Expr);
-            Assert.Equal(TokenType.False, (unary.Expr as LiteralExpr).Token.Type);
+            Assert.NotNull(unary.Expression);
+            Assert.Equal(TokenType.False, (unary.Expression as LiteralExpr).Token.Type);
         }
 
         [Fact]

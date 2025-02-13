@@ -6,6 +6,6 @@ namespace TythonCompiler.Syntax.Expressions
     {
         public ExpressionType Type => ExpressionType.Unary;
         public Token Operator { get; } = oper;
-        public IExpression Expr { get; } = expr;
+        public IExpression Expression { get; } = expr;
     }
 }
