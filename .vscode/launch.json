@@ -10,9 +10,9 @@
             "request": "launch",
             "preLaunchTask": "build",
             // If you have changed target frameworks, make sure to update the program path.
-            "program": "${workspaceFolder}/Tython/bin/Debug/net9.0/Tython.dll",
+            "program": "${workspaceFolder}/TythonCompiler/bin/Debug/net9.0/TythonCompiler.dll",
             "args": [],
-            "cwd": "${workspaceFolder}/Tython",
+            "cwd": "${workspaceFolder}/TythonCompiler",
             // For more information about the 'console' field, see https://aka.ms/VSCode-CS-LaunchJson-Console
             "console": "internalConsole",
             "stopAtEntry": false
