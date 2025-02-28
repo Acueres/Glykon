@@ -6,7 +6,6 @@ namespace TythonCompiler.Syntax.Statements
     {
         Block,
         Expression,
-        Print,
         Variable,
         Function,
         Return,

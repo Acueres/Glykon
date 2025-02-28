@@ -18,13 +18,14 @@ namespace TythonCompiler.CodeGeneration
         readonly SymbolTable st;
         readonly string appName;
 
-        Dictionary<string, MethodBuilder> combinedMethods = [];
-        readonly Dictionary<string, MethodBuilder> localFunctions = [];
+        Dictionary<FunctionSignature, MethodInfo> combinedMethods = [];
+        readonly Dictionary<FunctionSignature, MethodInfo> localFunctions = [];
         readonly List<MethodGenerator> methodGenerators = [];
 
         readonly Label? returnLabel;
         readonly LocalBuilder? returnLocal; 
 
+        readonly Stack<TokenType[]> functionParameters = [];
         readonly Stack<Label> loopStart = [];
         readonly Stack<Label> loopEnd = [];
 
@@ -66,13 +67,13 @@ namespace TythonCompiler.CodeGeneration
             {
                 MethodGenerator mg = new(f, symbolTable, typeBuilder, appName);
                 methodGenerators.Add(mg);
-                localFunctions.Add(f.Name, mg.GetMethodBuilder());
+                localFunctions.Add(f.Signature, mg.GetMethodBuilder());
             }
         }
 
         public MethodBuilder GetMethodBuilder() => mb;
 
-        public void EmitMethod(Dictionary<string, MethodBuilder> methods)
+        public void EmitMethod(Dictionary<FunctionSignature, MethodInfo> methods)
         {
             combinedMethods = methods.Concat(localFunctions).ToDictionary();
 
@@ -107,9 +108,6 @@ namespace TythonCompiler.CodeGeneration
         {
             switch (statement.Type)
             {
-                case StatementType.Print:
-                    EmitPrintStatement((PrintStmt)statement);
-                    break;
                 case StatementType.Variable:
                     EmitVariableDeclarationStatement((VariableStmt)statement);
                     break;
@@ -145,20 +143,6 @@ namespace TythonCompiler.CodeGeneration
             }
 
             st.ExitScope();
-        }
-
-        void EmitPrintStatement(PrintStmt statement)
-        {
-            var type = EmitExpression(statement.Expression);
-            MethodInfo method = type switch
-            {
-                TokenType.String => typeof(Console).GetMethod("WriteLine", [typeof(string)]),
-                TokenType.Int => typeof(Console).GetMethod("WriteLine", [typeof(int)]),
-                TokenType.Real => typeof(Console).GetMethod("WriteLine", [typeof(double)]),
-                TokenType.Bool => typeof(Console).GetMethod("WriteLine", [typeof(bool)]),
-                _ => typeof(Console).GetMethod("WriteLine", [typeof(object)]),
-            };
-            il.EmitCall(OpCodes.Call, method, []);
         }
 
         void EmitVariableDeclarationStatement(VariableStmt statement)
@@ -290,18 +274,19 @@ namespace TythonCompiler.CodeGeneration
                             return variable.Type == TokenType.True || variable.Type == TokenType.False ? TokenType.Bool : variable.Type;
                         }
 
-                        FunctionSymbol? function = st.GetFunction(expr.Name);
-                        if (function is not null)
-                        {
-                            il.EmitCall(OpCodes.Call, combinedMethods[expr.Name], []);
-
-                            return function.ReturnType;
-                        }
-
                         ConstantSymbol? constant = st.GetConstant(expr.Name);
                         if (constant is not null)
                         {
                             return EmitPrimitive(constant.Type, constant.Value);
+                        }
+
+                        var parameters = functionParameters.Pop();
+                        (FunctionSymbol? function, FunctionSignature signature) = st.GetFunction(expr.Name, parameters);
+                        if (function is not null)
+                        {
+                            il.EmitCall(OpCodes.Call, combinedMethods[signature], []);
+
+                            return function.ReturnType;
                         }
 
                         return TokenType.Null;
@@ -329,11 +314,16 @@ namespace TythonCompiler.CodeGeneration
                 case ExpressionType.Call:
                     {
                         var expr = (CallExpr)expression;
-
+                        
+                        TokenType[] parameters = new TokenType[expr.Args.Count];
+                        int i = 0;
                         foreach (var arg in expr.Args)
                         {
-                            EmitExpression(arg);
+                            TokenType type = EmitExpression(arg);
+                            parameters[i++] = type;
                         }
+
+                        functionParameters.Push(parameters);
 
                         return EmitExpression(expr.Callee);
                     }

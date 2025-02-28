@@ -88,13 +88,6 @@ namespace TythonCompiler.Parsing
                 return ParseFunctionDeclaration();
             }
 
-            if (Match(TokenType.Print))
-            {
-                PrintStmt printStmt = new(ParseExpression());
-                Consume(TokenType.Semicolon, "Expect ';' after expression");
-                return printStmt;
-            }
-
             IExpression expr = ParseExpression();
             Consume(TokenType.Semicolon, "Expect ';' after expression");
 
@@ -219,9 +212,9 @@ namespace TythonCompiler.Parsing
 
             symbolTable.ExitScope();
 
-            symbolTable.RegisterFunction((string)functionName.Value, returnType, [.. parameters.Select(p => p.Type)]);
+            var signature = symbolTable.RegisterFunction((string)functionName.Value, returnType, [.. parameters.Select(p => p.Type)]);
 
-            return new FunctionStmt((string)functionName.Value, scopeIndex, parameters, returnType, body);
+            return new FunctionStmt((string)functionName.Value, signature, scopeIndex, parameters, returnType, body);
         }
 
         ReturnStmt ParseReturnStatement()

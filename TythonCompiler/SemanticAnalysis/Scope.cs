@@ -1,8 +1,8 @@
 ﻿using TythonCompiler.SemanticAnalysis.Symbols;
 using TythonCompiler.Tokenization;
 
-namespace TythonCompiler.SemanticAnalysis
-{
+namespace TythonCompiler.SemanticAnalysis;
+
     public class Scope
     {
         public Scope Root => root;
@@ -12,7 +12,7 @@ namespace TythonCompiler.SemanticAnalysis
         readonly Dictionary<int, VariableSymbol> variables = [];
         readonly Dictionary<int, ParameterSymbol> parameters = [];
         readonly Dictionary<int, ConstantSymbol> constants = [];
-        readonly Dictionary<int, FunctionSymbol> functions = [];
+        readonly Dictionary<FunctionSignature, FunctionSymbol> functions = [];
 
         readonly HashSet<int> initialized = [];
 
@@ -30,23 +30,24 @@ namespace TythonCompiler.SemanticAnalysis
             ScopeIndex = scopeIndex;
         }
 
-        public FunctionSymbol AddFunction(int symbolId, TokenType returnType, TokenType[] parameterTypes)
+        public FunctionSignature AddFunction(int symbolId, TokenType returnType, TokenType[] parameterTypes)
         {
             FunctionSymbol symbol = new(returnType, parameterTypes);
-            functions.Add(symbolId, symbol);
-            return symbol;
+            FunctionSignature signature = new(symbolId, parameterTypes);
+            functions.Add(signature, symbol);
+            return signature;
         }
 
-        public FunctionSymbol? GetFunction(int symbolId)
+        public FunctionSymbol? GetFunction(FunctionSignature signature)
         {
-            if (!functions.TryGetValue(symbolId, out FunctionSymbol? symbol))
+            if (!functions.TryGetValue(signature, out FunctionSymbol? symbol))
             {
                 if (root is null)
                 {
                     return null;
                 }
 
-                return root.GetFunction(symbolId);
+                return root.GetFunction(signature);
             }
 
             return symbol;
@@ -140,4 +141,3 @@ namespace TythonCompiler.SemanticAnalysis
             return variables[symbolId];
         }
     }
-}

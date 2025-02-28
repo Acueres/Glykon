@@ -7,21 +7,17 @@ namespace Test
         [Fact]
         public void ScanIdentifiersTest()
         {
-            const string source = @"let text = 'Hello Tython'
-                                    print text";
+            const string source = @"let text = 'Hello Tython';";
 
             Lexer lexer = new(source, "IdentifiersTest");
             var (tokens, _) = lexer.Execute();
 
-            tokens = tokens.Where(t => t.Type != TokenType.EOF).ToArray();
+            tokens = [.. tokens.Where(t => t.Type != TokenType.EOF)];
 
-            Assert.Equal(7, tokens.Length);
+            Assert.Equal(5, tokens.Length);
             Assert.Equal(TokenType.Let, tokens[0].Type);
             Assert.Equal(TokenType.Identifier, tokens[1].Type);
             Assert.Equal("text", tokens[1].Value);
-            Assert.Equal(TokenType.Print, tokens[5].Type);
-            Assert.Equal(TokenType.Identifier, tokens[6].Type);
-            Assert.Equal("text", tokens[6].Value);
         }
 
         [Fact]

@@ -2,6 +2,7 @@
 using TythonCompiler.Syntax.Expressions;
 using TythonCompiler.Syntax.Statements;
 using TythonCompiler.Tokenization;
+using TythonCompiler.SemanticRefinement;
 
 namespace Test
 {
@@ -48,9 +49,14 @@ namespace Test
             Lexer lexer = new(src, fileName);
             (var tokens, _) = lexer.Execute();
             Parser parser = new(tokens, fileName);
-            var (stmts, _, errors) = parser.Execute();
+            var (stmts, symbolTable, errors) = parser.Execute();
 
-            Assert.Equal(2, errors.Count);
+            SemanticRefiner refiner = new(stmts, symbolTable, fileName);
+            var refinerErrors = refiner.Execute();
+
+            Assert.Empty(errors);
+
+            Assert.Equal(2, refinerErrors.Count);
             Assert.NotEmpty(stmts);
             Assert.Equal(3, stmts.Length);
             Assert.Equal(StatementType.Jump, stmts[1].Type);
@@ -65,19 +71,19 @@ namespace Test
             let second_condition = false
             if condition {
                 let i = 0
-                print i
+                println(i)
             }
             elif second_condition {
                 let i = 1
-                print i
+                println(i)
             }
             else if not second_condition {
                 let i = 2
-                print i
+                println(i)
             }
             else {
                 let i = 3
-                print i
+                println(i)
             }
             ";
 
@@ -109,7 +115,7 @@ namespace Test
             const string src = @"
             let condition = true
             while condition {
-                print 'ok'
+                println('ok')
             }
             ";
 
@@ -127,22 +133,6 @@ namespace Test
             WhileStmt whileStmt = (WhileStmt)stmts[1];
             Assert.NotNull(whileStmt.Statement);
             Assert.NotNull(whileStmt.Expression);
-        }
-
-        [Fact]
-        public void PrintStmtTest()
-        {
-            Token[] tokens = [new(TokenType.Print, 0), new("Hello Tython", 0, TokenType.String), new(TokenType.Semicolon, 0)];
-            Parser parser = new(tokens, "PrintStmtTest");
-            var (stmts, _, errors) = parser.Execute();
-
-            Assert.Empty(errors);
-            Assert.NotEmpty(stmts);
-            Assert.Single(stmts);
-            Assert.Equal(StatementType.Print, stmts.First().Type);
-            PrintStmt stmt = (PrintStmt)stmts.First();
-            Assert.NotNull(stmt.Expression);
-            Assert.Equal("Hello Tython", (stmt.Expression as LiteralExpr).Token.Value);
         }
 
         [Fact]

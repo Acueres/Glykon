@@ -17,18 +17,19 @@ namespace TythonCompiler.SemanticAnalysis
             current = global;
         }
 
-        public FunctionSymbol RegisterFunction(string name, TokenType returnType, TokenType[] parameterTypes)
+        public FunctionSignature RegisterFunction(string name, TokenType returnType, TokenType[] parameterTypes)
         {
             int symbolIndex = GetSymbolId(name);
-            FunctionSymbol symbol = current.AddFunction(symbolIndex, returnType, parameterTypes);
-            return symbol;
+            FunctionSignature signature = current.AddFunction(symbolIndex, returnType, parameterTypes);
+            return signature;
         }
 
-        public FunctionSymbol? GetFunction(string name)
+        public (FunctionSymbol?, FunctionSignature) GetFunction(string name, TokenType[] parameters)
         {
             int symbolIndex = symbolMap[name];
-            FunctionSymbol? function = current.GetFunction(symbolIndex);
-            return function;
+            FunctionSignature signature = new(symbolIndex, parameters);
+            FunctionSymbol? function = current.GetFunction(signature);
+            return (function, signature);
         }
 
         public ConstantSymbol RegisterConstant(string name, object value, TokenType type)

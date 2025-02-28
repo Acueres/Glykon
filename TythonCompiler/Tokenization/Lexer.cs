@@ -267,7 +267,7 @@ namespace TythonCompiler.Tokenization
         {
             keywords =
             [
-                "class", "struct", "interface", "enum", "def", "let", "const", "print",
+                "class", "struct", "interface", "enum", "def", "let", "const",
                 "int", "real", "str", "true", "false", "none",
                 "and", "not", "or",
                 "if", "else", "elif", "for", "while", "return", "break", "continue",
@@ -289,7 +289,6 @@ namespace TythonCompiler.Tokenization
                 { "def", TokenType.Def },
                 { "let", TokenType.Let },
                 { "const", TokenType.Const },
-                { "print", TokenType.Print },
                 { "int", TokenType.Int },
                 { "real", TokenType.Real },
                 { "str", TokenType.String },

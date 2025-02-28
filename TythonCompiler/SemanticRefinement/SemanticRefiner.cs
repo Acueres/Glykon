@@ -5,7 +5,7 @@ using TythonCompiler.Syntax.Statements;
 
 namespace TythonCompiler.SemanticRefinement
 {
-    class SemanticRefiner(IStatement[] statements,  SymbolTable symbolTable, string fileName)
+    public class SemanticRefiner(IStatement[] statements,  SymbolTable symbolTable, string fileName)
     {
         readonly IStatement[] statements = statements;
         readonly SymbolTable st = symbolTable;

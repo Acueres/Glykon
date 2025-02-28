@@ -17,17 +17,17 @@ namespace TythonCompiler
                 let i = 0
 
                 while i < 20 {
-                    print fib(i)
+                    println(fib(i))
                     i = i + 1
                 }
+            }
 
-                def fib(n: int) -> int {
-                    if n <= 1 {
-                        return n
-                    }
-
-                    return fib(n - 2) + fib(n - 1)
+            def fib(n: int) -> int {
+                if n <= 1 {
+                    return n
                 }
+
+                return fib(n - 2) + fib(n - 1)
             }
 ";
             Lexer lexer = new(src, filename);

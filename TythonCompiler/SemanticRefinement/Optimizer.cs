@@ -48,11 +48,7 @@ namespace TythonCompiler.SemanticRefinement
 
             IExpression evaluatedExpr = EvaluateExpression(statement.Expression);
 
-            if (statement.Type == StatementType.Print)
-            {
-                stmt = new PrintStmt(evaluatedExpr);
-            }
-            else if (statement.Type == StatementType.Variable)
+            if (statement.Type == StatementType.Variable)
             {
                 VariableStmt variableStmt = (VariableStmt)statement;
                 stmt = new VariableStmt(evaluatedExpr, variableStmt.Name, variableStmt.VariableType);
