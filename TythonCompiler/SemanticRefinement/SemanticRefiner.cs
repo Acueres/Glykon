@@ -43,7 +43,7 @@ namespace TythonCompiler.SemanticRefinement
                 string originalName = localFStmt.Name;
                 localFStmt.Name = $"{fStmt.Name}.{localFStmt.Name}";
 
-                st.RegisterFunction(localFStmt.Name, localFStmt.ReturnType, [.. localFStmt.Parameters.Select(p => p.Type)]);
+                localFStmt.Signature = st.RegisterFunction(localFStmt.Name, localFStmt.ReturnType, [.. localFStmt.Parameters.Select(p => p.Type)]);
 
                 foreach (var s in localFStmt.Body)
                 {

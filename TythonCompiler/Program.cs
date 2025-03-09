@@ -20,14 +20,15 @@ namespace TythonCompiler
                     println(fib(i))
                     i = i + 1
                 }
-            }
 
-            def fib(n: int) -> int {
-                if n <= 1 {
-                    return n
+                def fib(n: int) -> int {
+                    #println(i)
+                    if n <= 1 {
+                        return n
+                    }
+
+                    return fib(n - 2) + fib(n - 1)
                 }
-
-                return fib(n - 2) + fib(n - 1)
             }
 ";
             Lexer lexer = new(src, filename);

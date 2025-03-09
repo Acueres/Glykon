@@ -135,7 +135,7 @@ namespace TythonCompiler.SemanticAnalysis
             return TokenType.None;
         }
 
-        int GetSymbolId(string name)
+        public int GetSymbolId(string name)
         {
             if (!symbolMap.TryGetValue(name, out int symbolIndex))
             {
