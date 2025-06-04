@@ -10,7 +10,7 @@ namespace Test
         [Fact]
         public void TestBinaryExpressionLiteralOptimization()
         {
-            Token[] tokens = [new(TokenType.Let, 0), new("value", 0, TokenType.Identifier), new(TokenType.Assignment, 0), new(2, 0, TokenType.Int), new(TokenType.Star, 0),  new(3, 0, TokenType.Int), new(TokenType.Semicolon, 0)];
+            Token[] tokens = [new(TokenType.Let, 0), new("value", 0, TokenType.Identifier), new(TokenType.Assignment, 0), new(2, 0, TokenType.LiteralInt), new(TokenType.Star, 0),  new(3, 0, TokenType.LiteralInt), new(TokenType.Semicolon, 0)];
             Parser parser = new(tokens, "BinaryLiteralOptimizationTest");
             var (stmts, _, _) = parser.Execute();
 
@@ -25,7 +25,7 @@ namespace Test
         [Fact]
         public void TestUnaryExpressionLiteralOptimization()
         {
-            Token[] tokens = [new(TokenType.Let, 0), new("value", 0, TokenType.Identifier), new(TokenType.Assignment, 0), new(TokenType.Not, 0), new(TokenType.False, 0), new(TokenType.Semicolon, 0)];
+            Token[] tokens = [new(TokenType.Let, 0), new("value", 0, TokenType.Identifier), new(TokenType.Assignment, 0), new(TokenType.Not, 0), new(TokenType.LiteralFalse, 0), new(TokenType.Semicolon, 0)];
             Parser parser = new(tokens, "UnaryLiteralOptimizationTest");
             var (stmts, _, _) = parser.Execute();
 
@@ -34,7 +34,7 @@ namespace Test
 
             Assert.NotEmpty(optimizedStmts);
             Assert.Equal(ExpressionType.Literal, optimizedStmts.First().Expression.Type);
-            Assert.Equal(TokenType.True, (optimizedStmts.First().Expression as LiteralExpr).Token.Type);
+            Assert.Equal(TokenType.LiteralTrue, (optimizedStmts.First().Expression as LiteralExpr).Token.Type);
         }
 
         [Fact]

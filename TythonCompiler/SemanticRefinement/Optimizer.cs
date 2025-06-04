@@ -124,7 +124,7 @@ namespace TythonCompiler.SemanticRefinement
                         else if (isInt)
                             token = new(value, literal.Token.Line, TokenType.Int);
                         else
-                            token = new((bool)value ? TokenType.True : TokenType.False, literal.Token.Line);
+                            token = new((bool)value ? TokenType.LiteralTrue : TokenType.LiteralFalse, literal.Token.Line);
 
                         return new LiteralExpr(token);
                     }
@@ -249,7 +249,7 @@ namespace TythonCompiler.SemanticRefinement
                         else if (value is string)
                             token = new(value, leftLiteral.Token.Line, TokenType.String);
                         else
-                            token = new((bool)value ? TokenType.True : TokenType.False, leftLiteral.Token.Line);
+                            token = new((bool)value ? TokenType.LiteralTrue : TokenType.LiteralFalse, leftLiteral.Token.Line);
 
                         return new LiteralExpr(token);
                     }

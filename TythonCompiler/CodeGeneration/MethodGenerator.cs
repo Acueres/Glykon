@@ -263,7 +263,7 @@ namespace TythonCompiler.CodeGeneration
                         if (parameter is not null)
                         {
                             il.Emit(OpCodes.Ldarg, parameter.Index);
-                            return parameter.Type == TokenType.True || parameter.Type == TokenType.False ? TokenType.Bool : parameter.Type;
+                            return parameter.Type;
                         }
 
                         VariableSymbol? variable = st.GetInitializedVariable(expr.Name);
@@ -271,7 +271,7 @@ namespace TythonCompiler.CodeGeneration
                         {
                             il.Emit(OpCodes.Ldloc, variable.LocalIndex);
 
-                            return variable.Type == TokenType.True || variable.Type == TokenType.False ? TokenType.Bool : variable.Type;
+                            return variable.Type;
                         }
 
                         ConstantSymbol? constant = st.GetConstant(expr.Name);
@@ -299,7 +299,7 @@ namespace TythonCompiler.CodeGeneration
                         if (parameter is not null)
                         {
                             il.Emit(OpCodes.Starg, parameter.Index);
-                            return parameter.Type == TokenType.True || parameter.Type == TokenType.False ? TokenType.Bool : parameter.Type;
+                            return parameter.Type;
                         }
                         else
                         {
@@ -487,11 +487,11 @@ namespace TythonCompiler.CodeGeneration
         {
             switch (type)
             {
-                case TokenType.String: il.Emit(OpCodes.Ldstr, (string)value); return TokenType.String;
-                case TokenType.Int: il.Emit(OpCodes.Ldc_I4, (int)value); return TokenType.Int;
-                case TokenType.Real: il.Emit(OpCodes.Ldc_R8, (double)value); return TokenType.Real;
-                case TokenType.True: il.Emit(OpCodes.Ldc_I4, 1); return TokenType.Bool;
-                case TokenType.False: il.Emit(OpCodes.Ldc_I4, 0); return TokenType.Bool;
+                case TokenType.LiteralString: il.Emit(OpCodes.Ldstr, (string)value); return TokenType.String;
+                case TokenType.LiteralInt: il.Emit(OpCodes.Ldc_I4, (int)value); return TokenType.Int;
+                case TokenType.LiteralReal: il.Emit(OpCodes.Ldc_R8, (double)value); return TokenType.Real;
+                case TokenType.LiteralTrue: il.Emit(OpCodes.Ldc_I4, 1); return TokenType.Bool;
+                case TokenType.LiteralFalse: il.Emit(OpCodes.Ldc_I4, 0); return TokenType.Bool;
                 default: il.Emit(OpCodes.Ldnull); return TokenType.None;
             }
         }
@@ -501,8 +501,8 @@ namespace TythonCompiler.CodeGeneration
             return type switch
             {
                 TokenType.Bool => typeof(bool),
-                TokenType.True => typeof(bool),
-                TokenType.False => typeof(bool),
+                TokenType.LiteralTrue => typeof(bool),
+                TokenType.LiteralFalse => typeof(bool),
                 TokenType.Int => typeof(int),
                 TokenType.Real => typeof(double),
                 TokenType.String => typeof(string),

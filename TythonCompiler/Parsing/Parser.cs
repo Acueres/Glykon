@@ -119,9 +119,7 @@ namespace TythonCompiler.Parsing
             IExpression condition = ParseExpression();
 
             TokenType conditionType = InfereType(condition, TokenType.Bool);
-            if (!(conditionType == TokenType.Bool
-            || conditionType == TokenType.True
-            || conditionType == TokenType.False))
+            if (!(conditionType == TokenType.Bool))
             {
                 errors.Add(new TypeError($"Type mismatch: expected bool, got {conditionType}", fileName));
             }
@@ -148,9 +146,7 @@ namespace TythonCompiler.Parsing
             IExpression condition = ParseExpression();
 
             TokenType conditionType = InfereType(condition, TokenType.Bool);
-            if (!(conditionType == TokenType.Bool
-            || conditionType == TokenType.True
-            || conditionType == TokenType.False))
+            if (conditionType != TokenType.Bool)
             {
                 errors.Add(new TypeError($"Type mismatch: expected bool, got {conditionType}", fileName));
             }
@@ -307,14 +303,27 @@ namespace TythonCompiler.Parsing
 
         TokenType ParseTypeDeclaration()
         {
-            return Advance().Type;
+            Token next = Advance();
+            return next.Type;
         }
 
         TokenType InfereType(IExpression expression, TokenType type)
         {
             switch (expression.Type)
             {
-                case ExpressionType.Literal: return ((LiteralExpr)expression).Token.Type;
+                case ExpressionType.Literal:
+                    {
+                        var literalType = ((LiteralExpr)expression).Token.Type;
+                        return literalType switch
+                        {
+                            TokenType.LiteralInt => TokenType.Int,
+                            TokenType.LiteralReal => TokenType.Real,
+                            TokenType.LiteralString => TokenType.String,
+                            TokenType.LiteralTrue => TokenType.Bool,
+                            TokenType.LiteralFalse => TokenType.Bool,
+                            _ => TokenType.None,
+                        };
+                    }
                 case ExpressionType.Unary:
                     {
                         UnaryExpr unaryExpr = (UnaryExpr)expression;
@@ -400,10 +409,7 @@ namespace TythonCompiler.Parsing
                 TokenType leftType = InfereType(expr, TokenType.Bool);
                 TokenType rightType = InfereType(right, TokenType.Bool);
 
-                bool isLeftBool = leftType == TokenType.True || leftType == TokenType.False || leftType == TokenType.Bool;
-                bool isRightBool = rightType == TokenType.True || rightType == TokenType.False || rightType == TokenType.Bool;
-
-                if (!(isLeftBool && isRightBool))
+                if (!(leftType == TokenType.Bool && rightType == TokenType.Bool))
                 {
                     errors.Add(new ParseError(oper, fileName, $"Type mismatch; operator {oper.Type} cannot be applied between types {leftType} and {rightType}"));
                     return expr;
@@ -427,10 +433,7 @@ namespace TythonCompiler.Parsing
                 TokenType leftType = InfereType(expr, TokenType.Bool);
                 TokenType rightType = InfereType(right, TokenType.Bool);
 
-                bool isLeftBool = leftType == TokenType.True || leftType == TokenType.False || leftType == TokenType.Bool;
-                bool isRightBool = rightType == TokenType.True || rightType == TokenType.False || rightType == TokenType.Bool;
-
-                if (!(isLeftBool && isRightBool))
+                if (!(leftType == TokenType.Bool && rightType == TokenType.Bool))
                 {
                     errors.Add(new ParseError(oper, fileName, $"Type mismatch; operator {oper.Type} cannot be applied between types {leftType} and {rightType}"));
                     return expr;
@@ -544,7 +547,7 @@ namespace TythonCompiler.Parsing
 
         IExpression ParsePrimary()
         {
-            if (Match(TokenType.None, TokenType.True, TokenType.False, TokenType.Int, TokenType.Real, TokenType.String))
+            if (Match(TokenType.None, TokenType.LiteralTrue, TokenType.LiteralFalse, TokenType.LiteralInt, TokenType.LiteralReal, TokenType.LiteralString))
                 return new LiteralExpr(Previous);
 
             if (Match(TokenType.Identifier))

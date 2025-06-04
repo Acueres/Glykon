@@ -49,7 +49,7 @@ namespace Test
             Lexer lexer = new(symbols, "SymbolsTest");
             var (tokens, _) = lexer.Execute();
 
-            tokens = tokens.Where(t => t.Type != TokenType.EOF).ToArray();
+            tokens = [.. tokens.Where(t => t.Type != TokenType.EOF)];
 
             Assert.Equal(22, tokens.Length);
         }
@@ -62,7 +62,7 @@ namespace Test
             Lexer lexer = new(keywords, "KeywordsTest");
             var (tokens, _) = lexer.Execute();
 
-            tokens = tokens.Where(t => t.Type != TokenType.EOF).ToArray();
+            tokens = [.. tokens.Where(t => t.Type != TokenType.EOF)];
 
             Assert.Equal(8, tokens.Length);
             Assert.Equal(TokenType.If, tokens[0].Type);
@@ -77,10 +77,10 @@ namespace Test
             Lexer lexer = new(stringsSource, "StringTest");
             var (tokens, _) = lexer.Execute();
 
-            tokens = tokens.Where(t => t.Type != TokenType.EOF).ToArray();
+            tokens = [.. tokens.Where(t => t.Type != TokenType.EOF)];
 
             Assert.Equal(3, tokens.Length);
-            Assert.Equal(TokenType.String, tokens[0].Type);
+            Assert.Equal(TokenType.LiteralString, tokens[0].Type);
             Assert.Equal("some text", tokens[0].Value);
             Assert.Equal("other text", tokens[1].Value);
             Assert.Equal("multiline oneliner", tokens[2].Value);
@@ -102,7 +102,7 @@ namespace Test
             var (tokens, _) = lexer.Execute();
 
             //filter out statement terminators
-            tokens = tokens.Where(t => t.Type != TokenType.Semicolon && t.Type != TokenType.EOF).ToArray();
+            tokens = [.. tokens.Where(t => t.Type != TokenType.Semicolon && t.Type != TokenType.EOF)];
 
             Assert.Equal(3, tokens.Length);
             Assert.Equal("multiline string\n", (tokens.First().Value as string).Replace("\r", string.Empty));
@@ -120,18 +120,18 @@ namespace Test
             Lexer lexer = new(numbers, "NumbersTest");
             var (tokens, _) = lexer.Execute();
 
-            tokens = tokens.Where(t => t.Type != TokenType.EOF).ToArray();
+            tokens = [.. tokens.Where(t => t.Type != TokenType.EOF)];
 
             Assert.Equal(6, tokens.Length);  
-            Assert.Equal(TokenType.Int, tokens[0].Type);
+            Assert.Equal(TokenType.LiteralInt, tokens[0].Type);
             Assert.Equal(123, tokens[0].Value);
             Assert.Equal(42, tokens[1].Value);
 
-            Assert.Equal(TokenType.Real, tokens[2].Type);
+            Assert.Equal(TokenType.LiteralReal, tokens[2].Type);
             Assert.Equal(1.2, tokens[2].Value);
             Assert.Equal(.2, tokens[3].Value);
 
-            Assert.Equal(TokenType.Int, tokens[4].Type);
+            Assert.Equal(TokenType.LiteralInt, tokens[4].Type);
         }
     }
 }

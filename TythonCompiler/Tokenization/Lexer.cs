@@ -1,286 +1,286 @@
 ﻿using System.Globalization;
 using TythonCompiler.Diagnostics.Errors;
 
-namespace TythonCompiler.Tokenization
+namespace TythonCompiler.Tokenization;
+
+public class Lexer(string source, string fileName)
 {
-    public class Lexer(string source, string fileName)
+    readonly string source = source;
+    readonly string fileName = fileName;
+
+    bool AtEnd => currentChar >= source.Length;
+
+    readonly List<Token> tokens = [];
+    readonly List<ITythonError> errors = [];
+    int line = 0;
+    int currentChar = 0;
+
+    public (Token[] tokens, List<ITythonError> errors) Execute()
     {
-        readonly string source = source;
-        readonly string fileName = fileName;
-
-        bool AtEnd => currentChar >= source.Length;
-
-        readonly List<Token> tokens = [];
-        readonly List<ITythonError> errors = [];
-        int line = 0;
-        int currentChar = 0;
-
-        public (Token[] tokens, List<ITythonError> errors) Execute()
+        while (!AtEnd)
         {
-            while (!AtEnd)
-            {
-                Token token = GetNextToken();
-                if (!token.IsNull)
-                    tokens.Add(token);
-            }
-
-            tokens.Add(new(TokenType.EOF, line));
-            return (tokens.ToArray(), errors);
+            Token token = GetNextToken();
+            if (!token.IsNull)
+                tokens.Add(token);
         }
 
-        Token GetNextToken()
+        tokens.Add(new(TokenType.EOF, line));
+        return (tokens.ToArray(), errors);
+    }
+
+    Token GetNextToken()
+    {
+        char character = Advance();
+
+        switch (character)
         {
-            char character = Advance();
+            //symbols
+            case '{':
+                return new(TokenType.BraceLeft, line);
+            case '}':
+                return new(TokenType.BraceRight, line);
+            case '(':
+                return new(TokenType.ParenthesisLeft, line);
+            case ')':
+                return new(TokenType.ParenthesisRight, line);
+            case '[':
+                return new(TokenType.BracketLeft, line);
+            case ']':
+                return new(TokenType.BracketRight, line);
+            case ',':
+                return new(TokenType.Comma, line);
+            case ':':
+                return new(TokenType.Colon, line);
 
-            switch (character)
-            {
-                //symbols
-                case '{':
-                    return new(TokenType.BraceLeft, line);
-                case '}':
-                    return new(TokenType.BraceRight, line);
-                case '(':
-                    return new(TokenType.ParenthesisLeft, line);
-                case ')':
-                    return new(TokenType.ParenthesisRight, line);
-                case '[':
-                    return new(TokenType.BracketLeft, line);
-                case ']':
-                    return new(TokenType.BracketRight, line);
-                case ',':
-                    return new(TokenType.Comma, line);
-                case ':':
-                    return new(TokenType.Colon, line);
-
-                //long symbols
-                case '.':
-                    {
-                        if (char.IsAsciiDigit(Peek()))
-                        {
-                            return ScanNumber(true);
-                        }
-
-                        return new(TokenType.Dot, line);
-                    }
-                case '+':
-                    return new(TokenType.Plus, line);
-                case '-':
-                    if (Match('>'))
-                    {
-                        return new(TokenType.Arrow, line);
-                    }
-
-                    return new(TokenType.Minus, line);
-                case '<':
-                    return new(Match('=') ? TokenType.LessEqual : TokenType.Less, line);
-                case '>':
-                    return new(Match('=') ? TokenType.GreaterEqual : TokenType.Greater, line);
-                case '*':
-                    return new(Match('*') ? TokenType.StarDouble : TokenType.Star, line);
-                case '/':
-                    return new(Match('/') ? TokenType.SlashDouble : TokenType.Slash, line);
-                case '=':
-                    return new(Match('=') ? TokenType.Equal : TokenType.Assignment, line);
-                case '!': //! is not valid by itself
-                    if (Match('='))
-                    {
-                        return new(TokenType.NotEqual, line);
-                    }
-                    else
-                    {
-                        errors.Add(new SyntaxError(line, fileName, "Syntax Error: invalid syntax"));
-                    }
-                    break;
-
-                //strings
-                case '\'':
-                case '"':
-                    return ScanString(character);
-
-                //whitespace
-                case ' ':
-                case '\r':
-                case '\t':
-                    break;
-
-                //comments
-                case '#':
-                    while (Peek() != '\n') Advance();
-                    break;
-
-                //statement terminator
-                case '\n':
-                    line++;
-                    return ScanTerminator();
-                case ';':
-                    return ScanTerminator();
-
-                default:
-                    if (char.IsAsciiDigit(character))
-                    {
-                        return ScanNumber();
-                    }
-
-                    if (char.IsLetter(character))
-                    {
-                        return ScanIdentifier();
-                    }
-
-                    errors.Add(new SyntaxError(line, fileName, $"Invalid character '{character}' in token"));
-                    return Token.Null;
-            }
-
-            return Token.Null;
-        }
-
-        Token ScanIdentifier()
-        {
-            int identifierStart = currentChar - 1;
-
-            while (IsAllowedIdentifierCharacter(Peek())) Advance();
-
-            string identifier = source[identifierStart..currentChar];
-
-            if (keywords.Contains(identifier))
-            {
-                return new(keywordToType[identifier], line);
-            }
-
-            return new(identifier, line, TokenType.Identifier);
-        }
-
-        Token ScanNumber(bool isFloat = false)
-        {
-            int numberStart = currentChar - 1;
-
-            while (char.IsAsciiDigit(Peek())) Advance();
-
-            if (Peek() == '.' && char.IsAsciiDigit(Peek(1)))
-            {
-                isFloat = true;
-
-                Advance();
-
-                while (char.IsAsciiDigit(Peek())) Advance();
-            }
-
-            string number = source[numberStart..currentChar];
-            object value;
-            if (isFloat)
-            {
-                value = double.Parse(number, CultureInfo.InvariantCulture);
-            }
-            else
-            {
-                value = int.Parse(number);
-            }
-
-            return new(value, line, isFloat ? TokenType.Real : TokenType.Int);
-        }
-
-        Token ScanString(char openingQuote)
-        {
-            bool multiline = Match(openingQuote, 2);
-            int currentLine = line;
-            int stringStart = currentChar;
-
-            while (!AtEnd && !(multiline ? Match(openingQuote, 3) : Match(openingQuote)))
-            {
-                if (Peek() == '\n')
+            //long symbols
+            case '.':
                 {
-                    if (!multiline)
+                    if (char.IsAsciiDigit(Peek()))
                     {
-                        errors.Add(new SyntaxError(line, fileName, "SyntaxError: unterminated string literal"));
-                        return Token.Null;
+                        return ScanNumber(true);
                     }
 
-                    line++;
+                    return new(TokenType.Dot, line);
+                }
+            case '+':
+                return new(TokenType.Plus, line);
+            case '-':
+                if (Match('>'))
+                {
+                    return new(TokenType.Arrow, line);
                 }
 
-                Advance();
-            }
+                return new(TokenType.Minus, line);
+            case '<':
+                return new(Match('=') ? TokenType.LessEqual : TokenType.Less, line);
+            case '>':
+                return new(Match('=') ? TokenType.GreaterEqual : TokenType.Greater, line);
+            case '*':
+                return new(Match('*') ? TokenType.StarDouble : TokenType.Star, line);
+            case '/':
+                return new(Match('/') ? TokenType.SlashDouble : TokenType.Slash, line);
+            case '=':
+                return new(Match('=') ? TokenType.Equal : TokenType.Assignment, line);
+            case '!': //! is not valid by itself
+                if (Match('='))
+                {
+                    return new(TokenType.NotEqual, line);
+                }
+                else
+                {
+                    errors.Add(new SyntaxError(line, fileName, "Syntax Error: invalid syntax"));
+                }
+                break;
 
-            if (AtEnd)
-            {
-                errors.Add(new SyntaxError(line, fileName, "SyntaxError: unterminated string literal"));
+            //strings
+            case '\'':
+            case '"':
+                return ScanString(character);
+
+            //whitespace
+            case ' ':
+            case '\r':
+            case '\t':
+                break;
+
+            //comments
+            case '#':
+                while (Peek() != '\n') Advance();
+                break;
+
+            //statement terminator
+            case '\n':
+                line++;
+                return ScanTerminator();
+            case ';':
+                return ScanTerminator();
+
+            default:
+                if (char.IsAsciiDigit(character))
+                {
+                    return ScanNumber();
+                }
+
+                if (char.IsLetter(character))
+                {
+                    return ScanIdentifier();
+                }
+
+                errors.Add(new SyntaxError(line, fileName, $"Invalid character '{character}' in token"));
                 return Token.Null;
-            }
-
-            int stringEndOffset = multiline ? 3 : 1;
-            Token result = new(source[stringStart..(currentChar - stringEndOffset)], currentLine, TokenType.String);
-
-            return result;
         }
 
-        Token ScanTerminator()
+        return Token.Null;
+    }
+
+    Token ScanIdentifier()
+    {
+        int identifierStart = currentChar - 1;
+
+        while (IsAllowedIdentifierCharacter(Peek())) Advance();
+
+        string identifier = source[identifierStart..currentChar];
+
+        if (keywords.Contains(identifier))
         {
-            Token last = tokens.LastOrDefault();
-            if (!terminatorExceptions.Contains(last.Type))
+            return new(keywordToType[identifier], line);
+        }
+
+        return new(identifier, line, TokenType.Identifier);
+    }
+
+    Token ScanNumber(bool isFloat = false)
+    {
+        int numberStart = currentChar - 1;
+
+        while (char.IsAsciiDigit(Peek())) Advance();
+
+        if (Peek() == '.' && char.IsAsciiDigit(Peek(1)))
+        {
+            isFloat = true;
+
+            Advance();
+
+            while (char.IsAsciiDigit(Peek())) Advance();
+        }
+
+        string number = source[numberStart..currentChar];
+        object value;
+        if (isFloat)
+        {
+            value = double.Parse(number, CultureInfo.InvariantCulture);
+        }
+        else
+        {
+            value = int.Parse(number);
+        }
+
+        return new(value, line, isFloat ? TokenType.LiteralReal : TokenType.LiteralInt);
+    }
+
+    Token ScanString(char openingQuote)
+    {
+        bool multiline = Match(openingQuote, 2);
+        int currentLine = line;
+        int stringStart = currentChar;
+
+        while (!AtEnd && !(multiline ? Match(openingQuote, 3) : Match(openingQuote)))
+        {
+            if (Peek() == '\n')
             {
-                return new(TokenType.Semicolon, line);
+                if (!multiline)
+                {
+                    errors.Add(new SyntaxError(line, fileName, "SyntaxError: unterminated string literal"));
+                    return Token.Null;
+                }
+
+                line++;
             }
 
+            Advance();
+        }
+
+        if (AtEnd)
+        {
+            errors.Add(new SyntaxError(line, fileName, "SyntaxError: unterminated string literal"));
             return Token.Null;
         }
 
-        bool Match(char token)
+        int stringEndOffset = multiline ? 3 : 1;
+        Token result = new(source[stringStart..(currentChar - stringEndOffset)], currentLine, TokenType.LiteralString);
+
+        return result;
+    }
+
+    Token ScanTerminator()
+    {
+        Token last = tokens.LastOrDefault();
+        if (!terminatorExceptions.Contains(last.Type))
         {
-            if (AtEnd || Peek() != token) return false;
-            currentChar++;
-            return true;
+            return new(TokenType.Semicolon, line);
         }
 
-        bool Match(char token, int offset)
+        return Token.Null;
+    }
+
+    bool Match(char token)
+    {
+        if (AtEnd || Peek() != token) return false;
+        currentChar++;
+        return true;
+    }
+
+    bool Match(char token, int offset)
+    {
+        for (int i = 0; i < offset; i++)
         {
-            for (int i = 0; i < offset; i++)
-            {
-                if (AtEnd || Peek(i) != token) return false;
-            }
-
-            currentChar += offset;
-
-            return true;
+            if (AtEnd || Peek(i) != token) return false;
         }
 
-        char Peek(int offset = 0)
-        {
-            int nextCharPos = currentChar + offset;
-            char c = AtEnd || nextCharPos >= source.Length ? '\0' : source[nextCharPos];
-            return c;
-        }
+        currentChar += offset;
 
-        char Advance()
-        {
-            return source[currentChar++];
-        }
+        return true;
+    }
 
-        static bool IsAllowedIdentifierCharacter(char c)
-        {
-            return char.IsLetterOrDigit(c) || c == '_';
-        }
+    char Peek(int offset = 0)
+    {
+        int nextCharPos = currentChar + offset;
+        char c = AtEnd || nextCharPos >= source.Length ? '\0' : source[nextCharPos];
+        return c;
+    }
 
-        readonly static HashSet<string> keywords;
-        readonly static HashSet<TokenType> terminatorExceptions;
-        readonly static Dictionary<string, TokenType> keywordToType;
+    char Advance()
+    {
+        return source[currentChar++];
+    }
 
-        static Lexer()
-        {
-            keywords =
-            [
-                "class", "struct", "interface", "enum", "def", "let", "const",
+    static bool IsAllowedIdentifierCharacter(char c)
+    {
+        return char.IsLetterOrDigit(c) || c == '_';
+    }
+
+    readonly static HashSet<string> keywords;
+    readonly static HashSet<TokenType> terminatorExceptions;
+    readonly static Dictionary<string, TokenType> keywordToType;
+
+    static Lexer()
+    {
+        keywords =
+        [
+            "class", "struct", "interface", "enum", "def", "let", "const",
                 "int", "real", "str", "true", "false", "none",
                 "and", "not", "or",
                 "if", "else", "elif", "for", "while", "return", "break", "continue",
             ];
 
-            terminatorExceptions = [
-                TokenType.Semicolon, TokenType.Null, TokenType.EOF,
+        terminatorExceptions = [
+                TokenType.Null, TokenType.Semicolon, TokenType.EOF,
                 TokenType.BraceLeft, TokenType.BraceRight,
-                TokenType.BracketLeft, TokenType.BraceRight,
+                TokenType.BracketLeft, TokenType.BracketRight,
                 TokenType.Class, TokenType.Struct, TokenType.Interface, TokenType.Enum
-            ];
+        ];
 
-            keywordToType = new()
+        keywordToType = new()
             {
                 { "class", TokenType.Class },
                 { "struct", TokenType.Struct },
@@ -293,8 +293,8 @@ namespace TythonCompiler.Tokenization
                 { "real", TokenType.Real },
                 { "str", TokenType.String },
                 { "bool",  TokenType.Bool },
-                { "true",  TokenType.True },
-                { "false",  TokenType.False },
+                { "true",  TokenType.LiteralTrue },
+                { "false",  TokenType.LiteralFalse },
                 { "none", TokenType.None },
                 { "and", TokenType.And },
                 { "not", TokenType.Not },
@@ -308,6 +308,5 @@ namespace TythonCompiler.Tokenization
                 { "break", TokenType.Break },
                 { "continue", TokenType.Continue }
             };
-        }
     }
 }
