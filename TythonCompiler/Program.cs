@@ -16,7 +16,8 @@ internal class Program
             def main() {
                 let i = 0
 
-                while i < 20 {
+                while i < 20
+                {
                     println(fib(i))
                     i = i + 1
                 }

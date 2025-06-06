@@ -108,6 +108,7 @@ namespace TythonCompiler.Parsing
             }
 
             Consume(TokenType.BraceRight, "Expect '}' after block");
+            Consume(TokenType.Semicolon, "Expect ';' after block");
 
             symbolTable.ExitScope();
 
@@ -124,6 +125,8 @@ namespace TythonCompiler.Parsing
                 errors.Add(new TypeError($"Type mismatch: expected bool, got {conditionType}", fileName));
             }
 
+            // Dealing with ASI artefacts
+            Match(TokenType.Semicolon);
             Consume(TokenType.BraceLeft, "Expect '{' after if condition");
 
             IStatement stmt = ParseBlockStatement();
@@ -151,6 +154,8 @@ namespace TythonCompiler.Parsing
                 errors.Add(new TypeError($"Type mismatch: expected bool, got {conditionType}", fileName));
             }
 
+            // Dealing with ASI artefacts
+            Match(TokenType.Semicolon);
             Consume(TokenType.BraceLeft, "Expect '{' after if condition");
 
             IStatement body = ParseBlockStatement();
@@ -205,6 +210,7 @@ namespace TythonCompiler.Parsing
             }
 
             Consume(TokenType.BraceRight, "Expect '}' after function body");
+            Consume(TokenType.Semicolon, "Expect ';' after function body");
 
             symbolTable.ExitScope();
 

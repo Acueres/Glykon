@@ -8,12 +8,12 @@ public class Lexer(string source, string fileName)
     readonly string source = source;
     readonly string fileName = fileName;
 
-    bool AtEnd => currentChar >= source.Length;
+    bool AtEnd => currentCharIndex >= source.Length;
 
     readonly List<Token> tokens = [];
     readonly List<ITythonError> errors = [];
     int line = 0;
-    int currentChar = 0;
+    int currentCharIndex = 0;
 
     public (Token[] tokens, List<ITythonError> errors) Execute()
     {
@@ -111,9 +111,9 @@ public class Lexer(string source, string fileName)
             //statement terminator
             case '\n':
                 line++;
-                return ScanTerminator();
+                return ScanEndOfLine();
             case ';':
-                return ScanTerminator();
+                return new(TokenType.Semicolon, line);
 
             default:
                 if (char.IsAsciiDigit(character))
@@ -135,11 +135,11 @@ public class Lexer(string source, string fileName)
 
     Token ScanIdentifier()
     {
-        int identifierStart = currentChar - 1;
+        int identifierStart = currentCharIndex - 1;
 
         while (IsAllowedIdentifierCharacter(Peek())) Advance();
 
-        string identifier = source[identifierStart..currentChar];
+        string identifier = source[identifierStart..currentCharIndex];
 
         if (keywords.Contains(identifier))
         {
@@ -151,7 +151,7 @@ public class Lexer(string source, string fileName)
 
     Token ScanNumber(bool isFloat = false)
     {
-        int numberStart = currentChar - 1;
+        int numberStart = currentCharIndex - 1;
 
         while (char.IsAsciiDigit(Peek())) Advance();
 
@@ -164,7 +164,7 @@ public class Lexer(string source, string fileName)
             while (char.IsAsciiDigit(Peek())) Advance();
         }
 
-        string number = source[numberStart..currentChar];
+        string number = source[numberStart..currentCharIndex];
         object value;
         if (isFloat)
         {
@@ -182,7 +182,7 @@ public class Lexer(string source, string fileName)
     {
         bool multiline = Match(openingQuote, 2);
         int currentLine = line;
-        int stringStart = currentChar;
+        int stringStart = currentCharIndex;
 
         while (!AtEnd && !(multiline ? Match(openingQuote, 3) : Match(openingQuote)))
         {
@@ -207,14 +207,15 @@ public class Lexer(string source, string fileName)
         }
 
         int stringEndOffset = multiline ? 3 : 1;
-        Token result = new(source[stringStart..(currentChar - stringEndOffset)], currentLine, TokenType.LiteralString);
+        Token result = new(source[stringStart..(currentCharIndex - stringEndOffset)], currentLine, TokenType.LiteralString);
 
         return result;
     }
 
-    Token ScanTerminator()
+    Token ScanEndOfLine()
     {
         Token last = tokens.LastOrDefault();
+
         if (!terminatorExceptions.Contains(last.Type))
         {
             return new(TokenType.Semicolon, line);
@@ -226,7 +227,7 @@ public class Lexer(string source, string fileName)
     bool Match(char token)
     {
         if (AtEnd || Peek() != token) return false;
-        currentChar++;
+        currentCharIndex++;
         return true;
     }
 
@@ -237,21 +238,21 @@ public class Lexer(string source, string fileName)
             if (AtEnd || Peek(i) != token) return false;
         }
 
-        currentChar += offset;
+        currentCharIndex += offset;
 
         return true;
     }
 
     char Peek(int offset = 0)
     {
-        int nextCharPos = currentChar + offset;
+        int nextCharPos = currentCharIndex + offset;
         char c = AtEnd || nextCharPos >= source.Length ? '\0' : source[nextCharPos];
         return c;
     }
 
     char Advance()
     {
-        return source[currentChar++];
+        return source[currentCharIndex++];
     }
 
     static bool IsAllowedIdentifierCharacter(char c)
@@ -268,17 +269,63 @@ public class Lexer(string source, string fileName)
         keywords =
         [
             "class", "struct", "interface", "enum", "def", "let", "const",
-                "int", "real", "str", "true", "false", "none",
-                "and", "not", "or",
-                "if", "else", "elif", "for", "while", "return", "break", "continue",
+            "int", "real", "str", "true", "false", "none",
+            "and", "not", "or",
+            "if", "else", "elif", "for", "while", "return", "break", "continue",
             ];
 
-        terminatorExceptions = [
-                TokenType.Null, TokenType.Semicolon, TokenType.EOF,
-                TokenType.BraceLeft, TokenType.BraceRight,
-                TokenType.BracketLeft, TokenType.BracketRight,
-                TokenType.Class, TokenType.Struct, TokenType.Interface, TokenType.Enum
-        ];
+        terminatorExceptions =
+[
+    // Internal/special
+    TokenType.Null, TokenType.EOF, TokenType.Semicolon,
+
+    // Openers
+    TokenType.BracketLeft,
+    TokenType.ParenthesisLeft,
+    TokenType.BraceLeft,
+
+    // Punctuation and operators that precede an operand
+    TokenType.Comma,
+    TokenType.Colon,
+    TokenType.Arrow,
+    TokenType.Dot,
+    TokenType.Assignment,
+    
+    // Arithmetic operators
+    TokenType.Plus,
+    TokenType.Minus,
+    TokenType.Star,
+    TokenType.StarDouble,
+    TokenType.Slash,
+    TokenType.SlashDouble,
+
+    // Comparison operators
+    TokenType.Equal,
+    TokenType.NotEqual,
+    TokenType.Greater,
+    TokenType.GreaterEqual,
+    TokenType.Less,
+    TokenType.LessEqual,
+    
+    // Logical operators
+    TokenType.And,
+    TokenType.Or,
+    TokenType.Not,
+
+    // Keywords that begin a declaration or control-flow expression
+    TokenType.Def,
+    TokenType.Class,
+    TokenType.Struct,
+    TokenType.Interface,
+    TokenType.Enum,
+    TokenType.Let,
+    TokenType.Const,
+    TokenType.If,
+    TokenType.Else,
+    TokenType.Elif,
+    TokenType.For,
+    TokenType.While
+];
 
         keywordToType = new()
             {
