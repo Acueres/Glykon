@@ -1,6 +1,6 @@
 ﻿namespace TythonCompiler.Tokenization;
 
-public enum TokenType : byte
+public enum TokenType
 {
     Null,
     // Literals

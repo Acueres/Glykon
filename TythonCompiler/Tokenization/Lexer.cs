@@ -88,7 +88,7 @@ public class Lexer(string source, string fileName)
                 }
                 else
                 {
-                    errors.Add(new SyntaxError(line, fileName, "Syntax Error: invalid syntax"));
+                    errors.Add(new SyntaxError(line, fileName, $"Invalid character '{character}' in token"));
                 }
                 break;
 
@@ -121,7 +121,7 @@ public class Lexer(string source, string fileName)
                     return ScanNumber();
                 }
 
-                if (char.IsLetter(character))
+                if (IsAllowedIdentifierStartCharacter(character))
                 {
                     return ScanIdentifier();
                 }
@@ -141,9 +141,9 @@ public class Lexer(string source, string fileName)
 
         string identifier = source[identifierStart..currentCharIndex];
 
-        if (keywords.Contains(identifier))
+        if (keywords.TryGetValue(identifier, out TokenType type))
         {
-            return new(keywordToType[identifier], line);
+            return new(type, line);
         }
 
         return new(identifier, line, TokenType.Identifier);
@@ -216,12 +216,15 @@ public class Lexer(string source, string fileName)
     {
         Token last = tokens.LastOrDefault();
 
-        if (!terminatorExceptions.Contains(last.Type))
-        {
-            return new(TokenType.Semicolon, line);
-        }
+        if (last.IsNull || terminatorExceptions.Contains(last.Type)) return Token.Null;
 
-        return Token.Null;
+        (char nextChar, int peekIndex) = PeekNextSignificant();
+        if (chainingChars.Contains(nextChar)) return Token.Null;
+
+        // Handle long chaining tokens
+        if (IsLongChainingToken(nextChar, peekIndex)) return Token.Null;
+
+        return new(TokenType.Semicolon, line);
     }
 
     bool Match(char token)
@@ -250,32 +253,128 @@ public class Lexer(string source, string fileName)
         return c;
     }
 
+    (char, int) PeekNextSignificant()
+    {
+        int i = currentCharIndex;
+
+        while (i < source.Length)
+        {
+            char c = source[i];
+
+            if (!char.IsWhiteSpace(c))
+            {
+                return (c, i);
+            }
+            i++;
+        }
+
+        return ('\0', -1);
+    }
+
+    bool IsLongChainingToken(char c, int index)
+    {
+        // Check for end of source
+        if (index == -1) return false;
+
+        // Handle 'and'
+        if (c == 'a')
+        {
+            const int len = 3;
+            int end = index + len;
+
+            if (source.Length >= end && source.Substring(index, len) == "and")
+            {
+                if (source.Length == end || !IsAllowedIdentifierCharacter(source[end]))
+                {
+                    return true;
+                }
+            }
+        }
+        // Handle 'or'
+        else if (c == 'o')
+        {
+            const int len = 2;
+            int end = index + len;
+
+            if (source.Length >= end && source.Substring(index, len) == "or")
+            {
+                if (source.Length == end || !IsAllowedIdentifierCharacter(source[end]))
+                {
+                    return true;
+                }
+            }
+        }
+        // Handle 'not'
+        else if (c == 'n')
+        {
+            const int len = 3;
+            int end = index + len;
+
+            if (source.Length >= end && source.Substring(index, len) == "not")
+            {
+                if (source.Length == end || !IsAllowedIdentifierCharacter(source[end]))
+                {
+                    return true;
+                }
+            }
+        }
+
+        return false;
+    }
+
     char Advance()
     {
         return source[currentCharIndex++];
     }
 
-    static bool IsAllowedIdentifierCharacter(char c)
+    static bool IsAllowedIdentifierStartCharacter(char c)
     {
-        return char.IsLetterOrDigit(c) || c == '_';
+        return char.IsLetter(c) || c == '_' || c == '@';
     }
 
-    readonly static HashSet<string> keywords;
+    static bool IsAllowedIdentifierCharacter(char c)
+    {
+        return c == '_' || char.IsLetterOrDigit(c);
+    }
+
+    readonly static Dictionary<string, TokenType> keywords;
+
     readonly static HashSet<TokenType> terminatorExceptions;
-    readonly static Dictionary<string, TokenType> keywordToType;
+    readonly static HashSet<char> chainingChars;
 
     static Lexer()
     {
-        keywords =
-        [
-            "class", "struct", "interface", "enum", "def", "let", "const",
-            "int", "real", "str", "true", "false", "none",
-            "and", "not", "or",
-            "if", "else", "elif", "for", "while", "return", "break", "continue",
-            ];
+        keywords = new()
+            {
+                { "class", TokenType.Class },
+                { "struct", TokenType.Struct },
+                { "interface", TokenType.Interface },
+                { "enum", TokenType.Enum },
+                { "def", TokenType.Def },
+                { "let", TokenType.Let },
+                { "const", TokenType.Const },
+                { "int", TokenType.Int },
+                { "real", TokenType.Real },
+                { "str", TokenType.String },
+                { "bool",  TokenType.Bool },
+                { "true",  TokenType.LiteralTrue },
+                { "false",  TokenType.LiteralFalse },
+                { "none", TokenType.None },
+                { "and", TokenType.And },
+                { "not", TokenType.Not },
+                { "or", TokenType.Or },
+                { "if", TokenType.If },
+                { "else", TokenType.Else },
+                { "elif", TokenType.Elif },
+                { "for", TokenType.For },
+                { "while", TokenType.While },
+                { "return", TokenType.Return },
+                { "break", TokenType.Break },
+                { "continue", TokenType.Continue }
+            };
 
         terminatorExceptions =
-[
+    [
     // Internal/special
     TokenType.Null, TokenType.EOF, TokenType.Semicolon,
 
@@ -283,6 +382,9 @@ public class Lexer(string source, string fileName)
     TokenType.BracketLeft,
     TokenType.ParenthesisLeft,
     TokenType.BraceLeft,
+
+    // Block closer
+    TokenType.BraceRight,
 
     // Punctuation and operators that precede an operand
     TokenType.Comma,
@@ -312,7 +414,7 @@ public class Lexer(string source, string fileName)
     TokenType.Or,
     TokenType.Not,
 
-    // Keywords that begin a declaration or control-flow expression
+    // Declaration and control-flow keywords
     TokenType.Def,
     TokenType.Class,
     TokenType.Struct,
@@ -325,35 +427,8 @@ public class Lexer(string source, string fileName)
     TokenType.Elif,
     TokenType.For,
     TokenType.While
-];
+    ];
 
-        keywordToType = new()
-            {
-                { "class", TokenType.Class },
-                { "struct", TokenType.Struct },
-                { "interface", TokenType.Interface },
-                { "enum", TokenType.Enum },
-                { "def", TokenType.Def },
-                { "let", TokenType.Let },
-                { "const", TokenType.Const },
-                { "int", TokenType.Int },
-                { "real", TokenType.Real },
-                { "str", TokenType.String },
-                { "bool",  TokenType.Bool },
-                { "true",  TokenType.LiteralTrue },
-                { "false",  TokenType.LiteralFalse },
-                { "none", TokenType.None },
-                { "and", TokenType.And },
-                { "not", TokenType.Not },
-                { "or", TokenType.Or },
-                { "if", TokenType.If },
-                { "else", TokenType.Else },
-                { "elif", TokenType.Elif },
-                { "for", TokenType.For },
-                { "while", TokenType.While },
-                { "return", TokenType.Return },
-                { "break", TokenType.Break },
-                { "continue", TokenType.Continue }
-            };
+        chainingChars = ['.', '[', '(', '+', '-', '*', '/', '=', '!', '<', '>'];
     }
 }

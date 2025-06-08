@@ -147,10 +147,10 @@ public class LexerTest
         tokens = [.. tokens.Where(t => t.Type != TokenType.Semicolon && t.Type != TokenType.EOF)];
 
         Assert.Equal(3, tokens.Length);
-        Assert.Equal("multiline string\n", (tokens.First().Value as string).Replace("\r", string.Empty));
+        Assert.Equal("multiline string\n", ((string)tokens.First().Value).Replace("\r", string.Empty));
         Assert.Equal("regular string", tokens[1].Value);
         Assert.Equal(2, tokens[1].Line);
-        Assert.Equal("another 'multiline' string\n text\n", (tokens[2].Value as string).Replace("\r", string.Empty));
+        Assert.Equal("another 'multiline' string\n text\n", ((string)tokens[2].Value).Replace("\r", string.Empty));
         Assert.Equal(4, tokens[2].Line);
     }
 
@@ -215,24 +215,96 @@ if a > b
         TokenType.Let, TokenType.Identifier, TokenType.Assignment, TokenType.LiteralInt, TokenType.Semicolon,
         // b = a + 2; (newline after + is ignored)
         TokenType.Identifier, TokenType.Assignment, TokenType.Identifier, TokenType.Plus, TokenType.LiteralInt, TokenType.Semicolon,
-        // def func(a, b) { return a; }; (newlines after def, comma, {, }, and before } are ignored or handled)
+        // def func(a, b) { return a; } (newlines after def, comma, {, }, and before } are ignored or handled)
         TokenType.Def, TokenType.Identifier,
         TokenType.ParenthesisLeft, TokenType.Identifier, TokenType.Comma, TokenType.Identifier, TokenType.ParenthesisRight,
         TokenType.BraceLeft,
         TokenType.Return, TokenType.Identifier, TokenType.Semicolon,
-        TokenType.BraceRight, TokenType.Semicolon,
+        TokenType.BraceRight,
         // let c = 3;
         TokenType.Let, TokenType.Identifier, TokenType.Assignment, TokenType.LiteralInt, TokenType.Semicolon,
         // let d = 4;
         TokenType.Let, TokenType.Identifier, TokenType.Assignment, TokenType.LiteralInt, TokenType.Semicolon,
-        // if a > b { d = 5; };
+        // if a > b { d = 5; }
         TokenType.If, TokenType.Identifier, TokenType.Greater, TokenType.Identifier, TokenType.Semicolon,
         TokenType.BraceLeft,
         TokenType.Identifier, TokenType.Assignment, TokenType.LiteralInt, TokenType.Semicolon,
-        TokenType.BraceRight, TokenType.Semicolon,
+        TokenType.BraceRight,
         // Final EOF
         TokenType.EOF
     ];
+
+        var actualTypes = tokens.Select(t => t.Type).ToArray();
+
+        Assert.Equal(expectedTypes, actualTypes);
+    }
+
+    [Fact]
+    public void ChainingAndLineContinuationTest()
+    {
+        const string source = @"
+# Test 1: Method chaining
+let item = my_collection
+    .get_name()
+
+# Test 2: Arithmetic continuation
+let result = 100
+    + 20
+
+# Test 3: Logical 'and' keyword continuation
+if user.is_valid
+    and user.has_permission
+{
+
+}
+
+# Test 4: Logical 'or' keyword continuation
+if user.is_guest
+    or user.is_new
+{
+
+}
+
+# Test 5: Negative test for 'and'. Semicolon MUST be inserted.
+let name = ""andre""
+let id = 1
+
+# Test 6: Negative test for 'or'. Semicolon MUST be inserted.
+let status = ""order""
+let details = ""...""
+";
+
+        Lexer lexer = new(source, "AdvancedASITest");
+        var (tokens, _) = lexer.Execute();
+
+        var expectedTypes = new[]
+        {
+        // Test 1: `let item = my_collection.get_name()`
+        TokenType.Let, TokenType.Identifier, TokenType.Assignment, TokenType.Identifier, TokenType.Dot,
+        TokenType.Identifier, TokenType.ParenthesisLeft, TokenType.ParenthesisRight, TokenType.Semicolon,
+        
+        // Test 2: `let result = 100 + 20;`
+        TokenType.Let, TokenType.Identifier, TokenType.Assignment, TokenType.LiteralInt, TokenType.Plus,
+        TokenType.LiteralInt, TokenType.Semicolon,
+
+        // Test 3: `if user.is_valid and user.has_permission; { }`
+        TokenType.If, TokenType.Identifier, TokenType.Dot, TokenType.Identifier, TokenType.And,
+        TokenType.Identifier, TokenType.Dot, TokenType.Identifier, TokenType.Semicolon, TokenType.BraceLeft, TokenType.BraceRight,
+
+        // Test 4: `if user.is_guest or user.is_new; { }`
+        TokenType.If, TokenType.Identifier, TokenType.Dot, TokenType.Identifier, TokenType.Or,
+        TokenType.Identifier, TokenType.Dot, TokenType.Identifier, TokenType.Semicolon, TokenType.BraceLeft, TokenType.BraceRight,
+
+        // Test 5: `let name = "andre";` and `let id = 1;`
+        TokenType.Let, TokenType.Identifier, TokenType.Assignment, TokenType.LiteralString, TokenType.Semicolon,
+        TokenType.Let, TokenType.Identifier, TokenType.Assignment, TokenType.LiteralInt, TokenType.Semicolon,
+
+        // Test 6: `let status = "order";` and `let details = "...";`
+        TokenType.Let, TokenType.Identifier, TokenType.Assignment, TokenType.LiteralString, TokenType.Semicolon,
+        TokenType.Let, TokenType.Identifier, TokenType.Assignment, TokenType.LiteralString, TokenType.Semicolon,
+
+        TokenType.EOF
+    };
 
         var actualTypes = tokens.Select(t => t.Type).ToArray();
 
