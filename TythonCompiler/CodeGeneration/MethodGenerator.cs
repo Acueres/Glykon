@@ -289,7 +289,7 @@ namespace TythonCompiler.CodeGeneration
                             return function.ReturnType;
                         }
 
-                        return TokenType.Null;
+                        return TokenType.None;
                     }
                 case ExpressionType.Assignment:
                     {

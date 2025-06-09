@@ -58,8 +58,12 @@ internal class Program
 
         Assembly assembly = generator.GetAssembly();
 
-        Type program = assembly.GetType("Program");
+        Type? program = assembly.GetType("Program");
+        if (program is null) return;
+
         var main = program.GetMethod("main", []);
+        if (main is null) return;
+
         main.Invoke(null, []);
     }
 }

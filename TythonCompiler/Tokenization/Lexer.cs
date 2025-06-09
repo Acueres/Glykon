@@ -19,8 +19,8 @@ public class Lexer(string source, string fileName)
     {
         while (!AtEnd)
         {
-            Token token = GetNextToken();
-            if (!token.IsNull)
+            Token? token = GetNextToken();
+            if (token is not null)
                 tokens.Add(token);
         }
 
@@ -28,7 +28,7 @@ public class Lexer(string source, string fileName)
         return (tokens.ToArray(), errors);
     }
 
-    Token GetNextToken()
+    Token? GetNextToken()
     {
         char character = Advance();
 
@@ -127,10 +127,10 @@ public class Lexer(string source, string fileName)
                 }
 
                 errors.Add(new SyntaxError(line, fileName, $"Invalid character '{character}' in token"));
-                return Token.Null;
+                return null;
         }
 
-        return Token.Null;
+        return null;
     }
 
     Token ScanIdentifier()
@@ -178,7 +178,7 @@ public class Lexer(string source, string fileName)
         return new(value, line, isFloat ? TokenType.LiteralReal : TokenType.LiteralInt);
     }
 
-    Token ScanString(char openingQuote)
+    Token? ScanString(char openingQuote)
     {
         bool multiline = Match(openingQuote, 2);
         int currentLine = line;
@@ -191,7 +191,7 @@ public class Lexer(string source, string fileName)
                 if (!multiline)
                 {
                     errors.Add(new SyntaxError(line, fileName, "SyntaxError: unterminated string literal"));
-                    return Token.Null;
+                    return null;
                 }
 
                 line++;
@@ -203,7 +203,7 @@ public class Lexer(string source, string fileName)
         if (AtEnd)
         {
             errors.Add(new SyntaxError(line, fileName, "SyntaxError: unterminated string literal"));
-            return Token.Null;
+            return null;
         }
 
         int stringEndOffset = multiline ? 3 : 1;
@@ -212,17 +212,17 @@ public class Lexer(string source, string fileName)
         return result;
     }
 
-    Token ScanEndOfLine()
+    Token? ScanEndOfLine()
     {
-        Token last = tokens.LastOrDefault();
+        Token? last = tokens.LastOrDefault();
 
-        if (last.IsNull || terminatorExceptions.Contains(last.Type)) return Token.Null;
+        if (last is null || terminatorExceptions.Contains(last.Type)) return null;
 
         (char nextChar, int peekIndex) = PeekNextSignificant();
-        if (chainingChars.Contains(nextChar)) return Token.Null;
+        if (chainingChars.Contains(nextChar)) return null;
 
         // Handle long chaining tokens
-        if (IsLongChainingToken(nextChar, peekIndex)) return Token.Null;
+        if (IsLongChainingToken(nextChar, peekIndex)) return null;
 
         return new(TokenType.Semicolon, line);
     }
@@ -376,7 +376,7 @@ public class Lexer(string source, string fileName)
         terminatorExceptions =
     [
     // Internal/special
-    TokenType.Null, TokenType.EOF, TokenType.Semicolon,
+    TokenType.EOF, TokenType.Semicolon,
 
     // Openers
     TokenType.BracketLeft,

@@ -618,7 +618,7 @@ public class Parser(Token[] tokens, string fileName)
     Token GetToken(int offset)
     {
         int nextTokenPos = tokenIndex + offset;
-        Token token = AtEnd || nextTokenPos >= tokens.Length ? Token.Null : tokens[nextTokenPos];
+        Token token = tokens[nextTokenPos];
         return token;
     }
 

@@ -2,7 +2,6 @@
 
 public enum TokenType
 {
-    Null,
     // Literals
     None, LiteralInt, LiteralReal, LiteralString, LiteralTrue, LiteralFalse,
 
@@ -28,14 +27,11 @@ public enum TokenType
     EOF
 }
 
-public readonly struct Token
+public class Token
 {
-    public readonly object Value { get; }
-    public readonly int Line { get; }
-    public readonly TokenType Type { get; }
-    public bool IsNull => Type == TokenType.Null;
-
-    public static Token Null => new();
+    public object Value { get; init; }
+    public int Line { get; init; }
+    public TokenType Type { get; init; }
 
     public Token(object value, int line, TokenType type)
     {
@@ -53,7 +49,7 @@ public readonly struct Token
         {
             Value = true;
         }
-        else if (Type == TokenType.LiteralFalse)
+        else
         {
             Value = false;
         }
