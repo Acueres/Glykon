@@ -1,8 +1,8 @@
 using TythonCompiler.Tokenization;
 
-namespace Test;
+namespace Tests;
 
-public class LexerTest
+public class LexerTests
 {
     [Fact]
     public void ScanIdentifiersTest()

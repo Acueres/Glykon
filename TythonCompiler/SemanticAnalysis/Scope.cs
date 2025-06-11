@@ -97,7 +97,16 @@ namespace TythonCompiler.SemanticAnalysis;
             return symbol;
         }
 
-        public VariableSymbol AddVariable(int symbolId, TokenType type)
+    public void UpdateParameter(int symbolId, TokenType type)
+    {
+        if (parameters.TryGetValue(symbolId, out ParameterSymbol? symbol))
+        {
+            ParameterSymbol newSymbol = new(symbol.Index, type);
+            parameters[symbolId] = newSymbol;
+        }
+    }
+
+    public VariableSymbol AddVariable(int symbolId, TokenType type)
         {
             VariableSymbol symbol = new(type);
             variables.Add(symbolId, symbol);
@@ -140,4 +149,13 @@ namespace TythonCompiler.SemanticAnalysis;
 
             return variables[symbolId];
         }
+
+    public void UpdateVariable(int symbolId, TokenType type)
+    {
+        if (variables.ContainsKey(symbolId))
+        {
+            VariableSymbol newSymbol = new(type);
+            variables[symbolId] = newSymbol;
+        }
     }
+}

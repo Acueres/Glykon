@@ -30,7 +30,6 @@ public class Parser(Token[] tokens, string fileName)
             {
                 if (Current.Type == TokenType.EOF) break;
                 IStatement stmt = ParseStatement();
-                if (stmt is null) continue;
                 statements.Add(stmt);
             }
             catch (ParseException)
@@ -46,8 +45,7 @@ public class Parser(Token[] tokens, string fileName)
     {
         if (Match(TokenType.Const))
         {
-            ParseConstantDeclaration();
-            return null;
+            return ParseConstantDeclaration();
         }
 
         if (Match(TokenType.Let))
@@ -94,18 +92,24 @@ public class Parser(Token[] tokens, string fileName)
         return new ExpressionStmt(expr);
     }
 
-    BlockStmt ParseBlockStatement()
+    List<IStatement> ParseStatements()
     {
-        int scopeIndex = symbolTable.BeginScope();
-
         List<IStatement> statements = [];
 
         while (Current.Type != TokenType.BraceRight && !AtEnd)
         {
             IStatement stmt = ParseStatement();
-            if (stmt is null) continue;
             statements.Add(stmt);
         }
+
+        return statements;
+    }
+
+    BlockStmt ParseBlockStatement()
+    {
+        int scopeIndex = symbolTable.BeginScope();
+
+        List<IStatement> statements = ParseStatements();
 
         Consume(TokenType.BraceRight, "Expect '}' after block");
 
@@ -117,12 +121,6 @@ public class Parser(Token[] tokens, string fileName)
     IfStmt ParseIfStatement()
     {
         IExpression condition = ParseExpression();
-
-        TokenType conditionType = InfereType(condition, TokenType.Bool);
-        if (!(conditionType == TokenType.Bool))
-        {
-            errors.Add(new TypeError($"Type mismatch: expected bool, got {conditionType}", fileName));
-        }
 
         // Handle ASI artefacts
         Match(TokenType.Semicolon);
@@ -150,12 +148,6 @@ public class Parser(Token[] tokens, string fileName)
     WhileStmt ParseWhileStatement()
     {
         IExpression condition = ParseExpression();
-
-        TokenType conditionType = InfereType(condition, TokenType.Bool);
-        if (conditionType != TokenType.Bool)
-        {
-            errors.Add(new TypeError($"Type mismatch: expected bool, got {conditionType}", fileName));
-        }
 
         // Handle ASI artefacts
         Match(TokenType.Semicolon);
@@ -186,7 +178,7 @@ public class Parser(Token[] tokens, string fileName)
                 Consume(TokenType.Colon, "Expect colon before type declaration");
                 Token type = Advance();
 
-                Parameter parameter = new(name.Value as string, type.Type);
+                Parameter parameter = new((string)name.Value, type.Type);
                 parameters.Add(parameter);
 
                 symbolTable.RegisterParameter(parameter.Name, parameter.Type);
@@ -203,14 +195,7 @@ public class Parser(Token[] tokens, string fileName)
         }
 
         Consume(TokenType.BraceLeft, "Expect '{' before function body");
-        List<IStatement> body = [];
-
-        while (Current.Type != TokenType.BraceRight && !AtEnd)
-        {
-            IStatement stmt = ParseStatement();
-            if (stmt is null) continue;
-            body.Add(stmt);
-        }
+        List<IStatement> body = ParseStatements();
 
         Consume(TokenType.BraceRight, "Expect '}' after function body");
 
@@ -249,36 +234,24 @@ public class Parser(Token[] tokens, string fileName)
         {
             initializer = ParseExpression();
         }
-        if (initializer == null && declaredType == TokenType.None)
+
+        if (initializer == null)
         {
-            ParseError error = new(token, fileName, "Expect type declaration");
+            ParseError error = new(token, fileName, "Variable must be initialized");
             errors.Add(error);
             throw error.Exception();
         }
         else
         {
-            TokenType inferredType = InfereType(initializer, declaredType);
-            if (declaredType == TokenType.None)
-            {
-                declaredType = inferredType;
-            }
-            else if (declaredType != inferredType)
-            {
-                ParseError error = new(token, fileName, "Type mismatch");
-                errors.Add(error);
-                throw error.Exception();
-            }
-
-
             Consume(TokenType.Semicolon, "Expect ';' after variable declaration");
 
-            string name = token.Value.ToString();
+            string name = (string)token.Value;
             symbolTable.RegisterVariable(name, declaredType);
             return new(initializer, name, declaredType);
         }
     }
 
-    void ParseConstantDeclaration()
+    ConstantStmt ParseConstantDeclaration()
     {
         Token token = Consume(TokenType.Identifier, "Expect constant name");
 
@@ -295,77 +268,17 @@ public class Parser(Token[] tokens, string fileName)
             throw error.Exception();
         }
 
-        TokenType inferredType = InfereType(literal, declaredType);
-        if (declaredType != inferredType)
-        {
-            ParseError error = new(token, fileName, "Type mismatch");
-            errors.Add(error);
-            throw error.Exception();
-        }
-
         Consume(TokenType.Semicolon, "Expect ';' after constant declaration");
 
         string name = (string)token.Value;
         symbolTable.RegisterConstant(name, literal.Token.Value, declaredType);
+        return new(initializer, name, declaredType);
     }
 
     TokenType ParseTypeDeclaration()
     {
         Token next = Advance();
         return next.Type;
-    }
-
-    TokenType InfereType(IExpression expression, TokenType type)
-    {
-        switch (expression.Type)
-        {
-            case ExpressionType.Literal:
-                {
-                    var literalType = ((LiteralExpr)expression).Token.Type;
-                    return literalType switch
-                    {
-                        TokenType.LiteralInt => TokenType.Int,
-                        TokenType.LiteralReal => TokenType.Real,
-                        TokenType.LiteralString => TokenType.String,
-                        TokenType.LiteralTrue => TokenType.Bool,
-                        TokenType.LiteralFalse => TokenType.Bool,
-                        _ => TokenType.None,
-                    };
-                }
-            case ExpressionType.Unary:
-                {
-                    UnaryExpr unaryExpr = (UnaryExpr)expression;
-                    return InfereType(unaryExpr.Expression, type);
-                }
-            case ExpressionType.Binary:
-                {
-                    BinaryExpr binaryExpr = (BinaryExpr)expression;
-                    TokenType typeLeft = InfereType(binaryExpr.Left, type);
-                    TokenType typeRight = InfereType(binaryExpr.Right, type);
-                    if (typeLeft != typeRight)
-                    {
-                        ParseError error = new(binaryExpr.Operator, fileName,
-                            $"Operator {binaryExpr.Operator.Type} cannot be applied between types '{typeLeft}' and '{typeRight}'");
-                        errors.Add(error);
-                        throw error.Exception();
-                    }
-
-                    if (binaryExpr.Operator.Type == TokenType.Equal
-                        || binaryExpr.Operator.Type == TokenType.NotEqual
-                        || binaryExpr.Operator.Type == TokenType.Greater
-                        || binaryExpr.Operator.Type == TokenType.Less
-                        || binaryExpr.Operator.Type == TokenType.GreaterEqual
-                        || binaryExpr.Operator.Type == TokenType.LessEqual)
-                    {
-                        return TokenType.Bool;
-                    }
-
-                    return typeLeft;
-                }
-            case ExpressionType.Variable: return symbolTable.GetType(((VariableExpr)expression).Name);
-            case ExpressionType.Grouping: return InfereType(((GroupingExpr)expression).Expression, type);
-            default: return type;
-        }
     }
 
     public IExpression ParseExpression()
@@ -385,16 +298,6 @@ public class Parser(Token[] tokens, string fileName)
             if (expr.Type == ExpressionType.Variable)
             {
                 string name = ((VariableExpr)expr).Name;
-
-                TokenType variableType = symbolTable.GetType(name);
-                TokenType valueType = InfereType(value, variableType);
-
-                if (variableType != valueType)
-                {
-                    errors.Add(new ParseError(token, fileName, $"Type mismatch; can't assign {valueType} to {variableType}"));
-                    return expr;
-                }
-
                 return new AssignmentExpr(name, value);
             }
 
@@ -413,16 +316,6 @@ public class Parser(Token[] tokens, string fileName)
         {
             Token oper = Previous;
             IExpression right = ParseLogicalAnd();
-
-            TokenType leftType = InfereType(expr, TokenType.Bool);
-            TokenType rightType = InfereType(right, TokenType.Bool);
-
-            if (!(leftType == TokenType.Bool && rightType == TokenType.Bool))
-            {
-                errors.Add(new ParseError(oper, fileName, $"Type mismatch; operator {oper.Type} cannot be applied between types {leftType} and {rightType}"));
-                return expr;
-            }
-
             expr = new LogicalExpr(oper, expr, right);
         }
 
@@ -437,16 +330,6 @@ public class Parser(Token[] tokens, string fileName)
         {
             Token oper = Previous;
             IExpression right = ParseEquality();
-
-            TokenType leftType = InfereType(expr, TokenType.Bool);
-            TokenType rightType = InfereType(right, TokenType.Bool);
-
-            if (!(leftType == TokenType.Bool && rightType == TokenType.Bool))
-            {
-                errors.Add(new ParseError(oper, fileName, $"Type mismatch; operator {oper.Type} cannot be applied between types {leftType} and {rightType}"));
-                return expr;
-            }
-
             expr = new LogicalExpr(oper, expr, right);
         }
 
@@ -560,7 +443,7 @@ public class Parser(Token[] tokens, string fileName)
 
         if (Match(TokenType.Identifier))
         {
-            string name = Previous.Value.ToString();
+            string name = (string)Previous.Value;
             return new VariableExpr(name);
         }
 

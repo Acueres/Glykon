@@ -1,31 +1,26 @@
 ﻿using TythonCompiler.Diagnostics.Errors;
-using TythonCompiler.SemanticAnalysis;
 using TythonCompiler.Syntax.Expressions;
 using TythonCompiler.Syntax.Statements;
 
-namespace TythonCompiler.SemanticRefinement
+namespace TythonCompiler.SemanticAnalysis
 {
-    public class SemanticRefiner(IStatement[] statements,  SymbolTable symbolTable, string fileName)
+    public class SemanticRefiner(SymbolTable symbolTable, string fileName)
     {
-        readonly IStatement[] statements = statements;
         readonly SymbolTable st = symbolTable;
 
         readonly List<ITythonError> errors = [];
 
-        public List<ITythonError> Execute()
+        public void Refine(IStatement statement)
         {
-            foreach (IStatement statement in statements)
+            CheckUnenclosedJumpStatements(statement);
+
+            if (statement is FunctionStmt fStmt)
             {
-                CheckUnenclosedJumpStatements(statement);
-
-                if (statement is FunctionStmt fStmt)
-                {
-                    NormalizeLocalFunction(fStmt);
-                }
+                NormalizeLocalFunction(fStmt);
             }
-
-            return errors;
         }
+
+        public List<ITythonError> GetErrors() => errors;
 
         void NormalizeLocalFunction(FunctionStmt fStmt)
         {

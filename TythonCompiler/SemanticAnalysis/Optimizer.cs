@@ -2,7 +2,7 @@
 using TythonCompiler.Syntax.Statements;
 using TythonCompiler.Tokenization;
 
-namespace TythonCompiler.SemanticRefinement
+namespace TythonCompiler.SemanticAnalysis
 {
     public class Optimizer(IStatement[] statements)
     {

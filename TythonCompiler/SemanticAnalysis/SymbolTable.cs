@@ -1,4 +1,5 @@
-﻿using TythonCompiler.SemanticAnalysis.Symbols;
+﻿using System.Security;
+using TythonCompiler.SemanticAnalysis.Symbols;
 using TythonCompiler.Tokenization;
 
 namespace TythonCompiler.SemanticAnalysis
@@ -133,6 +134,25 @@ namespace TythonCompiler.SemanticAnalysis
             }
 
             return TokenType.None;
+        }
+
+        public void UpdateType(string name, TokenType type)
+        {
+            int symbolIndex = symbolMap[name];
+
+            ParameterSymbol? parameter = current.GetParameter(symbolIndex);
+            if (parameter != null)
+            {
+                current.UpdateParameter(symbolIndex, type);
+                return;
+            }
+
+            VariableSymbol? variableSymbol = current.GetVariable(symbolIndex);
+            if (variableSymbol != null)
+            {
+                current.UpdateVariable(symbolIndex, type);
+                return;
+            }
         }
 
         public int GetSymbolId(string name)

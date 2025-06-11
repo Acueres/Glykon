@@ -7,6 +7,7 @@ namespace TythonCompiler.Syntax.Statements
         Block,
         Expression,
         Variable,
+        Constant,
         Function,
         Return,
         If,

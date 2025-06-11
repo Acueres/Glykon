@@ -1,11 +1,11 @@
 ﻿using TythonCompiler.Parsing;
 using TythonCompiler.Tokenization;
-using TythonCompiler.SemanticRefinement;
 using TythonCompiler.Syntax.Expressions;
+using TythonCompiler.SemanticAnalysis;
 
-namespace Test
+namespace Tests
 {
-    public class OptimizerTest
+    public class OptimizerTests
     {
         [Fact]
         public void TestBinaryExpressionLiteralOptimization()

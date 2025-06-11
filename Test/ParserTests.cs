@@ -2,11 +2,10 @@
 using TythonCompiler.Syntax.Expressions;
 using TythonCompiler.Syntax.Statements;
 using TythonCompiler.Tokenization;
-using TythonCompiler.SemanticRefinement;
 
-namespace Test
+namespace Tests
 {
-    public class ParserTest
+    public class ParserTests
     {
         [Fact]
         public void BlockStatementTest()
@@ -29,37 +28,6 @@ namespace Test
             Assert.Equal(StatementType.Block, stmts[1].Type);
             BlockStmt stmt = (BlockStmt)stmts[1];
             Assert.Single(stmt.Statements);
-        }
-
-        [Fact]
-        public void JumpStatementsTest()
-        {
-            const string fileName = "JumpStatementsTest";
-            const string src = @"
-            while true {
-                break
-            }
-
-            continue
-
-            if true {
-                break
-            }
-            ";
-            Lexer lexer = new(src, fileName);
-            (var tokens, _) = lexer.Execute();
-            Parser parser = new(tokens, fileName);
-            var (stmts, symbolTable, errors) = parser.Execute();
-
-            SemanticRefiner refiner = new(stmts, symbolTable, fileName);
-            var refinerErrors = refiner.Execute();
-
-            Assert.Empty(errors);
-
-            Assert.Equal(2, refinerErrors.Count);
-            Assert.NotEmpty(stmts);
-            Assert.Equal(3, stmts.Length);
-            Assert.Equal(StatementType.Jump, stmts[1].Type);
         }
 
         [Fact]
@@ -155,7 +123,7 @@ namespace Test
             Assert.Single(stmts);
             Assert.Equal(StatementType.Function, stmts.First().Type);
 
-            FunctionStmt function = stmts.First() as FunctionStmt;
+            FunctionStmt function = (FunctionStmt)stmts.First();
             Assert.Equal("f", function.Name);
             Assert.Equal(TokenType.Int, function.ReturnType);
             Assert.Equal(2, function.Parameters.Count);
@@ -174,7 +142,8 @@ namespace Test
             var (stmts, st, errors) = parser.Execute();
 
             Assert.Empty(errors);
-            Assert.Empty(stmts);
+            Assert.Single(stmts);
+            Assert.Equal(StatementType.Constant, stmts.First().Type);
             
             var constant = st.GetConstant("pi");
             Assert.NotNull(constant);
@@ -194,8 +163,8 @@ namespace Test
             VariableStmt stmt = (VariableStmt)stmts.First();
             Assert.Equal("value", stmt.Name);
             Assert.NotNull(stmt.Expression);
-            Assert.Equal(TokenType.Int, stmt.VariableType);
-            Assert.Equal(42, (stmt.Expression as LiteralExpr).Token.Value);
+            Assert.Equal(TokenType.None, stmt.VariableType); // Parser cannot infer types
+            Assert.Equal(42, ((LiteralExpr)stmt.Expression).Token.Value);
         }
 
         [Fact]
@@ -215,45 +184,6 @@ namespace Test
             Assert.NotNull(stmt.Expression);
             Assert.Equal(TokenType.Int, stmt.VariableType);
             Assert.Equal(42, (stmt.Expression as LiteralExpr).Token.Value);
-        }
-
-        [Fact]
-        public void VariableTypeInferenceTest()
-        {
-            const string fileName = "VariableTypeInferenceTest";
-            const string src = @"
-            let i = 6
-            let res = i + (2 + 2 * 3)
-";
-            Lexer lexer = new(src, fileName);
-            (var tokens, _) = lexer.Execute();
-            Parser parser = new(tokens, fileName);
-            var (stmts, _, errors) = parser.Execute();
-
-            Assert.Empty(errors);
-            Assert.NotEmpty(stmts);
-            Assert.Equal(2, stmts.Length);
-            Assert.Equal(StatementType.Variable, stmts[1].Type);
-            VariableStmt stmt = (VariableStmt)stmts[1];
-            Assert.Equal("res", stmt.Name);
-            Assert.NotNull(stmt.Expression);
-            Assert.Equal(TokenType.Int, stmt.VariableType);
-        }
-
-        [Fact]
-        public void VariableWrongTypeInferenceTest()
-        {
-            const string fileName = "VariableWrongTypeInferenceTest";
-            const string src = @"
-            let res = (2 + 2 * 'text')
-";
-            Lexer lexer = new(src, fileName);
-            (var tokens, _) = lexer.Execute();
-            Parser parser = new(tokens, fileName);
-            var (stmts, _, errors) = parser.Execute();
-
-            Assert.Empty(stmts);
-            Assert.Single(errors);
         }
 
         [Fact]
@@ -281,15 +211,14 @@ namespace Test
             const string src = @"
             let a = 5
             a = 3
-            a = 'string ' + 'test'
 ";
             Lexer lexer = new(src, fileName);
             (var tokens, _) = lexer.Execute();
             Parser parser = new(tokens, fileName);
             var (stmts, _, errors) = parser.Execute();
 
-            Assert.Single(errors);
-            Assert.Equal(3, stmts.Length);
+            Assert.Empty(errors);
+            Assert.Equal(2, stmts.Length);
             Assert.Equal(ExpressionType.Assignment, stmts[1].Expression.Type);
         }
 

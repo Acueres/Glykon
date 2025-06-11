@@ -2,8 +2,8 @@
 
 using TythonCompiler.Tokenization;
 using TythonCompiler.Parsing;
-using TythonCompiler.SemanticRefinement;
 using TythonCompiler.CodeGeneration;
+using TythonCompiler.SemanticAnalysis;
 
 namespace TythonCompiler;
 
@@ -48,10 +48,15 @@ internal class Program
             error.Report();
         }
 
-        SemanticRefiner refiner = new(stmts, symbolTable, filename);
-        var refinerErrors = refiner.Execute();
+        SemanticAnalyzer semanticAnalyzer = new(stmts, symbolTable, filename);
+        var semanticErrors = semanticAnalyzer.Execute();
 
-        if (lexerErrors.Count != 0 || parserErrors.Count != 0 || refinerErrors.Count != 0) return;
+        foreach (var error in semanticErrors)
+        {
+            error.Report();
+        }
+
+        if (lexerErrors.Count != 0 || parserErrors.Count != 0 || semanticErrors.Count != 0) return;
 
         var generator = new TypeGenerator(stmts, symbolTable, filename);
         generator.GenerateAssembly();
