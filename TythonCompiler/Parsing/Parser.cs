@@ -8,9 +8,9 @@ using TythonCompiler.Syntax.Statements;
 
 namespace TythonCompiler.Parsing;
 
-public class Parser(Token[] tokens, string fileName)
+public class Parser(Token[] tokens, string filename)
 {
-    readonly string fileName = fileName;
+    readonly string fileName = filename;
 
     bool AtEnd => tokenIndex >= tokens.Length;
 
@@ -167,23 +167,7 @@ public class Parser(Token[] tokens, string fileName)
         int scopeIndex = symbolTable.BeginScope();
         if (Current.Type != TokenType.ParenthesisRight)
         {
-            do
-            {
-                if (parameters.Count > ushort.MaxValue)
-                {
-                    errors.Add(new ParseError(Current, fileName, "Argument count exceeded"));
-                }
-
-                Token name = Consume(TokenType.Identifier, "Expect parameter name");
-                Consume(TokenType.Colon, "Expect colon before type declaration");
-                Token type = Advance();
-
-                Parameter parameter = new((string)name.Value, type.Type);
-                parameters.Add(parameter);
-
-                symbolTable.RegisterParameter(parameter.Name, parameter.Type);
-            }
-            while (Match(TokenType.Comma));
+            parameters = ParseParameters();
         }
 
         Consume(TokenType.ParenthesisRight, "Expect ')' after parameters");
@@ -279,6 +263,30 @@ public class Parser(Token[] tokens, string fileName)
     {
         Token next = Advance();
         return next.Type;
+    }
+
+    List<Parameter> ParseParameters()
+    {
+        List<Parameter> parameters = [];
+        do
+        {
+            if (parameters.Count > ushort.MaxValue)
+            {
+                errors.Add(new ParseError(Current, fileName, "Argument count exceeded"));
+            }
+
+            Token name = Consume(TokenType.Identifier, "Expect parameter name");
+            Consume(TokenType.Colon, "Expect colon before type declaration");
+            Token type = Advance();
+
+            Parameter parameter = new((string)name.Value, type.Type);
+            parameters.Add(parameter);
+
+            symbolTable.RegisterParameter(parameter.Name, parameter.Type);
+        }
+        while (Match(TokenType.Comma));
+
+        return parameters;
     }
 
     public IExpression ParseExpression()
@@ -438,7 +446,8 @@ public class Parser(Token[] tokens, string fileName)
 
     IExpression ParsePrimary()
     {
-        if (Match(TokenType.None, TokenType.LiteralTrue, TokenType.LiteralFalse, TokenType.LiteralInt, TokenType.LiteralReal, TokenType.LiteralString))
+        if (Match(TokenType.None, TokenType.LiteralTrue, TokenType.LiteralFalse,
+                  TokenType.LiteralInt, TokenType.LiteralReal, TokenType.LiteralString))
             return new LiteralExpr(Previous);
 
         if (Match(TokenType.Identifier))
