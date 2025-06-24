@@ -15,7 +15,7 @@ public class SemanticAnalyzer(IStatement[] statements, SymbolTable symbolTable, 
         symbolTable.ResetScope();
         foreach (var statement in statements)
         {
-            typeChecker.CheckTypes(statement);
+            typeChecker.Analyze(statement);
         }
 
         symbolTable.ResetScope();

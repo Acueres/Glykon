@@ -12,28 +12,29 @@ class TypeChecker(SymbolTable symbolTable, string fileName)
     readonly SymbolTable symbolTable = symbolTable;
     readonly List<ITythonError> errors = [];
 
-    public void CheckTypes(IStatement statement)
+    public void Analyze(IStatement statement)
     {
         switch (statement.Type)
         {
-            case StatementType.If:
-            case StatementType.While: CheckConditionType(statement); break;
-            case StatementType.Variable: CheckAssignedType(statement); break;
-            case StatementType.Constant: CheckConstantType(statement); break;
+            case StatementType.If: CheckIfStatement((IfStmt)statement); break;
+            case StatementType.While: CheckWhileStatement((WhileStmt)statement); break;
+            case StatementType.Variable: CheckVariableDeclaration((VariableStmt)statement); break;
+            case StatementType.Constant: CheckConstantDeclaration((ConstantStmt)statement); break;
+            case StatementType.Function: CheckFunctionDeclaration((FunctionStmt)statement); break;
             case StatementType.Block: CheckBlockStatement((BlockStmt)statement); break;
-            case StatementType.Function: CheckFunction((FunctionStmt)statement); break;
+            case StatementType.Return: CheckReturnStatement((ReturnStmt)statement); break;
         }
     }
 
     public List<ITythonError> GetErrors() => errors;
 
-    void CheckFunction(FunctionStmt fStmt)
+    void CheckFunctionDeclaration(FunctionStmt fStmt)
     {
         symbolTable.EnterScope(fStmt.ScopeIndex);
 
         foreach (var statement in fStmt.Body)
         {
-            CheckTypes(statement);
+            Analyze(statement);
         }
 
         symbolTable.ExitScope();
@@ -45,25 +46,37 @@ class TypeChecker(SymbolTable symbolTable, string fileName)
 
         foreach (var statement in blockStmt.Statements)
         {
-            CheckTypes(statement);
+            Analyze(statement);
         }
 
         symbolTable.ExitScope();
     }
 
-    void CheckConditionType(IStatement stmt)
+    void CheckIfStatement(IfStmt stmt)
     {
-        TokenType conditionType = InfereType(stmt.Expression);
-        if (!(conditionType == TokenType.Bool))
+        ValidateCondition(stmt.Expression);
+        Analyze(stmt.Statement);
+        if (stmt.ElseStatement is not null) Analyze(stmt.ElseStatement);
+    }
+
+    void CheckWhileStatement(WhileStmt stmt)
+    {
+        ValidateCondition(stmt.Expression);
+        Analyze(stmt.Statement);
+    }
+
+    private void ValidateCondition(IExpression condition)
+    {
+        TokenType conditionType = InferType(condition);
+        if (conditionType != TokenType.Bool)
         {
-            errors.Add(new TypeError($"Type mismatch: expected bool, got {conditionType}", fileName));
+            errors.Add(new TypeError($"Type mismatch: condition must be bool, but got {conditionType}", fileName));
         }
     }
 
-    void CheckAssignedType(IStatement stmt)
+    void CheckVariableDeclaration(VariableStmt variableStmt)
     {
-        VariableStmt variableStmt = (VariableStmt)stmt;
-        TokenType inferredType = InfereType(variableStmt.Expression);
+        TokenType inferredType = InferType(variableStmt.Expression);
         if (variableStmt.VariableType == TokenType.None)
         {
             variableStmt.VariableType = inferredType;
@@ -76,10 +89,9 @@ class TypeChecker(SymbolTable symbolTable, string fileName)
         }
     }
 
-    void CheckConstantType(IStatement stmt)
+    void CheckConstantDeclaration(ConstantStmt constantStmt)
     {
-        ConstantStmt constantStmt = (ConstantStmt)stmt;
-        TokenType inferredType = InfereType(constantStmt.Expression);
+        TokenType inferredType = InferType(constantStmt.Expression);
         if (constantStmt.ConstantType != inferredType)
         {
             TypeError error = new(fileName, "Type mismatch");
@@ -87,7 +99,13 @@ class TypeChecker(SymbolTable symbolTable, string fileName)
         }
     }
 
-    TokenType InfereType(IExpression expression)
+    // TODO: Complete function return type checking 
+    void CheckReturnStatement(ReturnStmt returnStmt)
+    {
+
+    }
+
+    TokenType InferType(IExpression expression)
     {
         switch (expression.Type)
         {
@@ -107,18 +125,42 @@ class TypeChecker(SymbolTable symbolTable, string fileName)
             case ExpressionType.Unary:
                 {
                     UnaryExpr unaryExpr = (UnaryExpr)expression;
-                    return InfereType(unaryExpr.Expression);
+                    TokenType operandType = InferType(unaryExpr.Expression);
+
+                    if (operandType == TokenType.None) return TokenType.None;
+
+                    if (unaryExpr.Operator.Type == TokenType.Not)
+                    {
+                        if (operandType != TokenType.Bool)
+                        {
+                            TypeError error = new(fileName,
+                            $"Operator {unaryExpr.Operator.Type} cannot be applied to operand type '{operandType}'");
+                            errors.Add(error);
+                            return TokenType.None;
+                        }
+
+                        return TokenType.Bool;
+                    }
+
+                    return InferType(unaryExpr.Expression);
                 }
             case ExpressionType.Binary:
                 {
                     BinaryExpr binaryExpr = (BinaryExpr)expression;
-                    TokenType leftType = InfereType(binaryExpr.Left);
-                    TokenType rightType = InfereType(binaryExpr.Right);
+                    TokenType leftType = InferType(binaryExpr.Left);
+                    TokenType rightType = InferType(binaryExpr.Right);
+
+                    if (leftType == TokenType.None || rightType == TokenType.None)
+                    {
+                        return TokenType.None;
+                    }
+
                     if (leftType != rightType)
                     {
                         TypeError error = new(fileName,
                             $"Operator {binaryExpr.Operator.Type} cannot be applied between types '{leftType}' and '{rightType}'");
                         errors.Add(error);
+                        return TokenType.None;
                     }
 
                     if (binaryExpr.Operator.Type == TokenType.Equal
@@ -136,12 +178,18 @@ class TypeChecker(SymbolTable symbolTable, string fileName)
             case ExpressionType.Logical:
                 {
                     LogicalExpr logicalExpr = (LogicalExpr)expression;
-                    TokenType leftType = InfereType(logicalExpr.Left);
-                    TokenType rightType = InfereType(logicalExpr.Right);
+                    TokenType leftType = InferType(logicalExpr.Left);
+                    TokenType rightType = InferType(logicalExpr.Right);
+
+                    if (leftType == TokenType.None || rightType == TokenType.None)
+                    {
+                        return TokenType.None;
+                    }
 
                     if (!(leftType == TokenType.Bool && rightType == TokenType.Bool))
                     {
                         errors.Add(new TypeError(fileName, $"Type mismatch; operator {logicalExpr.Operator.Type} cannot be applied between types {leftType} and {rightType}"));
+                        return TokenType.None;
                     }
 
                     return leftType;
@@ -150,11 +198,17 @@ class TypeChecker(SymbolTable symbolTable, string fileName)
                 {
                     AssignmentExpr assignmentExpr = (AssignmentExpr)expression;
                     TokenType variableType = symbolTable.GetType(assignmentExpr.Name);
-                    TokenType valueType = InfereType(assignmentExpr.Right);
+                    TokenType valueType = InferType(assignmentExpr.Right);
+
+                    if (variableType == TokenType.None || valueType == TokenType.None)
+                    {
+                        return TokenType.None;
+                    }
 
                     if (variableType != valueType)
                     {
                         errors.Add(new TypeError(fileName, $"Type mismatch; can't assign {valueType} to {variableType}"));
+                        return TokenType.None;
                     }
 
                     return variableType;
@@ -164,7 +218,13 @@ class TypeChecker(SymbolTable symbolTable, string fileName)
                     var variableExpr = (VariableExpr)expression;
                     return symbolTable.GetType(variableExpr.Name);
                 }
-            case ExpressionType.Grouping: return InfereType(((GroupingExpr)expression).Expression);
+            case ExpressionType.Grouping: return InferType(((GroupingExpr)expression).Expression);
+            case ExpressionType.Call:
+                {
+                    // TODO: Add call type checking
+                    CallExpr callExpr = (CallExpr)expression;
+                    return TokenType.None;
+                }
             default: return TokenType.None;
         }
     }
