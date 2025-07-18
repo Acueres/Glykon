@@ -92,19 +92,19 @@ public class LexerTests
         Lexer lexer = new(keywords, "KeywordsTest");
         var (tokens, _) = lexer.Execute();
 
-        tokens = [.. tokens.Where(t => t.Type != TokenType.EOF)];
+        tokens = [.. tokens.Where(t => t.Type != TokenType.EOF && t.Type != TokenType.Semicolon)];
 
         TokenType[] expectedTypes =
         [
-        TokenType.If,
-        TokenType.Class,
-        TokenType.Struct,
-        TokenType.Else,
-        TokenType.Def,
-        TokenType.Int,
-        TokenType.While,
-        TokenType.LiteralFalse
-    ];
+            TokenType.If,
+            TokenType.Class,
+            TokenType.Struct,
+            TokenType.Else,
+            TokenType.Def,
+            TokenType.Int,
+            TokenType.While,
+            TokenType.LiteralFalse
+        ];
 
         var actualTypes = tokens.Select(t => t.Type).ToArray();
 
@@ -119,7 +119,7 @@ public class LexerTests
         Lexer lexer = new(stringsSource, "StringTest");
         var (tokens, _) = lexer.Execute();
 
-        tokens = [.. tokens.Where(t => t.Type != TokenType.EOF)];
+        tokens = [.. tokens.Where(t => t.Type != TokenType.EOF && t.Type != TokenType.Semicolon)];
 
         Assert.Equal(3, tokens.Length);
         Assert.Equal(TokenType.LiteralString, tokens[0].Type);

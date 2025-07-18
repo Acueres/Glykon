@@ -5,7 +5,7 @@ using TythonCompiler.Tokenization;
 
 namespace TythonCompiler.SemanticAnalysis;
 
-class TypeChecker(SymbolTable symbolTable, string fileName)
+public class TypeChecker(SymbolTable symbolTable, string fileName)
 {
     readonly string fileName = fileName;
 
@@ -23,6 +23,7 @@ class TypeChecker(SymbolTable symbolTable, string fileName)
             case StatementType.Function: CheckFunctionDeclaration((FunctionStmt)statement); break;
             case StatementType.Block: CheckBlockStatement((BlockStmt)statement); break;
             case StatementType.Return: CheckReturnStatement((ReturnStmt)statement); break;
+            case StatementType.Expression: CheckExpressionStatement((ExpressionStmt)statement); break;
         }
     }
 
@@ -30,9 +31,10 @@ class TypeChecker(SymbolTable symbolTable, string fileName)
 
     void CheckFunctionDeclaration(FunctionStmt fStmt)
     {
-        symbolTable.EnterScope(fStmt.ScopeIndex);
+        BlockStmt functionBody = fStmt.Body;
+        symbolTable.EnterScope(functionBody.ScopeIndex);
 
-        foreach (var statement in fStmt.Body)
+        foreach (var statement in fStmt.Body.Statements)
         {
             Analyze(statement);
         }
@@ -55,7 +57,7 @@ class TypeChecker(SymbolTable symbolTable, string fileName)
     void CheckIfStatement(IfStmt stmt)
     {
         ValidateCondition(stmt.Expression);
-        Analyze(stmt.Statement);
+        Analyze(stmt.ThenStatement);
         if (stmt.ElseStatement is not null) Analyze(stmt.ElseStatement);
     }
 
@@ -99,14 +101,36 @@ class TypeChecker(SymbolTable symbolTable, string fileName)
         }
     }
 
-    // TODO: Complete function return type checking 
+
     void CheckReturnStatement(ReturnStmt returnStmt)
     {
+        var currentFunctionSymbol = symbolTable.GetCurrentContainingFunction();
 
+        var expected = currentFunctionSymbol.Type;
+        if (returnStmt.Expression is null && expected != TokenType.None)
+        {
+            TypeError error = new(fileName, $"Type mismatch. Expected {expected}, got None");
+            errors.Add(error);
+            return;
+        }
+
+        var actual = InferType(returnStmt.Expression);
+        if (expected != actual)
+        {
+            TypeError error = new(fileName, $"Type mismatch. Expected {expected}, got {actual}");
+            errors.Add(error);
+        }
     }
 
-    TokenType InferType(IExpression expression)
+    void CheckExpressionStatement(ExpressionStmt expressionStmt)
     {
+        InferType(expressionStmt.Expression);
+    }
+
+    TokenType InferType(IExpression? expression)
+    {
+        if (expression is null) return TokenType.None;
+
         switch (expression.Type)
         {
             case ExpressionType.Literal:
@@ -142,7 +166,18 @@ class TypeChecker(SymbolTable symbolTable, string fileName)
                         return TokenType.Bool;
                     }
 
-                    return InferType(unaryExpr.Expression);
+                    if (unaryExpr.Operator.Type == TokenType.Minus)
+                    {
+                        if (operandType != TokenType.Int && operandType != TokenType.Real)
+                        {
+                            TypeError error = new(fileName,
+                            $"Operator {unaryExpr.Operator.Type} cannot be applied to operand type '{operandType}'");
+                            errors.Add(error);
+                            return TokenType.None;
+                        }
+                    }
+
+                    return operandType;
                 }
             case ExpressionType.Binary:
                 {
@@ -197,7 +232,7 @@ class TypeChecker(SymbolTable symbolTable, string fileName)
             case ExpressionType.Assignment:
                 {
                     AssignmentExpr assignmentExpr = (AssignmentExpr)expression;
-                    TokenType variableType = symbolTable.GetType(assignmentExpr.Name);
+                    TokenType variableType = symbolTable.GetSymbol(assignmentExpr.Name).Type;
                     TokenType valueType = InferType(assignmentExpr.Right);
 
                     if (variableType == TokenType.None || valueType == TokenType.None)
@@ -216,14 +251,43 @@ class TypeChecker(SymbolTable symbolTable, string fileName)
             case ExpressionType.Variable:
                 {
                     var variableExpr = (VariableExpr)expression;
-                    return symbolTable.GetType(variableExpr.Name);
+
+                    if (symbolTable.IsFunction(variableExpr.Name))
+                    {
+                        errors.Add(new TypeError(fileName,
+                            $"Function '{variableExpr.Name}' used as a value; did you forget ‘()’?"));
+                        return TokenType.None;
+                    }
+
+                    var symbol = symbolTable.GetSymbol(variableExpr.Name);
+                    return symbol.Type;
                 }
             case ExpressionType.Grouping: return InferType(((GroupingExpr)expression).Expression);
             case ExpressionType.Call:
                 {
-                    // TODO: Add call type checking
                     CallExpr callExpr = (CallExpr)expression;
-                    return TokenType.None;
+
+                    if (callExpr.Callee is VariableExpr callee
+                    && !symbolTable.IsFunction(callee.Name))
+                    {
+                        errors.Add(new TypeError(fileName, "Target of call is not a function"));
+                        return TokenType.None;
+                    }
+
+                    callee = (VariableExpr)callExpr.Callee;
+
+                    var argTypes = callExpr.Args.Select(InferType).ToArray();
+                    if (argTypes.Any(t => t == TokenType.None)) return TokenType.None;
+
+                    var function = symbolTable.GetFunction(callee.Name, argTypes);
+                    if (function is null)
+                    {
+                        errors.Add(new TypeError(fileName,
+                            $"No overload of '{callee.Name}' matches ({string.Join(", ", argTypes)})"));
+                        return TokenType.None;
+                    }
+
+                    return function.Type;
                 }
             default: return TokenType.None;
         }

@@ -1,4 +1,5 @@
 ﻿using TythonCompiler.Parsing;
+using TythonCompiler.SemanticAnalysis.Symbols;
 using TythonCompiler.Syntax.Expressions;
 using TythonCompiler.Syntax.Statements;
 using TythonCompiler.Tokenization;
@@ -128,8 +129,8 @@ namespace Tests
             Assert.Equal(TokenType.Int, function.ReturnType);
             Assert.Equal(2, function.Parameters.Count);
             Assert.NotNull(function.Body);
-            Assert.Single(function.Body);
-            Assert.Equal(StatementType.Return, function.Body.Single().Type);
+            Assert.Single(function.Body.Statements);
+            Assert.Equal(StatementType.Return, function.Body.Statements.Single().Type);
         }
 
         [Fact]
@@ -145,8 +146,11 @@ namespace Tests
             Assert.Single(stmts);
             Assert.Equal(StatementType.Constant, stmts.First().Type);
             
-            var constant = st.GetConstant("pi");
-            Assert.NotNull(constant);
+            var symbol = st.GetSymbol("pi");
+            Assert.NotNull(symbol);
+            Assert.True(symbol is ConstantSymbol);
+
+            var constant = (ConstantSymbol)symbol;
             Assert.Equal(3.14, (double)constant.Value);
         }
 

@@ -2,9 +2,8 @@
 
 namespace TythonCompiler.SemanticAnalysis.Symbols
 {
-    public class ParameterSymbol(int index, TokenType type)
+    public class ParameterSymbol(int id, TokenType type, int index) : Symbol(id, type)
     {
         public int Index { get; } = index;
-        public TokenType Type { get; } = type;
     }
 }

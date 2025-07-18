@@ -1,10 +1,9 @@
 ﻿using TythonCompiler.Tokenization;
 
-namespace TythonCompiler.SemanticAnalysis.Symbols
+namespace TythonCompiler.SemanticAnalysis.Symbols;
+
+public class ConstantSymbol(int id, TokenType type, object value) : Symbol(id, type)
 {
-    public class ConstantSymbol(object value, TokenType type)
-    {
-        public object Value { get; } = value;
-        public TokenType Type { get; } = type;
-    }
+    public object Value { get; } = value;
 }
+

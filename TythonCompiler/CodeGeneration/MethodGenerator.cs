@@ -18,12 +18,12 @@ namespace TythonCompiler.CodeGeneration
         readonly SymbolTable st;
         readonly string appName;
 
-        Dictionary<FunctionSignature, MethodInfo> combinedMethods = [];
-        readonly Dictionary<FunctionSignature, MethodInfo> localFunctions = [];
+        Dictionary<FunctionSymbol, MethodInfo> combinedMethods = [];
+        readonly Dictionary<FunctionSymbol, MethodInfo> localFunctions = [];
         readonly List<MethodGenerator> methodGenerators = [];
 
         readonly Label? returnLabel;
-        readonly LocalBuilder? returnLocal; 
+        readonly LocalBuilder? returnLocal;
 
         readonly Stack<TokenType[]> functionParameters = [];
         readonly Stack<Label> loopStart = [];
@@ -37,7 +37,7 @@ namespace TythonCompiler.CodeGeneration
             mb = typeBuilder.DefineMethod(stmt.Name,
                 MethodAttributes.HideBySig | MethodAttributes.Public | MethodAttributes.Static,
                 returnType, parameterTypes);
-            
+
             for (int i = 0; i < stmt.Parameters.Count; i++)
             {
                 mb.DefineParameter(i + 1, ParameterAttributes.None, stmt.Parameters[i].Name);
@@ -50,7 +50,7 @@ namespace TythonCompiler.CodeGeneration
             this.appName = appName;
 
             int n = CountReturnStatements(stmt);
-            bool multipleReturns = CountReturnStatements(stmt) > 1;
+            bool multipleReturns = n > 1;
 
             if (multipleReturns || (stmt.ReturnType == TokenType.None && n > 0))
             {
@@ -62,7 +62,7 @@ namespace TythonCompiler.CodeGeneration
                 returnLocal = il.DeclareLocal(TranslateType(stmt.ReturnType));
             }
 
-            var locals = stmt.Body.Where(s => s.Type == StatementType.Function).Select(s => (FunctionStmt)s);
+            var locals = stmt.Body.Statements.Where(s => s.Type == StatementType.Function).Select(s => (FunctionStmt)s);
             foreach (var f in locals)
             {
                 MethodGenerator mg = new(f, symbolTable, typeBuilder, appName);
@@ -73,13 +73,13 @@ namespace TythonCompiler.CodeGeneration
 
         public MethodBuilder GetMethodBuilder() => mb;
 
-        public void EmitMethod(Dictionary<FunctionSignature, MethodInfo> methods)
+        public void EmitMethod(Dictionary<FunctionSymbol, MethodInfo> methods)
         {
             combinedMethods = methods.Concat(localFunctions).ToDictionary();
 
-            st.EnterScope(fStmt.ScopeIndex);
+            st.EnterScope(fStmt.Body.ScopeIndex);
 
-            foreach (IStatement stmt in fStmt.Body)
+            foreach (IStatement stmt in fStmt.Body.Statements)
             {
                 EmitStatement(stmt);
             }
@@ -156,8 +156,6 @@ namespace TythonCompiler.CodeGeneration
 
             EmitExpression(statement.Expression);
             il.Emit(OpCodes.Stloc, symbol.LocalIndex);
-
-            st.Initializevariable(statement.Name);
         }
 
         void EmitReturnStatement(ReturnStmt returnStmt)
@@ -188,7 +186,7 @@ namespace TythonCompiler.CodeGeneration
 
                 il.Emit(OpCodes.Brfalse_S, elseLabel);
 
-                EmitStatement(ifStmt.Statement);
+                EmitStatement(ifStmt.ThenStatement);
 
                 Label endLabel = il.DefineLabel();
                 il.Emit(OpCodes.Br_S, endLabel);
@@ -205,7 +203,7 @@ namespace TythonCompiler.CodeGeneration
 
                 il.Emit(OpCodes.Brfalse_S, endLabel);
 
-                EmitStatement(ifStmt.Statement);
+                EmitStatement(ifStmt.ThenStatement);
 
                 il.MarkLabel(endLabel);
             }
@@ -259,34 +257,33 @@ namespace TythonCompiler.CodeGeneration
                     {
                         var expr = (VariableExpr)expression;
 
-                        ParameterSymbol? parameter = st.GetParameter(expr.Name);
-                        if (parameter is not null)
+                        Symbol? symbol = st.GetSymbol(expr.Name);
+
+                        if (symbol is ParameterSymbol parameter)
                         {
                             il.Emit(OpCodes.Ldarg, parameter.Index);
                             return parameter.Type;
                         }
 
-                        VariableSymbol? variable = st.GetInitializedVariable(expr.Name);
-                        if (variable is not null)
+                        if (symbol is VariableSymbol variable)
                         {
                             il.Emit(OpCodes.Ldloc, variable.LocalIndex);
 
                             return variable.Type;
                         }
 
-                        ConstantSymbol? constant = st.GetConstant(expr.Name);
-                        if (constant is not null)
+                        if (symbol is ConstantSymbol constant)
                         {
                             return EmitPrimitive(constant.Type, constant.Value);
                         }
 
                         var parameters = functionParameters.Pop();
-                        (FunctionSymbol? function, FunctionSignature signature) = st.GetFunction(expr.Name, parameters);
+                        FunctionSymbol? function = st.GetFunction(expr.Name, parameters);
                         if (function is not null)
                         {
-                            il.EmitCall(OpCodes.Call, combinedMethods[signature], []);
+                            il.EmitCall(OpCodes.Call, combinedMethods[function], []);
 
-                            return function.ReturnType;
+                            return function.Type;
                         }
 
                         return TokenType.None;
@@ -295,26 +292,22 @@ namespace TythonCompiler.CodeGeneration
                     {
                         var expr = (AssignmentExpr)expression;
 
-                        ParameterSymbol? parameter = st.GetParameter(expr.Name);
-                        if (parameter is not null)
-                        {
-                            il.Emit(OpCodes.Starg, parameter.Index);
-                            return parameter.Type;
-                        }
-                        else
-                        {
-                            VariableSymbol symbol = st.GetInitializedVariable(expr.Name);
+                        VariableSymbol? variable = st.GetVariable(expr.Name);
 
+                        if (variable is not null)
+                        {
                             EmitExpression(expr.Right);
-                            il.Emit(OpCodes.Stloc, symbol.LocalIndex);
+                            il.Emit(OpCodes.Stloc, variable.LocalIndex);
 
-                            return symbol.Type;
+                            return variable.Type;
                         }
+
+                        return TokenType.None;
                     }
                 case ExpressionType.Call:
                     {
                         var expr = (CallExpr)expression;
-                        
+
                         TokenType[] parameters = new TokenType[expr.Args.Count];
                         int i = 0;
                         foreach (var arg in expr.Args)
@@ -524,7 +517,7 @@ namespace TythonCompiler.CodeGeneration
 
         static int CountReturnStatements(IStatement statement)
         {
-            if (statement is ReturnStmt)
+            if (statement.Type == StatementType.Return)
             {
                 return 1;
             }
@@ -532,10 +525,7 @@ namespace TythonCompiler.CodeGeneration
             int count = 0;
             if (statement is FunctionStmt fStmt)
             {
-                foreach (var stmt in fStmt.Body)
-                {
-                    count += CountReturnStatements(stmt);
-                }
+                count += CountReturnStatements(fStmt.Body);
             }
             else if (statement is BlockStmt blockStmt)
             {
@@ -546,7 +536,12 @@ namespace TythonCompiler.CodeGeneration
             }
             else if (statement is IfStmt ifStmt)
             {
-                count += CountReturnStatements(ifStmt.Statement);
+                count += CountReturnStatements(ifStmt.ThenStatement);
+
+                if (ifStmt.ElseStatement is not null)
+                {
+                    count += CountReturnStatements(ifStmt.ElseStatement);
+                }
             }
             else if (statement is WhileStmt whileStmt)
             {

@@ -22,10 +22,10 @@ public class Parser(Token[] tokens, string filename)
 
     public (IStatement[], SymbolTable symbolTable, List<ITythonError>) Execute()
     {
+        RegisterStd();
+        
         while (!AtEnd)
         {
-            if (Current.Type == TokenType.EOF) break;
-
             try
             {
                 if (Current.Type == TokenType.EOF) break;
@@ -39,6 +39,17 @@ public class Parser(Token[] tokens, string filename)
         }
 
         return (statements.ToArray(), symbolTable, errors);
+    }
+
+    void RegisterStd()
+    {
+        symbolTable.RegisterFunction("println", TokenType.None, [TokenType.String]);
+
+        symbolTable.RegisterFunction("println", TokenType.None, [TokenType.Int]);
+
+        symbolTable.RegisterFunction("println", TokenType.None, [TokenType.Real]);
+
+        symbolTable.RegisterFunction("println", TokenType.None, [TokenType.Bool]);
     }
 
     IStatement ParseStatement()
@@ -60,7 +71,13 @@ public class Parser(Token[] tokens, string filename)
 
         if (Match(TokenType.BraceLeft))
         {
-            return ParseBlockStatement();
+            int scopeIndex = symbolTable.BeginScope(ScopeKind.Block);
+
+            var blockStatement = ParseBlockStatement(scopeIndex);
+
+            symbolTable.ExitScope();
+
+            return blockStatement;
         }
 
         if (Match(TokenType.If))
@@ -76,9 +93,9 @@ public class Parser(Token[] tokens, string filename)
         if (Match(TokenType.Break, TokenType.Continue))
         {
             JumpStmt jumpStmt = new(Previous);
-            Consume(TokenType.Semicolon, "Expect ';' after break or continue");
-            return jumpStmt;
 
+            TerminateStatement("Expect ';' after break or continue");
+            return jumpStmt;
         }
 
         if (Match(TokenType.Def))
@@ -87,12 +104,13 @@ public class Parser(Token[] tokens, string filename)
         }
 
         IExpression expr = ParseExpression();
-        Consume(TokenType.Semicolon, "Expect ';' after expression");
+
+        TerminateStatement("Expect ';' after expression");
 
         return new ExpressionStmt(expr);
     }
 
-    List<IStatement> ParseStatements()
+    BlockStmt ParseBlockStatement(int scopeIndex)
     {
         List<IStatement> statements = [];
 
@@ -102,18 +120,7 @@ public class Parser(Token[] tokens, string filename)
             statements.Add(stmt);
         }
 
-        return statements;
-    }
-
-    BlockStmt ParseBlockStatement()
-    {
-        int scopeIndex = symbolTable.BeginScope();
-
-        List<IStatement> statements = ParseStatements();
-
         Consume(TokenType.BraceRight, "Expect '}' after block");
-
-        symbolTable.ExitScope();
 
         return new BlockStmt(statements, scopeIndex);
     }
@@ -124,9 +131,22 @@ public class Parser(Token[] tokens, string filename)
 
         // Handle ASI artefacts
         Match(TokenType.Semicolon);
-        Consume(TokenType.BraceLeft, "Expect '{' after if condition");
 
-        IStatement stmt = ParseBlockStatement();
+        IStatement stmt;
+        if (Match(TokenType.BraceLeft))
+        {
+            int scopeIndex = symbolTable.BeginScope(ScopeKind.Block);
+
+            stmt = ParseBlockStatement(scopeIndex);
+
+            symbolTable.ExitScope();
+        }
+        else
+        {
+            Consume(TokenType.Colon, "Expect ':' after if condition");
+
+            stmt = ParseStatement();
+        }
 
         IStatement? elseStmt = null;
         if (Match(TokenType.Else))
@@ -151,11 +171,23 @@ public class Parser(Token[] tokens, string filename)
 
         // Handle ASI artefacts
         Match(TokenType.Semicolon);
-        Consume(TokenType.BraceLeft, "Expect '{' after if condition");
 
-        IStatement body = ParseBlockStatement();
+        if (Match(TokenType.BraceLeft))
+        {
+            int scopeIndex = symbolTable.BeginScope(ScopeKind.Loop);
 
-        return new WhileStmt(condition, body);
+            var body = ParseBlockStatement(scopeIndex);
+
+            symbolTable.ExitScope();
+
+            return new WhileStmt(condition, body);
+        }
+
+        Consume(TokenType.Colon, "Expect ':' after while condition");
+
+        var statement = ParseStatement();
+
+        return new WhileStmt(condition, statement);
     }
 
     FunctionStmt ParseFunctionDeclaration()
@@ -164,7 +196,6 @@ public class Parser(Token[] tokens, string filename)
         Consume(TokenType.ParenthesisLeft, "Expect '(' after function name");
         List<Parameter> parameters = [];
 
-        int scopeIndex = symbolTable.BeginScope();
         if (Current.Type != TokenType.ParenthesisRight)
         {
             parameters = ParseParameters();
@@ -178,28 +209,35 @@ public class Parser(Token[] tokens, string filename)
             returnType = ParseTypeDeclaration();
         }
 
-        Consume(TokenType.BraceLeft, "Expect '{' before function body");
-        List<IStatement> body = ParseStatements();
+        var symbol = symbolTable.RegisterFunction((string)functionName.Value, returnType, [.. parameters.Select(p => p.Type)]);
 
-        Consume(TokenType.BraceRight, "Expect '}' after function body");
+        int scopeIndex = symbolTable.BeginScope(symbol);
+
+        foreach (var parameter in parameters)
+        {
+            symbolTable.RegisterParameter(parameter.Name, parameter.Type);
+        }
+
+        Consume(TokenType.BraceLeft, "Expect '{' before function body");
+
+        BlockStmt body = ParseBlockStatement(scopeIndex);
 
         symbolTable.ExitScope();
 
-        var signature = symbolTable.RegisterFunction((string)functionName.Value, returnType, [.. parameters.Select(p => p.Type)]);
-
-        return new FunctionStmt((string)functionName.Value, signature, scopeIndex, parameters, returnType, body);
+        return new FunctionStmt((string)functionName.Value, symbol, parameters, returnType, body);
     }
 
     ReturnStmt ParseReturnStatement()
     {
-        if (Match(TokenType.Semicolon))
+        if (Match(TokenType.Semicolon) || Current.Type == TokenType.BraceRight)
         {
             return new ReturnStmt(null);
         }
 
         IExpression value = ParseExpression();
 
-        Consume(TokenType.Semicolon, "Expect ';' after return value");
+        TerminateStatement("Expect ';' after return value");
+
         return new ReturnStmt(value);
     }
 
@@ -227,7 +265,7 @@ public class Parser(Token[] tokens, string filename)
         }
         else
         {
-            Consume(TokenType.Semicolon, "Expect ';' after variable declaration");
+            TerminateStatement("Expect ';' after variable declaration");
 
             string name = (string)token.Value;
             symbolTable.RegisterVariable(name, declaredType);
@@ -252,7 +290,7 @@ public class Parser(Token[] tokens, string filename)
             throw error.Exception();
         }
 
-        Consume(TokenType.Semicolon, "Expect ';' after constant declaration");
+        TerminateStatement("Expect ';' after constant declaration");
 
         string name = (string)token.Value;
         symbolTable.RegisterConstant(name, literal.Token.Value, declaredType);
@@ -281,8 +319,6 @@ public class Parser(Token[] tokens, string filename)
 
             Parameter parameter = new((string)name.Value, type.Type);
             parameters.Add(parameter);
-
-            symbolTable.RegisterParameter(parameter.Name, parameter.Type);
         }
         while (Match(TokenType.Comma));
 
@@ -468,6 +504,18 @@ public class Parser(Token[] tokens, string filename)
         throw error.Exception();
     }
 
+    /// <summary>
+    /// Handle cases where a semicolon is optional, before a '}'*/
+    /// </summary>
+    /// <param name="errorMessage"></param>
+    void TerminateStatement(string errorMessage)
+    {
+        if (Current.Type != TokenType.BraceRight)
+        {
+            Consume(TokenType.Semicolon, errorMessage);
+        }
+    }
+
     void Synchronize()
     {
         Advance();
@@ -514,10 +562,9 @@ public class Parser(Token[] tokens, string filename)
         return token;
     }
 
+    Token Next => GetToken(1);
     Token Current => GetToken(0);
-
     Token Previous => GetToken(-1);
-
     Token Previous2 => GetToken(-2);
 
     bool Match(params TokenType[] values)

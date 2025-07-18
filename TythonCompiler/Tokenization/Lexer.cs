@@ -24,7 +24,18 @@ public class Lexer(string source, string fileName)
                 tokens.Add(token);
         }
 
-        tokens.Add(new(TokenType.EOF, line));
+        if (tokens.Count > 0)
+        {
+            var last = ScanEndOfLine();
+
+            if (last is not null)
+            {
+                tokens.Add(last);
+            }
+
+            tokens.Add(new(TokenType.EOF, line));
+        }
+
         return (tokens.ToArray(), errors);
     }
 
@@ -105,7 +116,7 @@ public class Lexer(string source, string fileName)
 
             //comments
             case '#':
-                while (Peek() != '\n') Advance();
+                while (!AtEnd && Peek() != '\n') Advance();
                 break;
 
             //statement terminator

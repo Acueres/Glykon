@@ -56,14 +56,16 @@ namespace TythonCompiler.SemanticAnalysis
             else if (statement.Type == StatementType.If)
             {
                 IfStmt ifStmt = (IfStmt)statement;
-                IStatement evaluatedStatement = EvaluateStatement(ifStmt.Statement);
+                IStatement evaluatedStatement = EvaluateStatement(ifStmt.ThenStatement);
                 IStatement? evaluatedElseStatement = ifStmt.ElseStatement is not null ? EvaluateStatement(ifStmt.ElseStatement) : null;
                 stmt = new IfStmt(evaluatedExpr, evaluatedStatement, evaluatedElseStatement);
             }
             else if (statement.Type == StatementType.While)
             {
                 WhileStmt whileStmt = (WhileStmt)statement;
+
                 IStatement evaluatedStatement = EvaluateStatement(whileStmt.Statement);
+
                 stmt = new WhileStmt(evaluatedExpr, evaluatedStatement);
             }
             else

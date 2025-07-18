@@ -1,10 +1,8 @@
 ﻿using TythonCompiler.Tokenization;
 
-namespace TythonCompiler.SemanticAnalysis.Symbols
+namespace TythonCompiler.SemanticAnalysis.Symbols;
+
+public class VariableSymbol(int id, TokenType type) : Symbol(id, type)
 {
-    public class VariableSymbol(TokenType type)
-    {
-        public int LocalIndex { get; set; }
-        public TokenType Type { get; } = type;
-    }
+    public int LocalIndex { get; set; }
 }

@@ -24,13 +24,14 @@ namespace TythonCompiler.SemanticAnalysis
 
         void NormalizeLocalFunction(FunctionStmt fStmt)
         {
-            st.EnterScope(fStmt.ScopeIndex);
+            BlockStmt functionBody = fStmt.Body;
+            st.EnterScope(functionBody.ScopeIndex);
 
-            Span<FunctionStmt> localFunctions = fStmt.Body
+            Span<FunctionStmt> localFunctions = fStmt.Body.Statements
                 .Where(s => s.Type == StatementType.Function)
                 .Select(s => (FunctionStmt)s).ToArray();
 
-            Span<IStatement> statements = fStmt.Body
+            Span<IStatement> statements = fStmt.Body.Statements
                 .Where(s => s.Type != StatementType.Function).ToArray();
 
             foreach (var localFStmt in localFunctions)
@@ -40,7 +41,7 @@ namespace TythonCompiler.SemanticAnalysis
 
                 localFStmt.Signature = st.RegisterFunction(localFStmt.Name, localFStmt.ReturnType, [.. localFStmt.Parameters.Select(p => p.Type)]);
 
-                foreach (var s in localFStmt.Body)
+                foreach (var s in localFStmt.Body.Statements)
                 {
                     AdjustLocalFunctionIdentifiers(originalName, localFStmt.Name, s);
                 }
@@ -64,7 +65,7 @@ namespace TythonCompiler.SemanticAnalysis
                     {
                         var ifStmt = (IfStmt)statement;
                         AdjustLocalFunctionIdentifiers(originalName, adjustedName, ifStmt.Expression);
-                        AdjustLocalFunctionIdentifiers(originalName, adjustedName, ifStmt.Statement);
+                        AdjustLocalFunctionIdentifiers(originalName, adjustedName, ifStmt.ThenStatement);
                         AdjustLocalFunctionIdentifiers(originalName, adjustedName, ifStmt.ElseStatement);
                         break;
                     }
@@ -147,7 +148,7 @@ namespace TythonCompiler.SemanticAnalysis
 
             if (statement is IfStmt ifStmt)
             {
-                CheckUnenclosedJumpStatements(ifStmt.Statement);
+                CheckUnenclosedJumpStatements(ifStmt.ThenStatement);
 
                 if (ifStmt.ElseStatement is not null)
                 {

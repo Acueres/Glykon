@@ -4,9 +4,11 @@ using System.Reflection.PortableExecutable;
 using System.Reflection;
 using System.Reflection.Emit;
 using System.Runtime.Loader;
+
 using TythonCompiler.SemanticAnalysis;
 using TythonCompiler.Syntax.Statements;
 using TythonCompiler.Tokenization;
+using TythonCompiler.SemanticAnalysis.Symbols;
 
 namespace TythonCompiler.CodeGeneration;
 
@@ -30,13 +32,13 @@ public class TypeGenerator
 
     public void GenerateAssembly()
     {
+        symbolTable.ResetScope();
+
         ModuleBuilder mob = ab.DefineDynamicModule(appName);
         TypeBuilder tb = mob.DefineType("Program", TypeAttributes.Public | TypeAttributes.Class);
 
         List<MethodGenerator> methodGenerators = [];
-        Dictionary<FunctionSignature, MethodInfo> methods = GetStdLibrary();
-
-        symbolTable.ResetScope();
+        Dictionary<FunctionSymbol, MethodInfo> methods = LoadStdLibrary();
 
         foreach (var stmt in statements)
         {
@@ -103,25 +105,25 @@ public class TypeGenerator
         outputFile.WriteLine(runtimeconfig);
     }
 
-    Dictionary<FunctionSignature, MethodInfo> GetStdLibrary()
+    Dictionary<FunctionSymbol, MethodInfo> LoadStdLibrary()
     {
-        Dictionary<FunctionSignature, MethodInfo> nativeFunctions = [];
+        Dictionary<FunctionSymbol, MethodInfo> stdFunctions = [];
 
         var console = typeof(Console);
 
-        nativeFunctions.Add(symbolTable.RegisterFunction("println", TokenType.None, [TokenType.String]),
+        stdFunctions.Add(symbolTable.GetFunction("println", [TokenType.String]),
             console.GetMethod("WriteLine", [typeof(string)]));
 
-        nativeFunctions.Add(symbolTable.RegisterFunction("println", TokenType.None, [TokenType.Int]),
+        stdFunctions.Add(symbolTable.GetFunction("println", [TokenType.Int]),
             console.GetMethod("WriteLine", [typeof(int)]));
 
-        nativeFunctions.Add(symbolTable.RegisterFunction("println", TokenType.None, [TokenType.Real]),
+        stdFunctions.Add(symbolTable.GetFunction("println", [TokenType.Real]),
             console.GetMethod("WriteLine", [typeof(double)]));
 
-        nativeFunctions.Add(symbolTable.RegisterFunction("println", TokenType.None, [TokenType.Bool]),
+        stdFunctions.Add(symbolTable.GetFunction("println", [TokenType.Bool]),
             console.GetMethod("WriteLine", [typeof(bool)]));
 
-        return nativeFunctions;
+        return stdFunctions;
     }
 }
 
