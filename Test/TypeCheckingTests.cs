@@ -1,21 +1,21 @@
-using TythonCompiler.Parsing;
-using TythonCompiler.SemanticAnalysis;
-using TythonCompiler.Syntax.Statements;
-using TythonCompiler.Tokenization;
-using TythonCompiler.Diagnostics.Errors;
+using CompilerService.Parsing;
+using CompilerService.SemanticAnalysis;
+using CompilerService.Syntax.Statements;
+using CompilerService.Tokenization;
+using CompilerService.Diagnostics.Errors;
 
 namespace Tests;
 
 public class TypeCheckingTests
 {
     // Helpers
-    private static (IStatement[] stmts, SymbolTable st, List<ITythonError> parseErr) Parse(string src, string file)
+    private static (IStatement[] stmts, SymbolTable st, List<IGlykonError> parseErr) Parse(string src, string file)
     {
         var (tokens, _) = new Lexer(src, file).Execute();
         return new Parser(tokens, file).Execute();
     }
 
-    private static List<ITythonError> Check(string src, string file)
+    private static List<IGlykonError> Check(string src, string file)
     {
         var (stmts, st, parseErr) = Parse(src, file);
         Assert.Empty(parseErr); 

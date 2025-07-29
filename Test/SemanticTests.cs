@@ -1,7 +1,7 @@
-﻿using TythonCompiler.Parsing;
-using TythonCompiler.SemanticAnalysis;
-using TythonCompiler.Syntax.Statements;
-using TythonCompiler.Tokenization;
+﻿using CompilerService.Parsing;
+using CompilerService.SemanticAnalysis;
+using CompilerService.Syntax.Statements;
+using CompilerService.Tokenization;
 
 namespace Tests;
 

@@ -1,4 +1,4 @@
-using TythonCompiler.Tokenization;
+using CompilerService.Tokenization;
 
 namespace Tests;
 
@@ -7,7 +7,7 @@ public class LexerTests
     [Fact]
     public void ScanIdentifiersTest()
     {
-        const string source = @"let text = 'Hello Tython';";
+        const string source = @"let text = 'Hello Glykon';";
 
         Lexer lexer = new(source, "IdentifiersTest");
         var (tokens, _) = lexer.Execute();
