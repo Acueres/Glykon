@@ -1,7 +1,7 @@
-﻿using CompilerService.Parsing;
-using CompilerService.Tokenization;
-using CompilerService.Syntax.Expressions;
-using CompilerService.SemanticAnalysis;
+﻿using Glykon.Compiler.Parsing;
+using Glykon.Compiler.Tokenization;
+using Glykon.Compiler.Syntax.Expressions;
+using Glykon.Compiler.SemanticAnalysis;
 
 namespace Tests
 {

@@ -23,9 +23,8 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\CompilerService\CompilerService.csproj" />
+    <ProjectReference Include="..\Glykon.Compiler\Glykon.Compiler.csproj" />
   </ItemGroup>
-
 
   <ItemGroup>
     <Using Include="Xunit" />

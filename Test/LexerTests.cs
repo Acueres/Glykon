@@ -1,4 +1,4 @@
-using CompilerService.Tokenization;
+using Glykon.Compiler.Tokenization;
 
 namespace Tests;
 
