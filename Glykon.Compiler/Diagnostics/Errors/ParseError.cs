@@ -1,5 +1,5 @@
 ﻿using Glykon.Compiler.Diagnostics.Exceptions;
-using Glykon.Compiler.Tokenization;
+using Glykon.Compiler.Syntax;
 
 namespace Glykon.Compiler.Diagnostics.Errors
 {

@@ -1,15 +1,15 @@
 ﻿using System.Reflection;
 using System.Reflection.Emit;
-using Glykon.Compiler.Tokenization;
-using Glykon.Compiler.SemanticAnalysis;
+using Glykon.Compiler.Semantics;
 using Glykon.Compiler.Diagnostics.Errors;
-using Glykon.Compiler.SemanticAnalysis.Symbols;
+using Glykon.Compiler.Semantics.Symbols;
 using Glykon.Compiler.Syntax.Expressions;
 using Glykon.Compiler.Syntax.Statements;
+using Glykon.Compiler.Syntax;
 
-namespace Glykon.Compiler.CodeGeneration
+namespace Glykon.Compiler.Emitter
 {
-    internal class MethodGenerator
+    internal class MethodEmitter
     {
         readonly MethodBuilder mb;
         readonly ILGenerator il;
@@ -20,7 +20,7 @@ namespace Glykon.Compiler.CodeGeneration
 
         Dictionary<FunctionSymbol, MethodInfo> combinedMethods = [];
         readonly Dictionary<FunctionSymbol, MethodInfo> localFunctions = [];
-        readonly List<MethodGenerator> methodGenerators = [];
+        readonly List<MethodEmitter> methodGenerators = [];
 
         readonly Label? returnLabel;
         readonly LocalBuilder? returnLocal;
@@ -29,7 +29,7 @@ namespace Glykon.Compiler.CodeGeneration
         readonly Stack<Label> loopStart = [];
         readonly Stack<Label> loopEnd = [];
 
-        public MethodGenerator(FunctionStmt stmt, SymbolTable symbolTable, TypeBuilder typeBuilder, string appName)
+        public MethodEmitter(FunctionStmt stmt, SymbolTable symbolTable, TypeBuilder typeBuilder, string appName)
         {
             var parameterTypes = TranslateTypes([.. stmt.Parameters.Select(p => p.Type)]);
             var returnType = TranslateType(stmt.ReturnType);
@@ -65,7 +65,7 @@ namespace Glykon.Compiler.CodeGeneration
             var locals = stmt.Body.Statements.Where(s => s.Type == StatementType.Function).Select(s => (FunctionStmt)s);
             foreach (var f in locals)
             {
-                MethodGenerator mg = new(f, symbolTable, typeBuilder, appName);
+                MethodEmitter mg = new(f, symbolTable, typeBuilder, appName);
                 methodGenerators.Add(mg);
                 localFunctions.Add(f.Signature, mg.GetMethodBuilder());
             }

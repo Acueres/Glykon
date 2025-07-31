@@ -1,7 +1,6 @@
-﻿using Glykon.Compiler.Parsing;
-using Glykon.Compiler.Tokenization;
-using Glykon.Compiler.Syntax.Expressions;
-using Glykon.Compiler.SemanticAnalysis;
+﻿using Glykon.Compiler.Syntax.Expressions;
+using Glykon.Compiler.Semantics;
+using Glykon.Compiler.Syntax;
 
 namespace Tests
 {

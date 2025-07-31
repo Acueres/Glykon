@@ -1,7 +1,7 @@
-﻿using Glykon.Compiler.SemanticAnalysis.Symbols;
-using Glykon.Compiler.Tokenization;
+﻿using Glykon.Compiler.Semantics.Symbols;
+using Glykon.Compiler.Syntax;
 
-namespace Glykon.Compiler.SemanticAnalysis;
+namespace Glykon.Compiler.Semantics;
 
 public enum ScopeKind
 {

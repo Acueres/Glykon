@@ -1,8 +1,7 @@
-﻿using Glykon.Compiler.Tokenization;
-using Glykon.Compiler.Diagnostics.Errors;
+﻿using Glykon.Compiler.Diagnostics.Errors;
 using Glykon.Compiler.Syntax.Statements;
 
-namespace Glykon.Compiler.SemanticAnalysis;
+namespace Glykon.Compiler.Semantics;
 
 public class SemanticAnalyzer(IStatement[] statements, SymbolTable symbolTable, string fileName)
 {

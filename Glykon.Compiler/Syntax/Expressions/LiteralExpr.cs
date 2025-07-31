@@ -1,6 +1,4 @@
-﻿using Glykon.Compiler.Tokenization;
-
-namespace Glykon.Compiler.Syntax.Expressions
+﻿namespace Glykon.Compiler.Syntax.Expressions
 {
     public class LiteralExpr(Token token) : IExpression
     {

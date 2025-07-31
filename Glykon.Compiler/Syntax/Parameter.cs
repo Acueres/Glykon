@@ -1,6 +1,4 @@
-﻿using Glykon.Compiler.Tokenization;
-
-namespace Glykon.Compiler.Syntax
+﻿namespace Glykon.Compiler.Syntax
 {
     public readonly struct Parameter(string name, TokenType type)
     {

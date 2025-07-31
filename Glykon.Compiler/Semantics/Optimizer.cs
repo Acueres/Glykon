@@ -1,8 +1,8 @@
-﻿using Glykon.Compiler.Syntax.Expressions;
+﻿using Glykon.Compiler.Syntax;
+using Glykon.Compiler.Syntax.Expressions;
 using Glykon.Compiler.Syntax.Statements;
-using Glykon.Compiler.Tokenization;
 
-namespace Glykon.Compiler.SemanticAnalysis
+namespace Glykon.Compiler.Semantics
 {
     public class Optimizer(IStatement[] statements)
     {

@@ -1,6 +1,6 @@
-﻿using Glykon.Compiler.Tokenization;
+﻿using Glykon.Compiler.Syntax;
 
-namespace Glykon.Compiler.SemanticAnalysis.Symbols;
+namespace Glykon.Compiler.Semantics.Symbols;
 
 public class VariableSymbol(int id, TokenType type) : Symbol(id, type)
 {

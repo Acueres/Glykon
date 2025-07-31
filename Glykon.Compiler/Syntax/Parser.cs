@@ -1,12 +1,10 @@
-﻿using Glykon.Compiler.Syntax;
-using Glykon.Compiler.Tokenization;
-using Glykon.Compiler.SemanticAnalysis;
+﻿using Glykon.Compiler.Semantics;
 using Glykon.Compiler.Diagnostics.Exceptions;
 using Glykon.Compiler.Diagnostics.Errors;
 using Glykon.Compiler.Syntax.Expressions;
 using Glykon.Compiler.Syntax.Statements;
 
-namespace Glykon.Compiler.Parsing;
+namespace Glykon.Compiler.Syntax;
 
 public class Parser(Token[] tokens, string filename)
 {

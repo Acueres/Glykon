@@ -5,14 +5,14 @@ using System.Reflection;
 using System.Reflection.Emit;
 using System.Runtime.Loader;
 
-using Glykon.Compiler.SemanticAnalysis;
+using Glykon.Compiler.Semantics;
 using Glykon.Compiler.Syntax.Statements;
-using Glykon.Compiler.Tokenization;
-using Glykon.Compiler.SemanticAnalysis.Symbols;
+using Glykon.Compiler.Semantics.Symbols;
+using Glykon.Compiler.Syntax;
 
-namespace Glykon.Compiler.CodeGeneration;
+namespace Glykon.Compiler.Emitter;
 
-public class TypeGenerator
+public class TypeEmitter
 {
     readonly string appName;
     readonly IStatement[] statements;
@@ -21,7 +21,7 @@ public class TypeGenerator
     readonly PersistedAssemblyBuilder ab;
     MethodBuilder main;
 
-    public TypeGenerator(IStatement[] statements, SymbolTable symbolTable, string appname)
+    public TypeEmitter(IStatement[] statements, SymbolTable symbolTable, string appname)
     {
         appName = appname;
         this.statements = statements;
@@ -30,21 +30,21 @@ public class TypeGenerator
         ab = new(new AssemblyName(appName), typeof(object).Assembly);
     }
 
-    public void GenerateAssembly()
+    public void EmitAssembly()
     {
         symbolTable.ResetScope();
 
         ModuleBuilder mob = ab.DefineDynamicModule(appName);
         TypeBuilder tb = mob.DefineType("Program", TypeAttributes.Public | TypeAttributes.Class);
 
-        List<MethodGenerator> methodGenerators = [];
+        List<MethodEmitter> methodGenerators = [];
         Dictionary<FunctionSymbol, MethodInfo> methods = LoadStdLibrary();
 
         foreach (var stmt in statements)
         {
             if (stmt is FunctionStmt f)
             {
-                MethodGenerator mg = new(f, symbolTable, tb, appName);
+                MethodEmitter mg = new(f, symbolTable, tb, appName);
                 methodGenerators.Add(mg);
                 methods.Add(f.Signature, mg.GetMethodBuilder());
 

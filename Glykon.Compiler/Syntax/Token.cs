@@ -1,4 +1,4 @@
-﻿namespace Glykon.Compiler.Tokenization;
+﻿namespace Glykon.Compiler.Syntax;
 
 public enum TokenType
 {

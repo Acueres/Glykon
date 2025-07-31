@@ -1,7 +1,7 @@
 ﻿using System.Globalization;
 using Glykon.Compiler.Diagnostics.Errors;
 
-namespace Glykon.Compiler.Tokenization;
+namespace Glykon.Compiler.Syntax;
 
 public class Lexer(string source, string fileName)
 {

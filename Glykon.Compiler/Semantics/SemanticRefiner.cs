@@ -2,7 +2,7 @@
 using Glykon.Compiler.Syntax.Expressions;
 using Glykon.Compiler.Syntax.Statements;
 
-namespace Glykon.Compiler.SemanticAnalysis
+namespace Glykon.Compiler.Semantics
 {
     public class SemanticRefiner(SymbolTable symbolTable, string fileName)
     {

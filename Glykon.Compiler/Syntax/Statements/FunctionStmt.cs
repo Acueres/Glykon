@@ -1,6 +1,5 @@
-﻿using Glykon.Compiler.SemanticAnalysis.Symbols;
+﻿using Glykon.Compiler.Semantics.Symbols;
 using Glykon.Compiler.Syntax.Expressions;
-using Glykon.Compiler.Tokenization;
 
 namespace Glykon.Compiler.Syntax.Statements
 {

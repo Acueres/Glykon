@@ -1,6 +1,6 @@
-﻿using Glykon.Compiler.Tokenization;
+﻿using Glykon.Compiler.Syntax;
 
-namespace Glykon.Compiler.SemanticAnalysis.Symbols;
+namespace Glykon.Compiler.Semantics.Symbols;
 
 public class FunctionSymbol(int id, TokenType returnType, TokenType[] parameters) : Symbol(id, returnType)
 {

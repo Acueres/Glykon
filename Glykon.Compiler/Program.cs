@@ -1,9 +1,7 @@
 ﻿using System.Reflection;
-
-using Glykon.Compiler.Tokenization;
-using Glykon.Compiler.Parsing;
-using Glykon.Compiler.CodeGeneration;
-using Glykon.Compiler.SemanticAnalysis;
+using Glykon.Compiler.Emitter;
+using Glykon.Compiler.Semantics;
+using Glykon.Compiler.Syntax;
 
 namespace Glykon.Compiler;
 
@@ -58,10 +56,10 @@ internal class Program
 
         if (lexerErrors.Count != 0 || parserErrors.Count != 0 || semanticErrors.Count != 0) return;
 
-        var generator = new TypeGenerator(stmts, symbolTable, filename);
-        generator.GenerateAssembly();
+        var emitter = new TypeEmitter(stmts, symbolTable, filename);
+        emitter.EmitAssembly();
 
-        Assembly assembly = generator.GetAssembly();
+        Assembly assembly = emitter.GetAssembly();
 
         Type? program = assembly.GetType("Program");
         if (program is null) return;

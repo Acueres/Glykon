@@ -1,6 +1,4 @@
-﻿using Glykon.Compiler.Tokenization;
-
-namespace Glykon.Compiler.Syntax.Expressions
+﻿namespace Glykon.Compiler.Syntax.Expressions
 {
     public class LogicalExpr(Token oper, IExpression left, IExpression right) : IExpression
     {
