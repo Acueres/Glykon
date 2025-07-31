@@ -7,14 +7,15 @@ public class SymbolTable
 {
     readonly Scope global = new();
     readonly List<Scope> scopes;
-    readonly Dictionary<string, int> symbolMap = [];
+    readonly IdentifierInterner interner;
 
     Scope current;
 
-    public SymbolTable()
+    public SymbolTable(IdentifierInterner interner)
     {
         scopes = [global];
         current = global;
+        this.interner = interner;
     }
 
     public FunctionSymbol? GetCurrentContainingFunction()
@@ -24,58 +25,54 @@ public class SymbolTable
 
     public FunctionSymbol? RegisterFunction(string name, TokenType returnType, TokenType[] parameterTypes)
     {
-        int symbolIndex = TryAddSymbolId(name);
+        int symbolIndex = interner.Intern(name);
         FunctionSymbol? signature = current.AddFunction(symbolIndex, returnType, parameterTypes);
         return signature;
     }
 
     public FunctionSymbol? GetFunction(string name, TokenType[] parameters)
     {
-        int symbolIndex = symbolMap[name];
-        FunctionSymbol? function = current.GetFunction(symbolIndex, parameters);
-        return function;
+        if (!interner.TryGetId(name, out var id)) return null;
+        return current.GetFunction(id, parameters);
     }
 
     public bool IsFunction(string name)
     {
-        int symbolIndex = symbolMap[name];
-        var overloads = current.GetFunctionOverloads(symbolIndex);
-        return overloads.Count > 0;
+        if (!interner.TryGetId(name, out var id)) return false;
+        return current.GetFunctionOverloads(id).Count > 0;
     }
 
     public ConstantSymbol RegisterConstant(string name, object value, TokenType type)
     {
-        int symbolIndex = TryAddSymbolId(name);
+        int symbolIndex = interner.Intern(name);
         ConstantSymbol constant = current.AddConstant(symbolIndex, value, type);
         return constant;
     }
 
     public ParameterSymbol RegisterParameter(string name, TokenType type)
     {
-        int symbolIndex = TryAddSymbolId(name);
+        int symbolIndex = interner.Intern(name);
         ParameterSymbol parameter = current.AddParameter(symbolIndex, type);
         return parameter;
     }
 
     public VariableSymbol RegisterVariable(string name, TokenType type)
     {
-        int symbolIndex = TryAddSymbolId(name);
+        int symbolIndex = interner.Intern(name);
         VariableSymbol variable = current.AddVariable(symbolIndex, type);
         return variable;
     }
 
     public Symbol? GetSymbol(string name)
     {
-        int symbolIndex = symbolMap[name];
-        Symbol? symbol = current.GetSymbol(symbolIndex);
-        return symbol;
+        if (!interner.TryGetId(name, out var id)) return null;
+        return current.GetSymbol(id);
     }
 
     public VariableSymbol? GetVariable(string name)
     {
-        int symbolIndex = symbolMap[name];
-        VariableSymbol? variable = current.GetVariable(symbolIndex);
-        return variable;
+        if (!interner.TryGetId(name, out var id)) return null;
+        return current.GetVariable(id);
     }
 
     public int BeginScope(ScopeKind scopeKind)
@@ -111,19 +108,7 @@ public class SymbolTable
 
     public bool UpdateType(string name, TokenType type)
     {
-        int symbolIndex = symbolMap[name];
-
-        return current.UpdateSymbolType(symbolIndex, type);
-    }
-
-    public int TryAddSymbolId(string name)
-    {
-        if (!symbolMap.TryGetValue(name, out int symbolIndex))
-        {
-            symbolIndex = symbolMap.Count;
-            symbolMap.Add(name, symbolIndex);
-        }
-
-        return symbolIndex;
+        if (!interner.TryGetId(name, out var id)) return false;
+        return current.UpdateSymbolType(id, type);
     }
 }

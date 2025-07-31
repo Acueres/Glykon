@@ -38,7 +38,8 @@ internal class Program
             error.Report();
         }
 
-        Parser parser = new(tokens, filename);
+        IdentifierInterner interner = new();
+        Parser parser = new(tokens, interner, filename);
         var (stmts, symbolTable, parserErrors) = parser.Execute();
 
         foreach (var error in parserErrors)
@@ -56,7 +57,7 @@ internal class Program
 
         if (lexerErrors.Count != 0 || parserErrors.Count != 0 || semanticErrors.Count != 0) return;
 
-        var emitter = new TypeEmitter(stmts, symbolTable, filename);
+        var emitter = new TypeEmitter(stmts, symbolTable, interner, filename);
         emitter.EmitAssembly();
 
         Assembly assembly = emitter.GetAssembly();

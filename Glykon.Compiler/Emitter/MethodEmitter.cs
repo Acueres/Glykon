@@ -29,8 +29,12 @@ namespace Glykon.Compiler.Emitter
         readonly Stack<Label> loopStart = [];
         readonly Stack<Label> loopEnd = [];
 
-        public MethodEmitter(FunctionStmt stmt, SymbolTable symbolTable, TypeBuilder typeBuilder, string appName)
+        public MethodEmitter(FunctionStmt stmt, SymbolTable symbolTable, IdentifierInterner interner, TypeBuilder typeBuilder, string appName)
         {
+            fStmt = stmt;
+            st = symbolTable;
+            this.appName = appName;
+
             var parameterTypes = TranslateTypes([.. stmt.Parameters.Select(p => p.Type)]);
             var returnType = TranslateType(stmt.ReturnType);
 
@@ -38,16 +42,13 @@ namespace Glykon.Compiler.Emitter
                 MethodAttributes.HideBySig | MethodAttributes.Public | MethodAttributes.Static,
                 returnType, parameterTypes);
 
-            for (int i = 0; i < stmt.Parameters.Count; i++)
-            {
-                mb.DefineParameter(i + 1, ParameterAttributes.None, stmt.Parameters[i].Name);
-            }
-
             il = mb.GetILGenerator();
 
-            fStmt = stmt;
-            st = symbolTable;
-            this.appName = appName;
+            for (int i = 0; i < stmt.Parameters.Count; i++)
+            {
+                string paramName = interner[stmt.Parameters[i].Id];
+                mb.DefineParameter(i + 1, ParameterAttributes.None, paramName);
+            }
 
             int n = CountReturnStatements(stmt);
             bool multipleReturns = n > 1;
@@ -65,7 +66,7 @@ namespace Glykon.Compiler.Emitter
             var locals = stmt.Body.Statements.Where(s => s.Type == StatementType.Function).Select(s => (FunctionStmt)s);
             foreach (var f in locals)
             {
-                MethodEmitter mg = new(f, symbolTable, typeBuilder, appName);
+                MethodEmitter mg = new(f, symbolTable, interner, typeBuilder, appName);
                 methodGenerators.Add(mg);
                 localFunctions.Add(f.Signature, mg.GetMethodBuilder());
             }

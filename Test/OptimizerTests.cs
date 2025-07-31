@@ -10,7 +10,7 @@ namespace Tests
         public void TestBinaryExpressionLiteralOptimization()
         {
             Token[] tokens = [new(TokenType.Let, 0), new("value", 0, TokenType.Identifier), new(TokenType.Assignment, 0), new(2, 0, TokenType.LiteralInt), new(TokenType.Star, 0),  new(3, 0, TokenType.LiteralInt), new(TokenType.Semicolon, 0)];
-            Parser parser = new(tokens, "BinaryLiteralOptimizationTest");
+            Parser parser = new(tokens, new(), "BinaryLiteralOptimizationTest");
             var (stmts, _, _) = parser.Execute();
 
             Optimizer optimizer = new(stmts);
@@ -25,7 +25,7 @@ namespace Tests
         public void TestUnaryExpressionLiteralOptimization()
         {
             Token[] tokens = [new(TokenType.Let, 0), new("value", 0, TokenType.Identifier), new(TokenType.Assignment, 0), new(TokenType.Not, 0), new(TokenType.LiteralFalse, 0), new(TokenType.Semicolon, 0)];
-            Parser parser = new(tokens, "UnaryLiteralOptimizationTest");
+            Parser parser = new(tokens, new(), "UnaryLiteralOptimizationTest");
             var (stmts, _, _) = parser.Execute();
 
             Optimizer optimizer = new(stmts);
@@ -47,7 +47,7 @@ namespace Tests
             Lexer lexer = new(src, name);
             var (tokens, _) = lexer.Execute();
 
-            Parser parser = new(tokens, name);
+            Parser parser = new(tokens, new(), name);
             var (stmts, _, _) = parser.Execute();
 
             Optimizer optimizer = new(stmts);

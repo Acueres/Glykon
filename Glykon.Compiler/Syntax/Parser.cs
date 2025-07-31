@@ -1,4 +1,5 @@
 ﻿using Glykon.Compiler.Semantics;
+using Glykon.Compiler.Semantics.Symbols;
 using Glykon.Compiler.Diagnostics.Exceptions;
 using Glykon.Compiler.Diagnostics.Errors;
 using Glykon.Compiler.Syntax.Expressions;
@@ -6,7 +7,7 @@ using Glykon.Compiler.Syntax.Statements;
 
 namespace Glykon.Compiler.Syntax;
 
-public class Parser(Token[] tokens, string filename)
+public class Parser(Token[] tokens, IdentifierInterner interner, string filename)
 {
     readonly string fileName = filename;
 
@@ -14,7 +15,7 @@ public class Parser(Token[] tokens, string filename)
 
     readonly Token[] tokens = tokens;
     readonly List<IStatement> statements = [];
-    readonly SymbolTable symbolTable = new();
+    readonly SymbolTable symbolTable = new(interner);
     readonly List<IGlykonError> errors = [];
     int tokenIndex;
 
@@ -192,7 +193,7 @@ public class Parser(Token[] tokens, string filename)
     {
         Token functionName = Consume(TokenType.Identifier, "Expect function name");
         Consume(TokenType.ParenthesisLeft, "Expect '(' after function name");
-        List<Parameter> parameters = [];
+        List<(string Name, TokenType Type)> parameters = [];
 
         if (Current.Type != TokenType.ParenthesisRight)
         {
@@ -211,9 +212,11 @@ public class Parser(Token[] tokens, string filename)
 
         int scopeIndex = symbolTable.BeginScope(symbol);
 
+        List<ParameterSymbol> parameterSymbols = new(parameters.Count);
         foreach (var parameter in parameters)
         {
-            symbolTable.RegisterParameter(parameter.Name, parameter.Type);
+            var parameterSymbol = symbolTable.RegisterParameter(parameter.Name, parameter.Type);
+            parameterSymbols.Add(parameterSymbol);
         }
 
         Consume(TokenType.BraceLeft, "Expect '{' before function body");
@@ -222,7 +225,7 @@ public class Parser(Token[] tokens, string filename)
 
         symbolTable.ExitScope();
 
-        return new FunctionStmt((string)functionName.Value, symbol, parameters, returnType, body);
+        return new FunctionStmt((string)functionName.Value, symbol, parameterSymbols, returnType, body);
     }
 
     ReturnStmt ParseReturnStatement()
@@ -301,9 +304,9 @@ public class Parser(Token[] tokens, string filename)
         return next.Type;
     }
 
-    List<Parameter> ParseParameters()
+    List<(string Name, TokenType Type)> ParseParameters()
     {
-        List<Parameter> parameters = [];
+        List<(string Name, TokenType Type)> parameters = [];
         do
         {
             if (parameters.Count > ushort.MaxValue)
@@ -315,7 +318,7 @@ public class Parser(Token[] tokens, string filename)
             Consume(TokenType.Colon, "Expect colon before type declaration");
             Token type = Advance();
 
-            Parameter parameter = new((string)name.Value, type.Type);
+            var parameter = ((string)name.Value, type.Type);
             parameters.Add(parameter);
         }
         while (Match(TokenType.Comma));

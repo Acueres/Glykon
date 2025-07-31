@@ -16,7 +16,7 @@ public class SemanticTests
 ";
         Lexer lexer = new(src, fileName);
         (var tokens, _) = lexer.Execute();
-        Parser parser = new(tokens, fileName);
+        Parser parser = new(tokens, new(), fileName);
         var (stmts, symbolTable, parseErrors) = parser.Execute();
 
         Assert.Empty(parseErrors);
@@ -43,7 +43,7 @@ public class SemanticTests
 ";
         Lexer lexer = new(src, fileName);
         (var tokens, _) = lexer.Execute();
-        Parser parser = new(tokens, fileName);
+        Parser parser = new(tokens, new(), fileName);
         var (stmts, symbolTable, parseErrors) = parser.Execute();
 
         Assert.Empty(parseErrors);
@@ -72,7 +72,7 @@ public class SemanticTests
             ";
         Lexer lexer = new(src, fileName);
         (var tokens, _) = lexer.Execute();
-        Parser parser = new(tokens, fileName);
+        Parser parser = new(tokens, new(), fileName);
         var (stmts, symbolTable, parserErrors) = parser.Execute();
 
         Assert.Empty(parserErrors);

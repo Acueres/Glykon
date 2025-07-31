@@ -17,15 +17,17 @@ public class TypeEmitter
     readonly string appName;
     readonly IStatement[] statements;
     readonly SymbolTable symbolTable;
+    readonly IdentifierInterner interner;
 
     readonly PersistedAssemblyBuilder ab;
     MethodBuilder main;
 
-    public TypeEmitter(IStatement[] statements, SymbolTable symbolTable, string appname)
+    public TypeEmitter(IStatement[] statements, SymbolTable symbolTable, IdentifierInterner interner, string appname)
     {
         appName = appname;
         this.statements = statements;
         this.symbolTable = symbolTable;
+        this.interner = interner;
 
         ab = new(new AssemblyName(appName), typeof(object).Assembly);
     }
@@ -44,7 +46,7 @@ public class TypeEmitter
         {
             if (stmt is FunctionStmt f)
             {
-                MethodEmitter mg = new(f, symbolTable, tb, appName);
+                MethodEmitter mg = new(f, symbolTable, interner, tb, appName);
                 methodGenerators.Add(mg);
                 methods.Add(f.Signature, mg.GetMethodBuilder());
 

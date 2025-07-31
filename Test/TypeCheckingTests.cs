@@ -11,7 +11,7 @@ public class TypeCheckingTests
     private static (IStatement[] stmts, SymbolTable st, List<IGlykonError> parseErr) Parse(string src, string file)
     {
         var (tokens, _) = new Lexer(src, file).Execute();
-        return new Parser(tokens, file).Execute();
+        return new Parser(tokens, new(), file).Execute();
     }
 
     private static List<IGlykonError> Check(string src, string file)
