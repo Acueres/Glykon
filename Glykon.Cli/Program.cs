@@ -1,9 +1,11 @@
 ﻿using System.Reflection;
+
 using Glykon.Compiler.Emitter;
 using Glykon.Compiler.Semantics;
 using Glykon.Compiler.Syntax;
+using Glykon.Compiler.Diagnostics.Errors;
 
-namespace Glykon.Compiler;
+namespace Glykon.Cli;
 
 internal class Program
 {
@@ -30,32 +32,30 @@ internal class Program
                 }
             }
 ";
+        List<IGlykonError> errors = [];
+        
         Lexer lexer = new(src, filename);
         var (tokens, lexerErrors) = lexer.Execute();
 
-        foreach (var error in lexerErrors)
-        {
-            error.Report();
-        }
+        errors.AddRange(lexerErrors);
 
         IdentifierInterner interner = new();
         Parser parser = new(tokens, interner, filename);
         var (stmts, symbolTable, parserErrors) = parser.Execute();
 
-        foreach (var error in parserErrors)
-        {
-            error.Report();
-        }
+        errors.AddRange(parserErrors);
 
         SemanticAnalyzer semanticAnalyzer = new(stmts, symbolTable, filename);
         var semanticErrors = semanticAnalyzer.Execute();
 
-        foreach (var error in semanticErrors)
+        errors.AddRange(semanticErrors);
+
+        foreach (var error in errors)
         {
             error.Report();
         }
 
-        if (lexerErrors.Count != 0 || parserErrors.Count != 0 || semanticErrors.Count != 0) return;
+        if (errors.Count != 0) return;
 
         var emitter = new TypeEmitter(stmts, symbolTable, interner, filename);
         emitter.EmitAssembly();
