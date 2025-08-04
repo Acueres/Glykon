@@ -1,7 +1,12 @@
-﻿namespace Glykon.Compiler.Syntax;
+﻿using Glykon.Compiler.Syntax.Statements;
 
-public enum TokenType
+namespace Glykon.Compiler.Syntax;
+
+public enum TokenType : byte
 {
+    // Sentinel
+    Empty,
+
     // Literals
     None, LiteralInt, LiteralReal, LiteralString, LiteralTrue, LiteralFalse,
 
@@ -27,31 +32,44 @@ public enum TokenType
     EOF
 }
 
-public class Token
+public readonly struct Token
 {
-    public object Value { get; init; }
+    public TokenType Kind { get; init; }
     public int Line { get; init; }
-    public TokenType Type { get; init; }
 
-    public Token(object value, int line, TokenType type)
+    public string StringValue { get; init; } = string.Empty;
+    public long IntValue { get; init; }
+    public double RealValue { get; init; }
+
+    static readonly Token empty = new(TokenType.Empty, 0);
+    public static ref readonly Token Empty => ref empty;
+
+    public bool IsEmpty => Kind == TokenType.Empty;
+
+    public Token(TokenType type, int line, string value)
     {
-        Value = value;
+        Kind = type;
         Line = line;
-        Type = type;
+        StringValue = value;
+    }
+
+    public Token(TokenType type, int line, long value)
+    {
+        Kind = type;
+        Line = line;
+        IntValue = value;
+    }
+
+    public Token(TokenType type, int line, double value)
+    {
+        Kind = type;
+        Line = line;
+        RealValue = value;
     }
 
     public Token(TokenType type, int line)
     {
-        Type = type;
+        Kind = type;
         Line = line;
-
-        if (Type == TokenType.LiteralTrue)
-        {
-            Value = true;
-        }
-        else
-        {
-            Value = false;
-        }
     }
 }

@@ -19,16 +19,18 @@ public class Lexer(string source, string fileName)
     {
         while (!AtEnd)
         {
-            Token? token = GetNextToken();
-            if (token is not null)
+            Token token = GetNextToken();
+            if (!token.IsEmpty)
+            {
                 tokens.Add(token);
+            }
         }
 
         if (tokens.Count > 0)
         {
             var last = ScanEndOfLine();
 
-            if (last is not null)
+            if (!last.IsEmpty)
             {
                 tokens.Add(last);
             }
@@ -39,7 +41,7 @@ public class Lexer(string source, string fileName)
         return (tokens.ToArray(), errors);
     }
 
-    Token? GetNextToken()
+    Token GetNextToken()
     {
         char character = Advance();
 
@@ -138,10 +140,10 @@ public class Lexer(string source, string fileName)
                 }
 
                 errors.Add(new SyntaxError(line, fileName, $"Invalid character '{character}' in token"));
-                return null;
+                return Token.Empty;
         }
 
-        return null;
+        return Token.Empty;
     }
 
     Token ScanIdentifier()
@@ -157,10 +159,10 @@ public class Lexer(string source, string fileName)
             return new(type, line);
         }
 
-        return new(identifier, line, TokenType.Identifier);
+        return new(TokenType.Identifier, line, identifier);
     }
 
-    Token ScanNumber(bool isFloat = false)
+    Token ScanNumber(bool isReal = false)
     {
         int numberStart = currentCharIndex - 1;
 
@@ -168,7 +170,7 @@ public class Lexer(string source, string fileName)
 
         if (Peek() == '.' && char.IsAsciiDigit(Peek(1)))
         {
-            isFloat = true;
+            isReal = true;
 
             Advance();
 
@@ -176,20 +178,16 @@ public class Lexer(string source, string fileName)
         }
 
         string number = source[numberStart..currentCharIndex];
-        object value;
-        if (isFloat)
+
+        if (isReal)
         {
-            value = double.Parse(number, CultureInfo.InvariantCulture);
-        }
-        else
-        {
-            value = int.Parse(number);
+            return new(TokenType.LiteralReal, line, double.Parse(number, CultureInfo.InvariantCulture));
         }
 
-        return new(value, line, isFloat ? TokenType.LiteralReal : TokenType.LiteralInt);
+        return new(TokenType.LiteralInt, line, int.Parse(number));
     }
 
-    Token? ScanString(char openingQuote)
+    Token ScanString(char openingQuote)
     {
         bool multiline = Match(openingQuote, 2);
         int currentLine = line;
@@ -202,7 +200,7 @@ public class Lexer(string source, string fileName)
                 if (!multiline)
                 {
                     errors.Add(new SyntaxError(line, fileName, "SyntaxError: unterminated string literal"));
-                    return null;
+                    return Token.Empty;
                 }
 
                 line++;
@@ -214,26 +212,26 @@ public class Lexer(string source, string fileName)
         if (AtEnd)
         {
             errors.Add(new SyntaxError(line, fileName, "SyntaxError: unterminated string literal"));
-            return null;
+            return Token.Empty;
         }
 
         int stringEndOffset = multiline ? 3 : 1;
-        Token result = new(source[stringStart..(currentCharIndex - stringEndOffset)], currentLine, TokenType.LiteralString);
+        Token result = new(TokenType.LiteralString, currentLine, source[stringStart..(currentCharIndex - stringEndOffset)]);
 
         return result;
     }
 
-    Token? ScanEndOfLine()
+    Token ScanEndOfLine()
     {
-        Token? last = tokens.LastOrDefault();
+        Token last = tokens.LastOrDefault();
 
-        if (last is null || terminatorExceptions.Contains(last.Type)) return null;
+        if (last.IsEmpty || terminatorExceptions.Contains(last.Kind)) return Token.Empty;
 
         (char nextChar, int peekIndex) = PeekNextSignificant();
-        if (chainingChars.Contains(nextChar)) return null;
+        if (chainingChars.Contains(nextChar)) return Token.Empty;
 
         // Handle long chaining tokens
-        if (IsLongChainingToken(nextChar, peekIndex)) return null;
+        if (IsLongChainingToken(nextChar, peekIndex)) return Token.Empty;
 
         return new(TokenType.Semicolon, line);
     }

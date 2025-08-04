@@ -12,12 +12,12 @@ public class LexerTests
         Lexer lexer = new(source, "IdentifiersTest");
         var (tokens, _) = lexer.Execute();
 
-        tokens = [.. tokens.Where(t => t.Type != TokenType.EOF)];
+        tokens = [.. tokens.Where(t => t.Kind != TokenType.EOF)];
 
         Assert.Equal(5, tokens.Length);
-        Assert.Equal(TokenType.Let, tokens[0].Type);
-        Assert.Equal(TokenType.Identifier, tokens[1].Type);
-        Assert.Equal("text", tokens[1].Value);
+        Assert.Equal(TokenType.Let, tokens[0].Kind);
+        Assert.Equal(TokenType.Identifier, tokens[1].Kind);
+        Assert.Equal("text", tokens[1].StringValue);
     }
 
     [Fact]
@@ -49,7 +49,7 @@ public class LexerTests
         Lexer lexer = new(symbols, "SymbolsTest");
         var (tokens, _) = lexer.Execute();
 
-        tokens = [.. tokens.Where(t => t.Type != TokenType.EOF)];
+        tokens = [.. tokens.Where(t => t.Kind != TokenType.EOF)];
 
         Assert.Equal(22, tokens.Length);
 
@@ -79,7 +79,7 @@ public class LexerTests
         TokenType.Arrow
         ];
 
-        var actualTypes = tokens.Select(t => t.Type).ToArray();
+        var actualTypes = tokens.Select(t => t.Kind).ToArray();
 
         Assert.Equal(expectedTypes, actualTypes);
     }
@@ -92,7 +92,7 @@ public class LexerTests
         Lexer lexer = new(keywords, "KeywordsTest");
         var (tokens, _) = lexer.Execute();
 
-        tokens = [.. tokens.Where(t => t.Type != TokenType.EOF && t.Type != TokenType.Semicolon)];
+        tokens = [.. tokens.Where(t => t.Kind != TokenType.EOF && t.Kind != TokenType.Semicolon)];
 
         TokenType[] expectedTypes =
         [
@@ -106,7 +106,7 @@ public class LexerTests
             TokenType.LiteralFalse
         ];
 
-        var actualTypes = tokens.Select(t => t.Type).ToArray();
+        var actualTypes = tokens.Select(t => t.Kind).ToArray();
 
         Assert.Equal(expectedTypes, actualTypes);
     }
@@ -119,13 +119,13 @@ public class LexerTests
         Lexer lexer = new(stringsSource, "StringTest");
         var (tokens, _) = lexer.Execute();
 
-        tokens = [.. tokens.Where(t => t.Type != TokenType.EOF && t.Type != TokenType.Semicolon)];
+        tokens = [.. tokens.Where(t => t.Kind != TokenType.EOF && t.Kind != TokenType.Semicolon)];
 
         Assert.Equal(3, tokens.Length);
-        Assert.Equal(TokenType.LiteralString, tokens[0].Type);
-        Assert.Equal("some text", tokens[0].Value);
-        Assert.Equal("other text", tokens[1].Value);
-        Assert.Equal("multiline oneliner", tokens[2].Value);
+        Assert.Equal(TokenType.LiteralString, tokens[0].Kind);
+        Assert.Equal("some text", tokens[0].StringValue);
+        Assert.Equal("other text", tokens[1].StringValue);
+        Assert.Equal("multiline oneliner", tokens[2].StringValue);
     }
 
     [Fact]
@@ -144,13 +144,13 @@ public class LexerTests
         var (tokens, _) = lexer.Execute();
 
         //filter out statement terminators
-        tokens = [.. tokens.Where(t => t.Type != TokenType.Semicolon && t.Type != TokenType.EOF)];
+        tokens = [.. tokens.Where(t => t.Kind != TokenType.Semicolon && t.Kind != TokenType.EOF)];
 
         Assert.Equal(3, tokens.Length);
-        Assert.Equal("multiline string\n", ((string)tokens.First().Value).Replace("\r", string.Empty));
-        Assert.Equal("regular string", tokens[1].Value);
+        Assert.Equal("multiline string\n", ((string)tokens.First().StringValue).Replace("\r", string.Empty));
+        Assert.Equal("regular string", tokens[1].StringValue);
         Assert.Equal(2, tokens[1].Line);
-        Assert.Equal("another 'multiline' string\n text\n", ((string)tokens[2].Value).Replace("\r", string.Empty));
+        Assert.Equal("another 'multiline' string\n text\n", ((string)tokens[2].StringValue).Replace("\r", string.Empty));
         Assert.Equal(4, tokens[2].Line);
     }
 
@@ -162,18 +162,18 @@ public class LexerTests
         Lexer lexer = new(numbers, "NumbersTest");
         var (tokens, _) = lexer.Execute();
 
-        tokens = [.. tokens.Where(t => t.Type != TokenType.EOF)];
+        tokens = [.. tokens.Where(t => t.Kind != TokenType.EOF)];
 
         Assert.Equal(6, tokens.Length);
-        Assert.Equal(TokenType.LiteralInt, tokens[0].Type);
-        Assert.Equal(123, tokens[0].Value);
-        Assert.Equal(42, tokens[1].Value);
+        Assert.Equal(TokenType.LiteralInt, tokens[0].Kind);
+        Assert.Equal(123, tokens[0].IntValue);
+        Assert.Equal(42, tokens[1].IntValue);
 
-        Assert.Equal(TokenType.LiteralReal, tokens[2].Type);
-        Assert.Equal(1.2, tokens[2].Value);
-        Assert.Equal(.2, tokens[3].Value);
+        Assert.Equal(TokenType.LiteralReal, tokens[2].Kind);
+        Assert.Equal(1.2, tokens[2].RealValue);
+        Assert.Equal(.2, tokens[3].RealValue);
 
-        Assert.Equal(TokenType.LiteralInt, tokens[4].Type);
+        Assert.Equal(TokenType.LiteralInt, tokens[4].Kind);
     }
 
     [Fact]
@@ -234,7 +234,7 @@ if a > b
         TokenType.EOF
     ];
 
-        var actualTypes = tokens.Select(t => t.Type).ToArray();
+        var actualTypes = tokens.Select(t => t.Kind).ToArray();
 
         Assert.Equal(expectedTypes, actualTypes);
     }
@@ -306,7 +306,7 @@ let details = ""...""
         TokenType.EOF
     };
 
-        var actualTypes = tokens.Select(t => t.Type).ToArray();
+        var actualTypes = tokens.Select(t => t.Kind).ToArray();
 
         Assert.Equal(expectedTypes, actualTypes);
     }

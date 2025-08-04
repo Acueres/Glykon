@@ -235,11 +235,11 @@ namespace Glykon.Compiler.Emitter
 
         void EmitJumpStatement(JumpStmt jumpStatement)
         {
-            if (jumpStatement.Token.Type == TokenType.Break)
+            if (jumpStatement.Token.Kind == TokenType.Break)
             {
                 il.Emit(OpCodes.Br_S, loopEnd.Last());
             }
-            else if (jumpStatement.Token.Type == TokenType.Continue)
+            else if (jumpStatement.Token.Kind == TokenType.Continue)
             {
                 il.Emit(OpCodes.Br_S, loopStart.Last());
             }
@@ -252,7 +252,7 @@ namespace Glykon.Compiler.Emitter
                 case ExpressionType.Literal:
                     {
                         var expr = (LiteralExpr)expression;
-                        return EmitPrimitive(expr.Token.Type, expr.Token.Value);
+                        return EmitPrimitive(expr.Token);
                     }
                 case ExpressionType.Variable:
                     {
@@ -275,7 +275,7 @@ namespace Glykon.Compiler.Emitter
 
                         if (symbol is ConstantSymbol constant)
                         {
-                            return EmitPrimitive(constant.Type, constant.Value);
+                            return EmitPrimitive(constant.Value);
                         }
 
                         var parameters = functionParameters.Pop();
@@ -326,7 +326,7 @@ namespace Glykon.Compiler.Emitter
                         var expr = (UnaryExpr)expression;
                         var type = EmitExpression(expr.Expression);
 
-                        switch (expr.Operator.Type)
+                        switch (expr.Operator.Kind)
                         {
                             case TokenType.Not when type == TokenType.Bool:
                                 il.Emit(OpCodes.Ldc_I4, 0);
@@ -348,11 +348,11 @@ namespace Glykon.Compiler.Emitter
                         if (typeLeft != typeRight)
                         {
                             ParseError error = new(expr.Operator, appName,
-                                $"Operator {expr.Operator.Type} cannot be applied between types '{typeLeft}' and '{typeRight}'");
+                                $"Operator {expr.Operator.Kind} cannot be applied between types '{typeLeft}' and '{typeRight}'");
                             throw error.Exception();
                         }
 
-                        switch (expr.Operator.Type)
+                        switch (expr.Operator.Kind)
                         {
                             case TokenType.Equal:
                                 il.Emit(OpCodes.Ceq);
@@ -411,11 +411,11 @@ namespace Glykon.Compiler.Emitter
                             if (typeLeft != TokenType.Bool && typeLeft != typeRight)
                             {
                                 ParseError error = new(expr.Operator, appName,
-                                    $"Operator {expr.Operator.Type} cannot be applied between types '{typeLeft}' and '{typeRight}'");
+                                    $"Operator {expr.Operator.Kind} cannot be applied between types '{typeLeft}' and '{typeRight}'");
                                 throw error.Exception();
                             }
 
-                            if (expr.Operator.Type == TokenType.And)
+                            if (expr.Operator.Kind == TokenType.And)
                             {
                                 il.Emit(OpCodes.And);
                             }
@@ -428,7 +428,7 @@ namespace Glykon.Compiler.Emitter
                         {
                             TokenType typeLeft = EmitExpression(expr.Left);
 
-                            if (expr.Operator.Type == TokenType.And)
+                            if (expr.Operator.Kind == TokenType.And)
                             {
                                 Label leftTrue = il.DefineLabel();
                                 il.Emit(OpCodes.Brtrue_S, leftTrue);
@@ -442,7 +442,7 @@ namespace Glykon.Compiler.Emitter
                                 if (typeLeft != TokenType.Bool && typeLeft != typeRight)
                                 {
                                     ParseError error = new(expr.Operator, appName,
-                                        $"Operator {expr.Operator.Type} cannot be applied between types '{typeLeft}' and '{typeRight}'");
+                                        $"Operator {expr.Operator.Kind} cannot be applied between types '{typeLeft}' and '{typeRight}'");
                                     throw error.Exception();
                                 }
 
@@ -457,7 +457,7 @@ namespace Glykon.Compiler.Emitter
                                 if (typeLeft != TokenType.Bool && typeLeft != typeRight)
                                 {
                                     ParseError error = new(expr.Operator, appName,
-                                        $"Operator {expr.Operator.Type} cannot be applied between types '{typeLeft}' and '{typeRight}'");
+                                        $"Operator {expr.Operator.Kind} cannot be applied between types '{typeLeft}' and '{typeRight}'");
                                     throw error.Exception();
                                 }
                                 Label endLabel = il.DefineLabel();
@@ -477,13 +477,13 @@ namespace Glykon.Compiler.Emitter
             return TokenType.None;
         }
 
-        TokenType EmitPrimitive(TokenType type, object value)
+        TokenType EmitPrimitive(in Token token)
         {
-            switch (type)
+            switch (token.Kind)
             {
-                case TokenType.LiteralString: il.Emit(OpCodes.Ldstr, (string)value); return TokenType.String;
-                case TokenType.LiteralInt: il.Emit(OpCodes.Ldc_I4, (int)value); return TokenType.Int;
-                case TokenType.LiteralReal: il.Emit(OpCodes.Ldc_R8, (double)value); return TokenType.Real;
+                case TokenType.LiteralString: il.Emit(OpCodes.Ldstr, token.StringValue ?? ""); return TokenType.String;
+                case TokenType.LiteralInt: il.Emit(OpCodes.Ldc_I4, (int)token.IntValue); return TokenType.Int;
+                case TokenType.LiteralReal: il.Emit(OpCodes.Ldc_R8, token.RealValue); return TokenType.Real;
                 case TokenType.LiteralTrue: il.Emit(OpCodes.Ldc_I4, 1); return TokenType.Bool;
                 case TokenType.LiteralFalse: il.Emit(OpCodes.Ldc_I4, 0); return TokenType.Bool;
                 default: il.Emit(OpCodes.Ldnull); return TokenType.None;

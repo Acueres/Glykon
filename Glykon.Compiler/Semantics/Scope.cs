@@ -103,7 +103,7 @@ public class Scope
         return allOverloads;
     }
 
-    public ConstantSymbol AddConstant(int id, object value, TokenType type)
+    public ConstantSymbol AddConstant(int id, in Token value, TokenType type)
     {
         ConstantSymbol symbol = new(id, type, value);
         symbols.Add(id, symbol);

@@ -27,7 +27,7 @@ public class Parser(Token[] tokens, IdentifierInterner interner, string filename
         {
             try
             {
-                if (Current.Type == TokenType.EOF) break;
+                if (Current.Kind == TokenType.EOF) break;
                 IStatement stmt = ParseStatement();
                 statements.Add(stmt);
             }
@@ -113,7 +113,7 @@ public class Parser(Token[] tokens, IdentifierInterner interner, string filename
     {
         List<IStatement> statements = [];
 
-        while (Current.Type != TokenType.BraceRight && !AtEnd)
+        while (Current.Kind != TokenType.BraceRight && !AtEnd)
         {
             IStatement stmt = ParseStatement();
             statements.Add(stmt);
@@ -195,7 +195,7 @@ public class Parser(Token[] tokens, IdentifierInterner interner, string filename
         Consume(TokenType.ParenthesisLeft, "Expect '(' after function name");
         List<(string Name, TokenType Type)> parameters = [];
 
-        if (Current.Type != TokenType.ParenthesisRight)
+        if (Current.Kind != TokenType.ParenthesisRight)
         {
             parameters = ParseParameters();
         }
@@ -208,7 +208,7 @@ public class Parser(Token[] tokens, IdentifierInterner interner, string filename
             returnType = ParseTypeDeclaration();
         }
 
-        var symbol = symbolTable.RegisterFunction((string)functionName.Value, returnType, [.. parameters.Select(p => p.Type)]);
+        var symbol = symbolTable.RegisterFunction(functionName.StringValue, returnType, [.. parameters.Select(p => p.Type)]);
 
         int scopeIndex = symbolTable.BeginScope(symbol);
 
@@ -225,12 +225,12 @@ public class Parser(Token[] tokens, IdentifierInterner interner, string filename
 
         symbolTable.ExitScope();
 
-        return new FunctionStmt((string)functionName.Value, symbol, parameterSymbols, returnType, body);
+        return new FunctionStmt(functionName.StringValue, symbol, parameterSymbols, returnType, body);
     }
 
     ReturnStmt ParseReturnStatement()
     {
-        if (Match(TokenType.Semicolon) || Current.Type == TokenType.BraceRight)
+        if (Match(TokenType.Semicolon) || Current.Kind == TokenType.BraceRight)
         {
             return new ReturnStmt(null);
         }
@@ -268,7 +268,7 @@ public class Parser(Token[] tokens, IdentifierInterner interner, string filename
         {
             TerminateStatement("Expect ';' after variable declaration");
 
-            string name = (string)token.Value;
+            string name = token.StringValue;
             symbolTable.RegisterVariable(name, declaredType);
             return new(initializer, name, declaredType);
         }
@@ -293,15 +293,15 @@ public class Parser(Token[] tokens, IdentifierInterner interner, string filename
 
         TerminateStatement("Expect ';' after constant declaration");
 
-        string name = (string)token.Value;
-        symbolTable.RegisterConstant(name, literal.Token.Value, declaredType);
+        string name = token.StringValue;
+        symbolTable.RegisterConstant(name, literal.Token, declaredType);
         return new(initializer, name, declaredType);
     }
 
     TokenType ParseTypeDeclaration()
     {
         Token next = Advance();
-        return next.Type;
+        return next.Kind;
     }
 
     List<(string Name, TokenType Type)> ParseParameters()
@@ -318,7 +318,7 @@ public class Parser(Token[] tokens, IdentifierInterner interner, string filename
             Consume(TokenType.Colon, "Expect colon before type declaration");
             Token type = Advance();
 
-            var parameter = ((string)name.Value, type.Type);
+            var parameter = (name.StringValue, type.Kind);
             parameters.Add(parameter);
         }
         while (Match(TokenType.Comma));
@@ -337,7 +337,8 @@ public class Parser(Token[] tokens, IdentifierInterner interner, string filename
 
         if (Match(TokenType.Assignment))
         {
-            Token token = Previous2;
+            Token token = Peek(-2);
+
             IExpression value = ParseAssignment();
 
             if (expr.Type == ExpressionType.Variable)
@@ -464,7 +465,7 @@ public class Parser(Token[] tokens, IdentifierInterner interner, string filename
     CallExpr CompleteCall(IExpression callee)
     {
         List<IExpression> args = [];
-        if (Current.Type != TokenType.ParenthesisRight)
+        if (Current.Kind != TokenType.ParenthesisRight)
         {
             do
             {
@@ -489,7 +490,7 @@ public class Parser(Token[] tokens, IdentifierInterner interner, string filename
 
         if (Match(TokenType.Identifier))
         {
-            string name = (string)Previous.Value;
+            string name = Previous.StringValue;
             return new VariableExpr(name);
         }
 
@@ -511,7 +512,7 @@ public class Parser(Token[] tokens, IdentifierInterner interner, string filename
     /// <param name="errorMessage"></param>
     void TerminateStatement(string errorMessage)
     {
-        if (Current.Type != TokenType.BraceRight)
+        if (Current.Kind != TokenType.BraceRight)
         {
             Consume(TokenType.Semicolon, errorMessage);
         }
@@ -523,9 +524,9 @@ public class Parser(Token[] tokens, IdentifierInterner interner, string filename
 
         while (!AtEnd)
         {
-            if (Current.Type == TokenType.Semicolon) return;
+            if (Current.Kind == TokenType.Semicolon) return;
 
-            switch (Current.Type)
+            switch (Current.Kind)
             {
                 case TokenType.Class:
                 case TokenType.Struct:
@@ -545,34 +546,36 @@ public class Parser(Token[] tokens, IdentifierInterner interner, string filename
 
     Token Consume(TokenType symbol, string message)
     {
-        if (Current.Type == symbol) return Advance();
+        if (Current.Kind == symbol) return Advance();
         ParseError error = new(Current, fileName, message);
         errors.Add(error);
         throw error.Exception();
     }
 
-    Token Advance()
+    ref Token Advance()
     {
-        return tokens[tokenIndex++];
+        return ref tokens[tokenIndex++];
     }
 
-    Token GetToken(int offset)
+    ref readonly Token Peek(int offset)
     {
-        int nextTokenPos = tokenIndex + offset;
-        Token token = tokens[nextTokenPos];
-        return token;
+        int peekIndex = tokenIndex + offset;
+        if (peekIndex < 0 || peekIndex >= tokens.Length)
+        {
+            return ref Token.Empty;
+        }
+        return ref tokens[peekIndex];
     }
 
-    Token Next => GetToken(1);
-    Token Current => GetToken(0);
-    Token Previous => GetToken(-1);
-    Token Previous2 => GetToken(-2);
+    ref readonly Token Next => ref Peek(1);
+    ref readonly Token Current => ref Peek(0);
+    ref readonly Token Previous => ref Peek(-1);
 
     bool Match(params TokenType[] values)
     {
         foreach (TokenType value in values)
         {
-            if (Current.Type == value)
+            if (Current.Kind == value)
             {
                 Advance();
                 return true;

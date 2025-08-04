@@ -135,7 +135,7 @@ public class TypeChecker(SymbolTable symbolTable, string fileName)
         {
             case ExpressionType.Literal:
                 {
-                    var literalType = ((LiteralExpr)expression).Token.Type;
+                    var literalType = ((LiteralExpr)expression).Token.Kind;
                     return literalType switch
                     {
                         TokenType.LiteralInt => TokenType.Int,
@@ -153,12 +153,12 @@ public class TypeChecker(SymbolTable symbolTable, string fileName)
 
                     if (operandType == TokenType.None) return TokenType.None;
 
-                    if (unaryExpr.Operator.Type == TokenType.Not)
+                    if (unaryExpr.Operator.Kind == TokenType.Not)
                     {
                         if (operandType != TokenType.Bool)
                         {
                             TypeError error = new(fileName,
-                            $"Operator {unaryExpr.Operator.Type} cannot be applied to operand type '{operandType}'");
+                            $"Operator {unaryExpr.Operator.Kind} cannot be applied to operand type '{operandType}'");
                             errors.Add(error);
                             return TokenType.None;
                         }
@@ -166,12 +166,12 @@ public class TypeChecker(SymbolTable symbolTable, string fileName)
                         return TokenType.Bool;
                     }
 
-                    if (unaryExpr.Operator.Type == TokenType.Minus)
+                    if (unaryExpr.Operator.Kind == TokenType.Minus)
                     {
                         if (operandType != TokenType.Int && operandType != TokenType.Real)
                         {
                             TypeError error = new(fileName,
-                            $"Operator {unaryExpr.Operator.Type} cannot be applied to operand type '{operandType}'");
+                            $"Operator {unaryExpr.Operator.Kind} cannot be applied to operand type '{operandType}'");
                             errors.Add(error);
                             return TokenType.None;
                         }
@@ -193,17 +193,17 @@ public class TypeChecker(SymbolTable symbolTable, string fileName)
                     if (leftType != rightType)
                     {
                         TypeError error = new(fileName,
-                            $"Operator {binaryExpr.Operator.Type} cannot be applied between types '{leftType}' and '{rightType}'");
+                            $"Operator {binaryExpr.Operator.Kind} cannot be applied between types '{leftType}' and '{rightType}'");
                         errors.Add(error);
                         return TokenType.None;
                     }
 
-                    if (binaryExpr.Operator.Type == TokenType.Equal
-                        || binaryExpr.Operator.Type == TokenType.NotEqual
-                        || binaryExpr.Operator.Type == TokenType.Greater
-                        || binaryExpr.Operator.Type == TokenType.Less
-                        || binaryExpr.Operator.Type == TokenType.GreaterEqual
-                        || binaryExpr.Operator.Type == TokenType.LessEqual)
+                    if (binaryExpr.Operator.Kind == TokenType.Equal
+                        || binaryExpr.Operator.Kind == TokenType.NotEqual
+                        || binaryExpr.Operator.Kind == TokenType.Greater
+                        || binaryExpr.Operator.Kind == TokenType.Less
+                        || binaryExpr.Operator.Kind == TokenType.GreaterEqual
+                        || binaryExpr.Operator.Kind == TokenType.LessEqual)
                     {
                         return TokenType.Bool;
                     }
@@ -223,7 +223,7 @@ public class TypeChecker(SymbolTable symbolTable, string fileName)
 
                     if (!(leftType == TokenType.Bool && rightType == TokenType.Bool))
                     {
-                        errors.Add(new TypeError(fileName, $"Type mismatch; operator {logicalExpr.Operator.Type} cannot be applied between types {leftType} and {rightType}"));
+                        errors.Add(new TypeError(fileName, $"Type mismatch; operator {logicalExpr.Operator.Kind} cannot be applied between types {leftType} and {rightType}"));
                         return TokenType.None;
                     }
 
