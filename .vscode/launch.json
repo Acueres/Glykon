@@ -10,9 +10,9 @@
             "request": "launch",
             "preLaunchTask": "build",
             // If you have changed target frameworks, make sure to update the program path.
-            "program": "${workspaceFolder}/CompilerService/bin/Debug/net9.0/CompilerService.dll",
+            "program": "${workspaceFolder}/Glykon.Cli/bin/Debug/net9.0/Glykon.Cli.dll",
             "args": [],
-            "cwd": "${workspaceFolder}/CompilerService",
+            "cwd": "${workspaceFolder}/Glykon.Cli",
             // For more information about the 'console' field, see https://aka.ms/VSCode-CS-LaunchJson-Console
             "console": "internalConsole",
             "stopAtEntry": false
