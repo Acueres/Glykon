@@ -75,20 +75,20 @@ public class SymbolTable
         return current.GetVariable(id);
     }
 
-    public int BeginScope(ScopeKind scopeKind)
+    public Scope BeginScope(ScopeKind scopeKind)
     {
         int index = scopes.Count;
         current = new Scope(current, index, scopeKind);
         scopes.Add(current);
-        return index;
+        return current;
     }
 
-    public int BeginScope(FunctionSymbol containingFunction)
+    public Scope BeginScope(FunctionSymbol containingFunction)
     {
         int index = scopes.Count;
         current = new Scope(current, index, containingFunction);
         scopes.Add(current);
-        return index;
+        return current;
     }
 
     public void ExitScope()
@@ -96,9 +96,9 @@ public class SymbolTable
         current = current.Parent;
     }
 
-    public void EnterScope(int index)
+    public void EnterScope(Scope scope)
     {
-        current = scopes[index];
+        current = scope;
     }
 
     public void ResetScope()

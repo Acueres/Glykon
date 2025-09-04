@@ -40,10 +40,13 @@ internal class Program
         errors.AddRange(lexerErrors);
 
         IdentifierInterner interner = new();
-        Parser parser = new(tokens, interner, filename);
-        var (stmts, symbolTable, parserErrors) = parser.Execute();
+        Parser parser = new(tokens, filename);
+        var (stmts, parserErrors) = parser.Execute();
 
         errors.AddRange(parserErrors);
+
+        SemanticBinder binder = new(stmts, interner);
+        SymbolTable symbolTable = binder.Bind();
 
         SemanticAnalyzer semanticAnalyzer = new(stmts, symbolTable, filename);
         var semanticErrors = semanticAnalyzer.Execute();

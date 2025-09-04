@@ -8,15 +8,18 @@ namespace Tests;
 public class TypeCheckingTests
 {
     // Helpers
-    private static (IStatement[] stmts, SymbolTable st, List<IGlykonError> parseErr) Parse(string src, string file)
+    private static (IStatement[] stmts, List<IGlykonError> parseErr) Parse(string src, string file)
     {
         var (tokens, _) = new Lexer(src, file).Execute();
-        return new Parser(tokens, new(), file).Execute();
+        return new Parser(tokens, file).Execute();
     }
 
     private static List<IGlykonError> Check(string src, string file)
     {
-        var (stmts, st, parseErr) = Parse(src, file);
+        var (stmts, parseErr) = Parse(src, file);
+        SemanticBinder binder = new(stmts, new());
+        var st = binder.Bind();
+
         Assert.Empty(parseErr); 
         var checker = new TypeChecker(st, file);
         foreach (var s in stmts) checker.Analyze(s);

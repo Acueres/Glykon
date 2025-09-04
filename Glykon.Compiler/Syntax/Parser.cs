@@ -7,7 +7,7 @@ using Glykon.Compiler.Syntax.Statements;
 
 namespace Glykon.Compiler.Syntax;
 
-public class Parser(Token[] tokens, IdentifierInterner interner, string filename)
+public class Parser(Token[] tokens, string filename)
 {
     readonly string fileName = filename;
 
@@ -15,14 +15,11 @@ public class Parser(Token[] tokens, IdentifierInterner interner, string filename
 
     readonly Token[] tokens = tokens;
     readonly List<IStatement> statements = [];
-    readonly SymbolTable symbolTable = new(interner);
     readonly List<IGlykonError> errors = [];
     int tokenIndex;
 
-    public (IStatement[], SymbolTable symbolTable, List<IGlykonError>) Execute()
+    public (IStatement[], List<IGlykonError>) Execute()
     {
-        RegisterStd();
-        
         while (!AtEnd)
         {
             try
@@ -37,18 +34,7 @@ public class Parser(Token[] tokens, IdentifierInterner interner, string filename
             }
         }
 
-        return (statements.ToArray(), symbolTable, errors);
-    }
-
-    void RegisterStd()
-    {
-        symbolTable.RegisterFunction("println", TokenType.None, [TokenType.String]);
-
-        symbolTable.RegisterFunction("println", TokenType.None, [TokenType.Int]);
-
-        symbolTable.RegisterFunction("println", TokenType.None, [TokenType.Real]);
-
-        symbolTable.RegisterFunction("println", TokenType.None, [TokenType.Bool]);
+        return (statements.ToArray(), errors);
     }
 
     IStatement ParseStatement()
@@ -70,12 +56,7 @@ public class Parser(Token[] tokens, IdentifierInterner interner, string filename
 
         if (Match(TokenType.BraceLeft))
         {
-            int scopeIndex = symbolTable.BeginScope(ScopeKind.Block);
-
-            var blockStatement = ParseBlockStatement(scopeIndex);
-
-            symbolTable.ExitScope();
-
+            var blockStatement = ParseBlockStatement();
             return blockStatement;
         }
 
@@ -109,7 +90,7 @@ public class Parser(Token[] tokens, IdentifierInterner interner, string filename
         return new ExpressionStmt(expr);
     }
 
-    BlockStmt ParseBlockStatement(int scopeIndex)
+    BlockStmt ParseBlockStatement()
     {
         List<IStatement> statements = [];
 
@@ -121,7 +102,7 @@ public class Parser(Token[] tokens, IdentifierInterner interner, string filename
 
         Consume(TokenType.BraceRight, "Expect '}' after block");
 
-        return new BlockStmt(statements, scopeIndex);
+        return new BlockStmt(statements);
     }
 
     IfStmt ParseIfStatement()
@@ -134,11 +115,7 @@ public class Parser(Token[] tokens, IdentifierInterner interner, string filename
         IStatement stmt;
         if (Match(TokenType.BraceLeft))
         {
-            int scopeIndex = symbolTable.BeginScope(ScopeKind.Block);
-
-            stmt = ParseBlockStatement(scopeIndex);
-
-            symbolTable.ExitScope();
+            stmt = ParseBlockStatement();
         }
         else
         {
@@ -173,12 +150,7 @@ public class Parser(Token[] tokens, IdentifierInterner interner, string filename
 
         if (Match(TokenType.BraceLeft))
         {
-            int scopeIndex = symbolTable.BeginScope(ScopeKind.Loop);
-
-            var body = ParseBlockStatement(scopeIndex);
-
-            symbolTable.ExitScope();
-
+            var body = ParseBlockStatement();
             return new WhileStmt(condition, body);
         }
 
@@ -208,24 +180,11 @@ public class Parser(Token[] tokens, IdentifierInterner interner, string filename
             returnType = ParseTypeDeclaration();
         }
 
-        var symbol = symbolTable.RegisterFunction(functionName.StringValue, returnType, [.. parameters.Select(p => p.Type)]);
-
-        int scopeIndex = symbolTable.BeginScope(symbol);
-
-        List<ParameterSymbol> parameterSymbols = new(parameters.Count);
-        foreach (var parameter in parameters)
-        {
-            var parameterSymbol = symbolTable.RegisterParameter(parameter.Name, parameter.Type);
-            parameterSymbols.Add(parameterSymbol);
-        }
-
         Consume(TokenType.BraceLeft, "Expect '{' before function body");
 
-        BlockStmt body = ParseBlockStatement(scopeIndex);
+        BlockStmt body = ParseBlockStatement();
 
-        symbolTable.ExitScope();
-
-        return new FunctionStmt(functionName.StringValue, symbol, parameterSymbols, returnType, body);
+        return new FunctionStmt(functionName.StringValue, parameters, returnType, body);
     }
 
     ReturnStmt ParseReturnStatement()
@@ -269,7 +228,6 @@ public class Parser(Token[] tokens, IdentifierInterner interner, string filename
             TerminateStatement("Expect ';' after variable declaration");
 
             string name = token.StringValue;
-            symbolTable.RegisterVariable(name, declaredType);
             return new(initializer, name, declaredType);
         }
     }
@@ -294,8 +252,7 @@ public class Parser(Token[] tokens, IdentifierInterner interner, string filename
         TerminateStatement("Expect ';' after constant declaration");
 
         string name = token.StringValue;
-        symbolTable.RegisterConstant(name, literal.Token, declaredType);
-        return new(initializer, name, declaredType);
+        return new(initializer, name, literal.Token, declaredType);
     }
 
     TokenType ParseTypeDeclaration()

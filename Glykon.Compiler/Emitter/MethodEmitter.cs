@@ -46,7 +46,7 @@ namespace Glykon.Compiler.Emitter
 
             for (int i = 0; i < stmt.Parameters.Count; i++)
             {
-                string paramName = interner[stmt.Parameters[i].Id];
+                string paramName = interner[stmt.ParameterSymbols[i].Id];
                 mb.DefineParameter(i + 1, ParameterAttributes.None, paramName);
             }
 
@@ -78,7 +78,7 @@ namespace Glykon.Compiler.Emitter
         {
             combinedMethods = methods.Concat(localFunctions).ToDictionary();
 
-            st.EnterScope(fStmt.Body.ScopeIndex);
+            st.EnterScope(fStmt.Body.Scope);
 
             foreach (IStatement stmt in fStmt.Body.Statements)
             {
@@ -136,7 +136,7 @@ namespace Glykon.Compiler.Emitter
 
         void EmitBlockStatement(BlockStmt blockStmt)
         {
-            st.EnterScope(blockStmt.ScopeIndex);
+            st.EnterScope(blockStmt.Scope);
 
             foreach (var s in blockStmt.Statements)
             {

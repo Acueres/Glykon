@@ -32,7 +32,7 @@ public class TypeChecker(SymbolTable symbolTable, string fileName)
     void CheckFunctionDeclaration(FunctionStmt fStmt)
     {
         BlockStmt functionBody = fStmt.Body;
-        symbolTable.EnterScope(functionBody.ScopeIndex);
+        symbolTable.EnterScope(functionBody.Scope);
 
         foreach (var statement in fStmt.Body.Statements)
         {
@@ -44,7 +44,7 @@ public class TypeChecker(SymbolTable symbolTable, string fileName)
 
     void CheckBlockStatement(BlockStmt blockStmt)
     {
-        symbolTable.EnterScope(blockStmt.ScopeIndex);
+        symbolTable.EnterScope(blockStmt.Scope);
 
         foreach (var statement in blockStmt.Statements)
         {

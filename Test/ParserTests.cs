@@ -1,4 +1,5 @@
-﻿using Glykon.Compiler.Semantics.Symbols;
+﻿using Glykon.Compiler.Semantics;
+using Glykon.Compiler.Semantics.Symbols;
 using Glykon.Compiler.Syntax;
 using Glykon.Compiler.Syntax.Expressions;
 using Glykon.Compiler.Syntax.Statements;
@@ -19,8 +20,8 @@ namespace Tests
             ";
             Lexer lexer = new(src, fileName);
             (var tokens, _) = lexer.Execute();
-            Parser parser = new(tokens, new(), fileName);
-            var (stmts, _, errors) = parser.Execute();
+            Parser parser = new(tokens, fileName);
+            var (stmts, errors) = parser.Execute();
 
             Assert.Empty(errors);
             Assert.NotEmpty(stmts);
@@ -60,8 +61,8 @@ namespace Tests
 
             Assert.Empty(lexerErrors);
 
-            Parser parser = new(tokens, new(), fileName);
-            var (stmts, _, errors) = parser.Execute();
+            Parser parser = new(tokens, fileName);
+            var (stmts, errors) = parser.Execute();
 
             Assert.Empty(errors);
             Assert.Equal(3, stmts.Length);
@@ -92,8 +93,8 @@ namespace Tests
 
             Assert.Empty(lexerErrors);
 
-            Parser parser = new(tokens, new(), fileName);
-            var (stmts, _, errors) = parser.Execute();
+            Parser parser = new(tokens, fileName);
+            var (stmts, errors) = parser.Execute();
 
             Assert.Empty(errors);
             Assert.Equal(2, stmts.Length);
@@ -116,8 +117,8 @@ namespace Tests
             Lexer lexer = new(src, fileName);
             (var tokens, _) = lexer.Execute();
 
-            Parser parser = new(tokens, new(), fileName);
-            var (stmts, _, errors) = parser.Execute();
+            Parser parser = new(tokens, fileName);
+            var (stmts, errors) = parser.Execute();
 
             Assert.Empty(errors);
             Assert.Single(stmts);
@@ -138,13 +139,16 @@ namespace Tests
             Token[] tokens = [new(TokenType.Const, 0), new(TokenType.Identifier, 0, "pi"),
             new(TokenType.Colon, 0), new(TokenType.Real, 0),
             new(TokenType.Assignment, 0), new(TokenType.LiteralReal, 0, 3.14), new(TokenType.Semicolon, 0)];
-            Parser parser = new(tokens, new(), "ConstantDeclarationTest");
-            var (stmts, st, errors) = parser.Execute();
+            Parser parser = new(tokens, "ConstantDeclarationTest");
+            var (stmts, errors) = parser.Execute();
 
             Assert.Empty(errors);
             Assert.Single(stmts);
             Assert.Equal(StatementType.Constant, stmts.First().Type);
-            
+
+            SemanticBinder binder = new(stmts, new());
+            var st = binder.Bind();
+
             var symbol = st.GetSymbol("pi");
             Assert.NotNull(symbol);
             Assert.True(symbol is ConstantSymbol);
@@ -157,8 +161,8 @@ namespace Tests
         public void VariableDeclarationTest()
         {
             Token[] tokens = [new(TokenType.Let, 0), new(TokenType.Identifier, 0, "value"), new(TokenType.Assignment, 0), new(TokenType.LiteralInt, 0, 42), new(TokenType.Semicolon, 0)];
-            Parser parser = new(tokens, new(), "VariableDeclarationTest");
-            var (stmts, _, _) = parser.Execute();
+            Parser parser = new(tokens, "VariableDeclarationTest");
+            var (stmts, _) = parser.Execute();
 
             Assert.NotEmpty(stmts);
             Assert.Single(stmts);
@@ -176,8 +180,8 @@ namespace Tests
             Token[] tokens = [new(TokenType.Let, 0), new(TokenType.Identifier, 0, "value"),
                 new(TokenType.Colon, 0), new(TokenType.Int, 0),
                 new(TokenType.Assignment, 0), new(TokenType.LiteralInt, 0, 42), new(TokenType.Semicolon, 0)];
-            Parser parser = new(tokens, new(), "VariableTypeDeclarationTest");
-            var (stmts, _, _) = parser.Execute();
+            Parser parser = new(tokens, "VariableTypeDeclarationTest");
+            var (stmts, _) = parser.Execute();
 
             Assert.NotEmpty(stmts);
             Assert.Single(stmts);
@@ -199,8 +203,8 @@ namespace Tests
 
             Lexer lexer = new(src, fileName);
             (var tokens, _) = lexer.Execute();
-            Parser parser = new(tokens, new(), fileName);
-            var (stmts, _, errors) = parser.Execute();
+            Parser parser = new(tokens, fileName);
+            var (stmts, errors) = parser.Execute();
 
             Assert.Empty(errors);
             Assert.Single(stmts);
@@ -217,8 +221,8 @@ namespace Tests
 ";
             Lexer lexer = new(src, fileName);
             (var tokens, _) = lexer.Execute();
-            Parser parser = new(tokens, new(), fileName);
-            var (stmts, _, errors) = parser.Execute();
+            Parser parser = new(tokens, fileName);
+            var (stmts, errors) = parser.Execute();
 
             Assert.Empty(errors);
             Assert.Equal(2, stmts.Length);
@@ -229,7 +233,7 @@ namespace Tests
         public void UnaryOperatorTest()
         {
             Token[] tokens = [new(TokenType.Not, 0), new(TokenType.LiteralFalse, 0), new(TokenType.Semicolon, 0)];
-            Parser parser = new(tokens, new(), "UnaryTest");
+            Parser parser = new(tokens, "UnaryTest");
             var ast = parser.ParseExpression();
 
             Assert.NotNull(ast);
@@ -245,7 +249,7 @@ namespace Tests
         public void EqualityTest()
         {
             Token[] tokens = [new(TokenType.LiteralTrue, 0), new(TokenType.Equal, 0), new(TokenType.LiteralFalse, 0), new(TokenType.Semicolon, 0)];
-            Parser parser = new(tokens, new(), "EqualityTest");
+            Parser parser = new(tokens, "EqualityTest");
             var ast = parser.ParseExpression();
 
             Assert.NotNull(ast);
@@ -263,7 +267,7 @@ namespace Tests
         public void ComparisonTest()
         {
             Token[] tokens = [new(TokenType.LiteralInt, 0, 2), new(TokenType.Greater, 0), new(TokenType.LiteralInt, 0, 1), new(TokenType.Semicolon, 0)];
-            Parser parser = new(tokens, new(), "ComparisonTest");
+            Parser parser = new(tokens, "ComparisonTest");
             var ast = parser.ParseExpression();
 
             Assert.NotNull(ast);
@@ -281,7 +285,7 @@ namespace Tests
         public void TermTest()
         {
             Token[] tokens = [new(TokenType.LiteralInt, 0, 2), new(TokenType.Minus, 0), new(TokenType.LiteralInt, 0, 3), new(TokenType.Semicolon, 0)];
-            Parser parser = new(tokens, new(), "TermTest");
+            Parser parser = new(tokens, "TermTest");
             var ast = parser.ParseExpression();
 
             Assert.NotNull(ast);
@@ -299,7 +303,7 @@ namespace Tests
         public void FactorTest()
         {
             Token[] tokens = [new(TokenType.LiteralInt, 0, 6), new(TokenType.Slash, 0), new(TokenType.LiteralInt, 0, 3), new(TokenType.Semicolon, 0)];
-            Parser parser = new(tokens, new(), "FactorTest");
+            Parser parser = new(tokens, "FactorTest");
             var ast = parser.ParseExpression();
 
             Assert.NotNull(ast);
@@ -318,7 +322,7 @@ namespace Tests
         {
             Token[] tokens = [
                 new(TokenType.LiteralTrue, 0), new(TokenType.And, 0), new(TokenType.LiteralFalse, 0), new(TokenType.Semicolon, 0)];
-            Parser parser = new(tokens, new(), "LogicalAndTest");
+            Parser parser = new(tokens, "LogicalAndTest");
             var ast = parser.ParseExpression();
 
             Assert.NotNull(ast);
@@ -337,7 +341,7 @@ namespace Tests
         {
             Token[] tokens = [
                 new(TokenType.LiteralTrue, 0), new(TokenType.Or, 0), new(TokenType.LiteralFalse, 0), new(TokenType.Semicolon, 0)];
-            Parser parser = new(tokens, new(), "LogicalOrTest");
+            Parser parser = new(tokens, "LogicalOrTest");
             var ast = parser.ParseExpression();
 
             Assert.NotNull(ast);

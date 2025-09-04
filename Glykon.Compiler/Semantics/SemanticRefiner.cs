@@ -25,7 +25,7 @@ namespace Glykon.Compiler.Semantics
         void NormalizeLocalFunction(FunctionStmt fStmt)
         {
             BlockStmt functionBody = fStmt.Body;
-            st.EnterScope(functionBody.ScopeIndex);
+            st.EnterScope(functionBody.Scope);
 
             Span<FunctionStmt> localFunctions = fStmt.Body.Statements
                 .Where(s => s.Type == StatementType.Function)
@@ -79,7 +79,7 @@ namespace Glykon.Compiler.Semantics
                 case StatementType.Block:
                     {
                         var blockStmt = (BlockStmt)statement;
-                        st.EnterScope(blockStmt.ScopeIndex);
+                        st.EnterScope(blockStmt.Scope);
                         foreach (var stmt in blockStmt.Statements)
                         {
                             AdjustLocalFunctionIdentifiers(originalName, adjustedName, stmt);
