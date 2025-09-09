@@ -1,11 +1,12 @@
 ﻿using Glykon.Compiler.Diagnostics.Errors;
+using Glykon.Compiler.Syntax;
 using Glykon.Compiler.Syntax.Statements;
 
 namespace Glykon.Compiler.Semantics;
 
-public class SemanticAnalyzer(IStatement[] statements, SymbolTable symbolTable, string fileName)
+public class SemanticAnalyzer(SyntaxTree syntaxTree, SymbolTable symbolTable, string fileName)
 {
-    readonly IStatement[] statements = statements;
+    readonly SyntaxTree syntaxTree = syntaxTree;
 
     readonly TypeChecker typeChecker = new(symbolTable, fileName);
     readonly SemanticRefiner refiner = new(symbolTable, fileName);
@@ -14,13 +15,13 @@ public class SemanticAnalyzer(IStatement[] statements, SymbolTable symbolTable, 
     {
         symbolTable.ResetScope();
 
-        foreach (var statement in statements)
+        foreach (var statement in syntaxTree)
         {
             typeChecker.Analyze(statement);
         }
 
         symbolTable.ResetScope();
-        foreach (var statement in statements)
+        foreach (var statement in syntaxTree)
         {
             refiner.Refine(statement);
         }

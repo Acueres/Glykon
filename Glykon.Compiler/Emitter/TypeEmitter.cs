@@ -15,17 +15,17 @@ namespace Glykon.Compiler.Emitter;
 public class TypeEmitter
 {
     readonly string appName;
-    readonly IStatement[] statements;
+    readonly SyntaxTree syntaxTree;
     readonly SymbolTable symbolTable;
     readonly IdentifierInterner interner;
 
     readonly PersistedAssemblyBuilder ab;
     MethodBuilder main;
 
-    public TypeEmitter(IStatement[] statements, SymbolTable symbolTable, IdentifierInterner interner, string appname)
+    public TypeEmitter(SyntaxTree syntaxTree, SymbolTable symbolTable, IdentifierInterner interner, string appname)
     {
         appName = appname;
-        this.statements = statements;
+        this.syntaxTree = syntaxTree;
         this.symbolTable = symbolTable;
         this.interner = interner;
 
@@ -42,7 +42,7 @@ public class TypeEmitter
         List<MethodEmitter> methodGenerators = [];
         Dictionary<FunctionSymbol, MethodInfo> methods = LoadStdLibrary();
 
-        foreach (var stmt in statements)
+        foreach (var stmt in syntaxTree)
         {
             if (stmt is FunctionStmt f)
             {

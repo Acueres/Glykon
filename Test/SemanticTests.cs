@@ -17,21 +17,21 @@ public class SemanticTests
         Lexer lexer = new(src, fileName);
         (var tokens, _) = lexer.Execute();
         Parser parser = new(tokens, fileName);
-        var (stmts, parseErrors) = parser.Execute();
+        var (syntaxTree, parseErrors) = parser.Execute();
 
-        SemanticBinder binder = new(stmts, new());
+        SemanticBinder binder = new(syntaxTree, new());
         var symbolTable = binder.Bind();
 
         Assert.Empty(parseErrors);
 
-        var semanticAnalyzer = new SemanticAnalyzer(stmts, symbolTable, fileName);
+        var semanticAnalyzer = new SemanticAnalyzer(syntaxTree, symbolTable, fileName);
         var semanticErrors = semanticAnalyzer.Execute();
 
         Assert.Empty(semanticErrors);
-        Assert.NotEmpty(stmts);
-        Assert.Equal(2, stmts.Length);
-        Assert.Equal(StatementType.Variable, stmts[1].Type);
-        VariableStmt stmt = (VariableStmt)stmts[1];
+        Assert.NotEmpty(syntaxTree);
+        Assert.Equal(2, syntaxTree.Length);
+        Assert.Equal(StatementType.Variable, syntaxTree[1].Type);
+        VariableStmt stmt = (VariableStmt)syntaxTree[1];
         Assert.Equal("res", stmt.Name);
         Assert.NotNull(stmt.Expression);
         Assert.Equal(TokenType.Int, stmt.VariableType);
@@ -47,17 +47,17 @@ public class SemanticTests
         Lexer lexer = new(src, fileName);
         (var tokens, _) = lexer.Execute();
         Parser parser = new(tokens, fileName);
-        var (stmts, parseErrors) = parser.Execute();
+        var (syntaxTree, parseErrors) = parser.Execute();
 
-        SemanticBinder binder = new(stmts, new());
+        SemanticBinder binder = new(syntaxTree, new());
         var symbolTable = binder.Bind();
 
         Assert.Empty(parseErrors);
 
-        var semanticAnalyzer = new SemanticAnalyzer(stmts, symbolTable, fileName);
+        var semanticAnalyzer = new SemanticAnalyzer(syntaxTree, symbolTable, fileName);
         var semanticErrors = semanticAnalyzer.Execute();
 
-        Assert.Single(stmts);
+        Assert.Single(syntaxTree);
         Assert.Single(semanticErrors);
     }
 
@@ -79,19 +79,19 @@ public class SemanticTests
         Lexer lexer = new(src, fileName);
         (var tokens, _) = lexer.Execute();
         Parser parser = new(tokens, fileName);
-        var (stmts, parserErrors) = parser.Execute();
+        var (syntaxTree, parserErrors) = parser.Execute();
 
-        SemanticBinder binder = new(stmts, new());
+        SemanticBinder binder = new(syntaxTree, new());
         var symbolTable = binder.Bind();
 
         Assert.Empty(parserErrors);
 
-        SemanticAnalyzer analyzer = new(stmts, symbolTable, fileName);
+        SemanticAnalyzer analyzer = new(syntaxTree, symbolTable, fileName);
         var errors = analyzer.Execute();
 
         Assert.Equal(2, errors.Count);
-        Assert.NotEmpty(stmts);
-        Assert.Equal(3, stmts.Length);
-        Assert.Equal(StatementType.Jump, stmts[1].Type);
+        Assert.NotEmpty(syntaxTree);
+        Assert.Equal(3, syntaxTree.Length);
+        Assert.Equal(StatementType.Jump, syntaxTree[1].Type);
     }
 }

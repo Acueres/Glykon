@@ -41,14 +41,14 @@ internal class Program
 
         IdentifierInterner interner = new();
         Parser parser = new(tokens, filename);
-        var (stmts, parserErrors) = parser.Execute();
+        var (syntaxTree, parserErrors) = parser.Execute();
 
         errors.AddRange(parserErrors);
 
-        SemanticBinder binder = new(stmts, interner);
+        SemanticBinder binder = new(syntaxTree, interner);
         SymbolTable symbolTable = binder.Bind();
 
-        SemanticAnalyzer semanticAnalyzer = new(stmts, symbolTable, filename);
+        SemanticAnalyzer semanticAnalyzer = new(syntaxTree, symbolTable, filename);
         var semanticErrors = semanticAnalyzer.Execute();
 
         errors.AddRange(semanticErrors);
@@ -60,7 +60,7 @@ internal class Program
 
         if (errors.Count != 0) return;
 
-        var emitter = new TypeEmitter(stmts, symbolTable, interner, filename);
+        var emitter = new TypeEmitter(syntaxTree, symbolTable, interner, filename);
         emitter.EmitAssembly();
 
         Assembly assembly = emitter.GetAssembly();

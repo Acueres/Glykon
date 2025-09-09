@@ -1,6 +1,4 @@
-﻿using Glykon.Compiler.Semantics;
-using Glykon.Compiler.Semantics.Symbols;
-using Glykon.Compiler.Diagnostics.Exceptions;
+﻿using Glykon.Compiler.Diagnostics.Exceptions;
 using Glykon.Compiler.Diagnostics.Errors;
 using Glykon.Compiler.Syntax.Expressions;
 using Glykon.Compiler.Syntax.Statements;
@@ -18,7 +16,7 @@ public class Parser(Token[] tokens, string filename)
     readonly List<IGlykonError> errors = [];
     int tokenIndex;
 
-    public (IStatement[], List<IGlykonError>) Execute()
+    public (SyntaxTree, List<IGlykonError>) Execute()
     {
         while (!AtEnd)
         {
@@ -33,8 +31,8 @@ public class Parser(Token[] tokens, string filename)
                 Synchronize();
             }
         }
-
-        return (statements.ToArray(), errors);
+        var syntaxTree = new SyntaxTree([..statements], fileName);
+        return (syntaxTree, errors);
     }
 
     IStatement ParseStatement()

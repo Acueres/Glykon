@@ -4,17 +4,16 @@ using Glykon.Compiler.Syntax.Statements;
 
 namespace Glykon.Compiler.Semantics;
 
-public class SemanticBinder(IStatement[] statements, IdentifierInterner interner)
+public class SemanticBinder(SyntaxTree syntaxTree, IdentifierInterner interner)
 {
-    readonly IStatement[] statements = statements;
-    readonly IdentifierInterner interner = interner;
+    readonly SyntaxTree syntaxTree = syntaxTree;
     readonly SymbolTable symbolTable = new(interner);
 
     public SymbolTable Bind()
     {
         RegisterStd();
 
-        foreach (var stmt in statements)
+        foreach (var stmt in syntaxTree)
         {
             BindStatement(stmt);
         }

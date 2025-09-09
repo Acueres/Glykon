@@ -21,13 +21,13 @@ namespace Tests
             Lexer lexer = new(src, fileName);
             (var tokens, _) = lexer.Execute();
             Parser parser = new(tokens, fileName);
-            var (stmts, errors) = parser.Execute();
+            var (syntaxTree, errors) = parser.Execute();
 
             Assert.Empty(errors);
-            Assert.NotEmpty(stmts);
-            Assert.Equal(2, stmts.Length);
-            Assert.Equal(StatementType.Block, stmts[1].Type);
-            BlockStmt stmt = (BlockStmt)stmts[1];
+            Assert.NotEmpty(syntaxTree);
+            Assert.Equal(2, syntaxTree.Length);
+            Assert.Equal(StatementType.Block, syntaxTree[1].Type);
+            BlockStmt stmt = (BlockStmt)syntaxTree[1];
             Assert.Single(stmt.Statements);
         }
 
@@ -62,12 +62,12 @@ namespace Tests
             Assert.Empty(lexerErrors);
 
             Parser parser = new(tokens, fileName);
-            var (stmts, errors) = parser.Execute();
+            var (syntaxTree, errors) = parser.Execute();
 
             Assert.Empty(errors);
-            Assert.Equal(3, stmts.Length);
+            Assert.Equal(3, syntaxTree.Length);
 
-            IfStmt ifStmt = (IfStmt)stmts[2];
+            IfStmt ifStmt = (IfStmt)syntaxTree[2];
             Assert.NotNull(ifStmt.ElseStatement);
 
             IfStmt elifStmt = (IfStmt)ifStmt.ElseStatement;
@@ -94,12 +94,12 @@ namespace Tests
             Assert.Empty(lexerErrors);
 
             Parser parser = new(tokens, fileName);
-            var (stmts, errors) = parser.Execute();
+            var (syntaxTree, errors) = parser.Execute();
 
             Assert.Empty(errors);
-            Assert.Equal(2, stmts.Length);
+            Assert.Equal(2, syntaxTree.Length);
 
-            WhileStmt whileStmt = (WhileStmt)stmts[1];
+            WhileStmt whileStmt = (WhileStmt)syntaxTree[1];
             Assert.NotNull(whileStmt.Statement);
             Assert.NotNull(whileStmt.Expression);
         }
@@ -118,13 +118,13 @@ namespace Tests
             (var tokens, _) = lexer.Execute();
 
             Parser parser = new(tokens, fileName);
-            var (stmts, errors) = parser.Execute();
+            var (syntaxTree, errors) = parser.Execute();
 
             Assert.Empty(errors);
-            Assert.Single(stmts);
-            Assert.Equal(StatementType.Function, stmts.First().Type);
+            Assert.Single(syntaxTree);
+            Assert.Equal(StatementType.Function, syntaxTree.First().Type);
 
-            FunctionStmt function = (FunctionStmt)stmts.First();
+            FunctionStmt function = (FunctionStmt)syntaxTree.First();
             Assert.Equal("f", function.Name);
             Assert.Equal(TokenType.Int, function.ReturnType);
             Assert.Equal(2, function.Parameters.Count);
@@ -140,13 +140,13 @@ namespace Tests
             new(TokenType.Colon, 0), new(TokenType.Real, 0),
             new(TokenType.Assignment, 0), new(TokenType.LiteralReal, 0, 3.14), new(TokenType.Semicolon, 0)];
             Parser parser = new(tokens, "ConstantDeclarationTest");
-            var (stmts, errors) = parser.Execute();
+            var (syntaxTree, errors) = parser.Execute();
 
             Assert.Empty(errors);
-            Assert.Single(stmts);
-            Assert.Equal(StatementType.Constant, stmts.First().Type);
+            Assert.Single(syntaxTree);
+            Assert.Equal(StatementType.Constant, syntaxTree.First().Type);
 
-            SemanticBinder binder = new(stmts, new());
+            SemanticBinder binder = new(syntaxTree, new());
             var st = binder.Bind();
 
             var symbol = st.GetSymbol("pi");
@@ -162,12 +162,12 @@ namespace Tests
         {
             Token[] tokens = [new(TokenType.Let, 0), new(TokenType.Identifier, 0, "value"), new(TokenType.Assignment, 0), new(TokenType.LiteralInt, 0, 42), new(TokenType.Semicolon, 0)];
             Parser parser = new(tokens, "VariableDeclarationTest");
-            var (stmts, _) = parser.Execute();
+            var (syntaxTree, _) = parser.Execute();
 
-            Assert.NotEmpty(stmts);
-            Assert.Single(stmts);
-            Assert.Equal(StatementType.Variable, stmts.First().Type);
-            VariableStmt stmt = (VariableStmt)stmts.First();
+            Assert.NotEmpty(syntaxTree);
+            Assert.Single(syntaxTree);
+            Assert.Equal(StatementType.Variable, syntaxTree.First().Type);
+            VariableStmt stmt = (VariableStmt)syntaxTree.First();
             Assert.Equal("value", stmt.Name);
             Assert.NotNull(stmt.Expression);
             Assert.Equal(TokenType.None, stmt.VariableType); // Parser cannot infer types
@@ -181,12 +181,12 @@ namespace Tests
                 new(TokenType.Colon, 0), new(TokenType.Int, 0),
                 new(TokenType.Assignment, 0), new(TokenType.LiteralInt, 0, 42), new(TokenType.Semicolon, 0)];
             Parser parser = new(tokens, "VariableTypeDeclarationTest");
-            var (stmts, _) = parser.Execute();
+            var (syntaxTree, _) = parser.Execute();
 
-            Assert.NotEmpty(stmts);
-            Assert.Single(stmts);
-            Assert.Equal(StatementType.Variable, stmts.First().Type);
-            VariableStmt stmt = (VariableStmt)stmts.First();
+            Assert.NotEmpty(syntaxTree);
+            Assert.Single(syntaxTree);
+            Assert.Equal(StatementType.Variable, syntaxTree.First().Type);
+            VariableStmt stmt = (VariableStmt)syntaxTree.First();
             Assert.Equal("value", stmt.Name);
             Assert.NotNull(stmt.Expression);
             Assert.Equal(TokenType.Int, stmt.VariableType);
@@ -204,11 +204,11 @@ namespace Tests
             Lexer lexer = new(src, fileName);
             (var tokens, _) = lexer.Execute();
             Parser parser = new(tokens, fileName);
-            var (stmts, errors) = parser.Execute();
+            var (syntaxTree, errors) = parser.Execute();
 
             Assert.Empty(errors);
-            Assert.Single(stmts);
-            Assert.True(stmts.First().Expression.Type == ExpressionType.Call);
+            Assert.Single(syntaxTree);
+            Assert.True(syntaxTree.First().Expression.Type == ExpressionType.Call);
         }
 
         [Fact]
@@ -222,11 +222,11 @@ namespace Tests
             Lexer lexer = new(src, fileName);
             (var tokens, _) = lexer.Execute();
             Parser parser = new(tokens, fileName);
-            var (stmts, errors) = parser.Execute();
+            var (syntaxTree, errors) = parser.Execute();
 
             Assert.Empty(errors);
-            Assert.Equal(2, stmts.Length);
-            Assert.Equal(ExpressionType.Assignment, stmts[1].Expression.Type);
+            Assert.Equal(2, syntaxTree.Length);
+            Assert.Equal(ExpressionType.Assignment, syntaxTree[1].Expression.Type);
         }
 
         [Fact]

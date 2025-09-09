@@ -1,6 +1,5 @@
 using Glykon.Compiler.Syntax;
 using Glykon.Compiler.Semantics;
-using Glykon.Compiler.Syntax.Statements;
 using Glykon.Compiler.Diagnostics.Errors;
 
 namespace Tests;
@@ -8,7 +7,7 @@ namespace Tests;
 public class TypeCheckingTests
 {
     // Helpers
-    private static (IStatement[] stmts, List<IGlykonError> parseErr) Parse(string src, string file)
+    private static (SyntaxTree syntaxTree, List<IGlykonError> parseErr) Parse(string src, string file)
     {
         var (tokens, _) = new Lexer(src, file).Execute();
         return new Parser(tokens, file).Execute();
@@ -16,13 +15,13 @@ public class TypeCheckingTests
 
     private static List<IGlykonError> Check(string src, string file)
     {
-        var (stmts, parseErr) = Parse(src, file);
-        SemanticBinder binder = new(stmts, new());
+        var (syntaxTree, parseErr) = Parse(src, file);
+        SemanticBinder binder = new(syntaxTree, new());
         var st = binder.Bind();
 
         Assert.Empty(parseErr); 
         var checker = new TypeChecker(st, file);
-        foreach (var s in stmts) checker.Analyze(s);
+        foreach (var s in syntaxTree) checker.Analyze(s);
         return checker.GetErrors();
     }
 
