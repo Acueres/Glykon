@@ -1,10 +1,10 @@
 ﻿namespace Glykon.Compiler.Syntax.Expressions
 {
-    public class CallExpr(IExpression callee, Token closingParenthesis, List<IExpression> args) : IExpression
+    public class CallExpr(Expression callee, Token closingParenthesis, List<Expression> args) : Expression
     {
-        public ExpressionType Type => ExpressionType.Call;
-        public IExpression Callee { get; } = callee;
+        public override ExpressionKind Kind => ExpressionKind.Call;
+        public Expression Callee { get; } = callee;
         public Token ClosingParenthesis { get; } = closingParenthesis;
-        public List<IExpression> Args { get; } = args;
+        public List<Expression> Args { get; } = args;
     }
 }

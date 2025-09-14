@@ -1,8 +1,8 @@
 ﻿namespace Glykon.Compiler.Syntax.Expressions
 {
-    public class VariableExpr(string name) : IExpression
+    public class VariableExpr(string name) : Expression
     {
-        public ExpressionType Type => ExpressionType.Variable;
+        public override ExpressionKind Kind => ExpressionKind.Variable;
         public string Name { get; set; } = name;
     }
 }

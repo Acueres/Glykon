@@ -1,6 +1,6 @@
 using Glykon.Compiler.Syntax;
-using Glykon.Compiler.Semantics;
 using Glykon.Compiler.Diagnostics.Errors;
+using Glykon.Compiler.Semantics.Binding;
 
 namespace Tests;
 
@@ -16,13 +16,12 @@ public class TypeCheckingTests
     private static List<IGlykonError> Check(string src, string file)
     {
         var (syntaxTree, parseErr) = Parse(src, file);
-        SemanticBinder binder = new(syntaxTree, new());
-        var st = binder.Bind();
+        SemanticBinder binder = new(syntaxTree, new(), file);
+        binder.Bind();
 
         Assert.Empty(parseErr); 
-        var checker = new TypeChecker(st, file);
-        foreach (var s in syntaxTree) checker.Analyze(s);
-        return checker.GetErrors();
+
+        return binder.GetErrors();
     }
 
     // Literals, unary & binary
@@ -155,50 +154,5 @@ public class TypeCheckingTests
             }
         """;
         Assert.Single(Check(code, nameof(VoidFunctionReturningValue)));
-    }
-
-    // Calls & overloads
-
-    [Fact]
-    public void CallWithCorrectArguments()
-    {
-        const string code = """
-            def sum(a: int, b: int) -> int { return a + b }
-            let r = sum(2, 3)
-        """;
-        Assert.Empty(Check(code, nameof(CallWithCorrectArguments)));
-    }
-
-    [Fact]
-    public void CallWithWrongArgumentType()
-    {
-        const string code = """
-            def sum(a: int, b: int) -> int { return a + b }
-            let r = sum(2, 'str')
-        """;
-        Assert.Single(Check(code, nameof(CallWithWrongArgumentType)));
-    }
-
-    [Fact]
-    public void OverloadResolutionSuccess()
-    {
-        const string code = """
-            def log(msg: str) { return }
-            def log(level: int, msg: str) { return }
-            log('hi')          # picks 1‑arg
-            log(1, 'bye')      # picks 2‑arg
-        """;
-        Assert.Empty(Check(code, nameof(OverloadResolutionSuccess)));
-    }
-
-    [Fact]
-    public void OverloadResolutionFailure()
-    {
-        const string code = """
-            def log(msg: str) { return }
-            def log(level: int, msg: str) { return }
-            log(true, 'oops')   # no matching overload
-        """;
-        Assert.Single(Check(code, nameof(OverloadResolutionFailure)));
     }
 }

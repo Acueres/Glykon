@@ -1,9 +1,9 @@
 ﻿namespace Glykon.Compiler.Syntax.Expressions
 {
-    public class AssignmentExpr(string name, IExpression value) : IExpression
+    public class AssignmentExpr(string name, Expression value) : Expression
     {
-        public ExpressionType Type => ExpressionType.Assignment;
+        public override ExpressionKind Kind => ExpressionKind.Assignment;
         public string Name { get; } = name;
-        public IExpression Right { get; } = value;
+        public Expression Right { get; } = value;
     }
 }

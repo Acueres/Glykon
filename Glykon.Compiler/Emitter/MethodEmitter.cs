@@ -1,555 +1,560 @@
-﻿using System.Reflection;
-using System.Reflection.Emit;
-using Glykon.Compiler.Semantics;
-using Glykon.Compiler.Diagnostics.Errors;
+﻿using Glykon.Compiler.Diagnostics.Errors;
+using Glykon.Compiler.Semantics.Binding;
+using Glykon.Compiler.Semantics.Binding.BoundExpressions;
+using Glykon.Compiler.Semantics.Binding.BoundStatements;
 using Glykon.Compiler.Semantics.Symbols;
+using Glykon.Compiler.Syntax;
 using Glykon.Compiler.Syntax.Expressions;
 using Glykon.Compiler.Syntax.Statements;
-using Glykon.Compiler.Syntax;
+using System.Reflection;
+using System.Reflection.Emit;
 
-namespace Glykon.Compiler.Emitter
+namespace Glykon.Compiler.Emitter;
+
+internal class MethodEmitter
 {
-    internal class MethodEmitter
+    readonly MethodBuilder mb;
+    readonly ILGenerator il;
+
+    readonly BoundFunctionDeclaration fStmt;
+    readonly SymbolTable st;
+    readonly string appName;
+
+    Dictionary<FunctionSymbol, MethodInfo> combinedMethods = [];
+    readonly Dictionary<FunctionSymbol, MethodInfo> localFunctions = [];
+    readonly List<MethodEmitter> methodGenerators = [];
+
+    readonly Label? returnLabel;
+    readonly LocalBuilder? returnLocal;
+
+    //readonly Stack<TokenKind[]> functionParameters = [];
+    readonly Stack<Label> loopStart = [];
+    readonly Stack<Label> loopEnd = [];
+
+    public MethodEmitter(BoundFunctionDeclaration stmt, SymbolTable symbolTable, IdentifierInterner interner, TypeBuilder typeBuilder, string appName)
     {
-        readonly MethodBuilder mb;
-        readonly ILGenerator il;
+        fStmt = stmt;
+        st = symbolTable;
+        this.appName = appName;
 
-        readonly FunctionStmt fStmt;
-        readonly SymbolTable st;
-        readonly string appName;
+        var parameterTypes = TranslateTypes([.. stmt.Parameters.Select(p => p.Type)]);
+        var returnType = TranslateType(stmt.ReturnType);
 
-        Dictionary<FunctionSymbol, MethodInfo> combinedMethods = [];
-        readonly Dictionary<FunctionSymbol, MethodInfo> localFunctions = [];
-        readonly List<MethodEmitter> methodGenerators = [];
+        mb = typeBuilder.DefineMethod(stmt.Name,
+            MethodAttributes.HideBySig | MethodAttributes.Public | MethodAttributes.Static,
+            returnType, parameterTypes);
 
-        readonly Label? returnLabel;
-        readonly LocalBuilder? returnLocal;
+        il = mb.GetILGenerator();
 
-        readonly Stack<TokenType[]> functionParameters = [];
-        readonly Stack<Label> loopStart = [];
-        readonly Stack<Label> loopEnd = [];
-
-        public MethodEmitter(FunctionStmt stmt, SymbolTable symbolTable, IdentifierInterner interner, TypeBuilder typeBuilder, string appName)
+        for (int i = 0; i < stmt.Parameters.Length; i++)
         {
-            fStmt = stmt;
-            st = symbolTable;
-            this.appName = appName;
+            string paramName = interner[stmt.Parameters[i].Id];
+            mb.DefineParameter(i + 1, ParameterAttributes.None, paramName);
+        }
 
-            var parameterTypes = TranslateTypes([.. stmt.Parameters.Select(p => p.Type)]);
-            var returnType = TranslateType(stmt.ReturnType);
+        int n = CountReturnStatements(stmt);
+        bool multipleReturns = n > 1;
 
-            mb = typeBuilder.DefineMethod(stmt.Name,
-                MethodAttributes.HideBySig | MethodAttributes.Public | MethodAttributes.Static,
-                returnType, parameterTypes);
+        if (multipleReturns || (stmt.ReturnType == TokenKind.None && n > 0))
+        {
+            returnLabel = il.DefineLabel();
+        }
 
-            il = mb.GetILGenerator();
+        if (stmt.ReturnType != TokenKind.None && multipleReturns)
+        {
+            returnLocal = il.DeclareLocal(TranslateType(stmt.ReturnType));
+        }
 
-            for (int i = 0; i < stmt.Parameters.Count; i++)
+        var locals = stmt.Body.Statements.Where(s => s.Kind == StatementKind.Function).Select(s => (BoundFunctionDeclaration)s);
+        foreach (var f in locals)
+        {
+            MethodEmitter mg = new(f, symbolTable, interner, typeBuilder, appName);
+            methodGenerators.Add(mg);
+            localFunctions.Add(f.Signature, mg.GetMethodBuilder());
+        }
+    }
+
+    public MethodBuilder GetMethodBuilder() => mb;
+
+    public void EmitMethod(Dictionary<FunctionSymbol, MethodInfo> methods)
+    {
+        combinedMethods = methods.Concat(localFunctions).ToDictionary();
+
+        st.EnterScope(fStmt.Body.Scope);
+
+        foreach (BoundStatement stmt in fStmt.Body.Statements)
+        {
+            EmitStatement(stmt);
+        }
+
+        foreach (var mg in methodGenerators)
+        {
+            mg.EmitMethod(combinedMethods);
+        }
+
+        st.ExitScope();
+
+        if (returnLabel is not null)
+        {
+            il.MarkLabel((Label)returnLabel);
+        }
+
+        if (returnLocal is not null)
+        {
+            il.Emit(OpCodes.Ldloc, returnLocal.LocalIndex);
+        }
+
+        il.Emit(OpCodes.Ret);
+    }
+
+    void EmitStatement(BoundStatement statement)
+    {
+        switch (statement.Kind)
+        {
+            case StatementKind.Variable:
+                EmitVariableDeclarationStatement((BoundVariableDeclaration)statement);
+                break;
+            case StatementKind.If:
+                EmitIfStatement((BoundIfStmt)statement);
+                break;
+            case StatementKind.While:
+                EmitWhileStatement((BoundWhileStmt)statement);
+                break;
+            case StatementKind.Block:
+                EmitBlockStatement((BoundBlockStmt)statement);
+                break;
+            case StatementKind.Jump:
+                EmitJumpStatement((BoundJumpStmt)statement);
+                break;
+            case StatementKind.Return:
+                EmitReturnStatement((BoundReturnStmt)statement);
+                break;
+            case StatementKind.Function: break;
+            default:
+                EmitExpression(((BoundExpressionStmt)statement).Expression);
+                break;
+        }
+    }
+
+    void EmitBlockStatement(BoundBlockStmt blockStmt)
+    {
+        st.EnterScope(blockStmt.Scope);
+
+        foreach (var s in blockStmt.Statements)
+        {
+            EmitStatement(s);
+        }
+
+        st.ExitScope();
+    }
+
+    void EmitVariableDeclarationStatement(BoundVariableDeclaration statement)
+    {
+        VariableSymbol symbol = st.GetVariable(statement.Name);
+
+        Type type = TranslateType(symbol.Type);
+
+        var lb = il.DeclareLocal(type);
+        symbol.LocalIndex = lb.LocalIndex;
+
+        EmitExpression(statement.Expression);
+        il.Emit(OpCodes.Stloc, symbol.LocalIndex);
+    }
+
+    void EmitReturnStatement(BoundReturnStmt returnStmt)
+    {
+        if (returnStmt.Expression != null)
+        {
+            EmitExpression(returnStmt.Expression);
+
+            if (returnLocal != null)
             {
-                string paramName = interner[stmt.ParameterSymbols[i].Id];
-                mb.DefineParameter(i + 1, ParameterAttributes.None, paramName);
-            }
-
-            int n = CountReturnStatements(stmt);
-            bool multipleReturns = n > 1;
-
-            if (multipleReturns || (stmt.ReturnType == TokenType.None && n > 0))
-            {
-                returnLabel = il.DefineLabel();
-            }
-
-            if (stmt.ReturnType != TokenType.None && multipleReturns)
-            {
-                returnLocal = il.DeclareLocal(TranslateType(stmt.ReturnType));
-            }
-
-            var locals = stmt.Body.Statements.Where(s => s.Type == StatementType.Function).Select(s => (FunctionStmt)s);
-            foreach (var f in locals)
-            {
-                MethodEmitter mg = new(f, symbolTable, interner, typeBuilder, appName);
-                methodGenerators.Add(mg);
-                localFunctions.Add(f.Signature, mg.GetMethodBuilder());
+                il.Emit(OpCodes.Stloc, returnLocal.LocalIndex);
             }
         }
 
-        public MethodBuilder GetMethodBuilder() => mb;
-
-        public void EmitMethod(Dictionary<FunctionSymbol, MethodInfo> methods)
+        if (returnLabel is not null)
         {
-            combinedMethods = methods.Concat(localFunctions).ToDictionary();
-
-            st.EnterScope(fStmt.Body.Scope);
-
-            foreach (IStatement stmt in fStmt.Body.Statements)
-            {
-                EmitStatement(stmt);
-            }
-
-            foreach (var mg in methodGenerators)
-            {
-                mg.EmitMethod(combinedMethods);
-            }
-
-            st.ExitScope();
-
-            if (returnLabel is not null)
-            {
-                il.MarkLabel((Label)returnLabel);
-            }
-
-            if (returnLocal is not null)
-            {
-                il.Emit(OpCodes.Ldloc, returnLocal.LocalIndex);
-            }
-
-            il.Emit(OpCodes.Ret);
+            il.Emit(OpCodes.Br_S, (Label)returnLabel);
         }
+    }
 
-        void EmitStatement(IStatement statement)
+    void EmitIfStatement(BoundIfStmt ifStmt)
+    {
+        EmitExpression(ifStmt.Expression);
+
+        if (ifStmt.ElseStatement is not null)
         {
-            switch (statement.Type)
-            {
-                case StatementType.Variable:
-                    EmitVariableDeclarationStatement((VariableStmt)statement);
-                    break;
-                case StatementType.If:
-                    EmitIfStatement((IfStmt)statement);
-                    break;
-                case StatementType.While:
-                    EmitWhileStatement((WhileStmt)statement);
-                    break;
-                case StatementType.Block:
-                    EmitBlockStatement((BlockStmt)statement);
-                    break;
-                case StatementType.Jump:
-                    EmitJumpStatement((JumpStmt)statement);
-                    break;
-                case StatementType.Return:
-                    EmitReturnStatement((ReturnStmt)statement);
-                    break;
-                case StatementType.Function: break;
-                default:
-                    EmitExpression(statement.Expression);
-                    break;
-            }
+            Label elseLabel = il.DefineLabel();
+
+            il.Emit(OpCodes.Brfalse_S, elseLabel);
+
+            EmitStatement(ifStmt.ThenStatement);
+
+            Label endLabel = il.DefineLabel();
+            il.Emit(OpCodes.Br_S, endLabel);
+
+            il.MarkLabel(elseLabel);
+
+            EmitStatement(ifStmt.ElseStatement);
+
+            il.MarkLabel(endLabel);
         }
-
-        void EmitBlockStatement(BlockStmt blockStmt)
+        else
         {
-            st.EnterScope(blockStmt.Scope);
+            Label endLabel = il.DefineLabel();
 
-            foreach (var s in blockStmt.Statements)
-            {
-                EmitStatement(s);
-            }
+            il.Emit(OpCodes.Brfalse_S, endLabel);
 
-            st.ExitScope();
+            EmitStatement(ifStmt.ThenStatement);
+
+            il.MarkLabel(endLabel);
         }
+    }
 
-        void EmitVariableDeclarationStatement(VariableStmt statement)
+    void EmitWhileStatement(BoundWhileStmt whileStmt)
+    {
+        var loopStartLabel = il.DefineLabel();
+        var loopEndLabel = il.DefineLabel();
+
+        loopStart.Push(loopStartLabel);
+        loopEnd.Push(loopEndLabel);
+
+        il.MarkLabel(loopStartLabel);
+        EmitExpression(whileStmt.Expression);
+
+        il.Emit(OpCodes.Brfalse_S, loopEndLabel);
+
+        EmitStatement(whileStmt.Statement);
+
+        il.Emit(OpCodes.Br_S, loopStartLabel);
+
+        il.MarkLabel(loopEndLabel);
+
+        loopStart.Pop();
+        loopEnd.Pop();
+    }
+
+    void EmitJumpStatement(BoundJumpStmt jumpStatement)
+    {
+        if (jumpStatement.Token.Kind == TokenKind.Break)
         {
-            VariableSymbol symbol = st.GetVariable(statement.Name);
-
-            Type type = TranslateType(symbol.Type);
-
-            var lb = il.DeclareLocal(type);
-            symbol.LocalIndex = lb.LocalIndex;
-
-            EmitExpression(statement.Expression);
-            il.Emit(OpCodes.Stloc, symbol.LocalIndex);
+            il.Emit(OpCodes.Br_S, loopEnd.Last());
         }
-
-        void EmitReturnStatement(ReturnStmt returnStmt)
+        else if (jumpStatement.Token.Kind == TokenKind.Continue)
         {
-            if (returnStmt.Expression != null)
-            {
-                EmitExpression(returnStmt.Expression);
+            il.Emit(OpCodes.Br_S, loopStart.Last());
+        }
+    }
 
-                if (returnLocal != null)
+    TokenKind EmitExpression(BoundExpression expression)
+    {
+        switch (expression.Kind)
+        {
+            case ExpressionKind.Literal:
                 {
-                    il.Emit(OpCodes.Stloc, returnLocal.LocalIndex);
+                    var expr = (BoundLiteralExpr)expression;
+                    return EmitPrimitive(expr.Token);
                 }
-            }
+            case ExpressionKind.Variable:
+                {
+                    var expr = (BoundVariableExpr)expression;
 
-            if (returnLabel is not null)
-            {
-                il.Emit(OpCodes.Br_S, (Label)returnLabel);
-            }
-        }
+                    Symbol? symbol = st.GetSymbol(expr.Name);
 
-        void EmitIfStatement(IfStmt ifStmt)
-        {
-            EmitExpression(ifStmt.Expression);
-
-            if (ifStmt.ElseStatement is not null)
-            {
-                Label elseLabel = il.DefineLabel();
-
-                il.Emit(OpCodes.Brfalse_S, elseLabel);
-
-                EmitStatement(ifStmt.ThenStatement);
-
-                Label endLabel = il.DefineLabel();
-                il.Emit(OpCodes.Br_S, endLabel);
-
-                il.MarkLabel(elseLabel);
-
-                EmitStatement(ifStmt.ElseStatement);
-
-                il.MarkLabel(endLabel);
-            }
-            else
-            {
-                Label endLabel = il.DefineLabel();
-
-                il.Emit(OpCodes.Brfalse_S, endLabel);
-
-                EmitStatement(ifStmt.ThenStatement);
-
-                il.MarkLabel(endLabel);
-            }
-        }
-
-        void EmitWhileStatement(WhileStmt whileStmt)
-        {
-            var loopStartLabel = il.DefineLabel();
-            var loopEndLabel = il.DefineLabel();
-
-            loopStart.Push(loopStartLabel);
-            loopEnd.Push(loopEndLabel);
-
-            il.MarkLabel(loopStartLabel);
-            EmitExpression(whileStmt.Expression);
-
-            il.Emit(OpCodes.Brfalse_S, loopEndLabel);
-
-            EmitStatement(whileStmt.Statement);
-
-            il.Emit(OpCodes.Br_S, loopStartLabel);
-
-            il.MarkLabel(loopEndLabel);
-
-            loopStart.Pop();
-            loopEnd.Pop();
-        }
-
-        void EmitJumpStatement(JumpStmt jumpStatement)
-        {
-            if (jumpStatement.Token.Kind == TokenType.Break)
-            {
-                il.Emit(OpCodes.Br_S, loopEnd.Last());
-            }
-            else if (jumpStatement.Token.Kind == TokenType.Continue)
-            {
-                il.Emit(OpCodes.Br_S, loopStart.Last());
-            }
-        }
-
-        TokenType EmitExpression(IExpression expression)
-        {
-            switch (expression.Type)
-            {
-                case ExpressionType.Literal:
+                    if (symbol is ParameterSymbol parameter)
                     {
-                        var expr = (LiteralExpr)expression;
-                        return EmitPrimitive(expr.Token);
+                        il.Emit(OpCodes.Ldarg, parameter.Index);
+                        return parameter.Type;
                     }
-                case ExpressionType.Variable:
+
+                    if (symbol is VariableSymbol variable)
                     {
-                        var expr = (VariableExpr)expression;
+                        il.Emit(OpCodes.Ldloc, variable.LocalIndex);
 
-                        Symbol? symbol = st.GetSymbol(expr.Name);
-
-                        if (symbol is ParameterSymbol parameter)
-                        {
-                            il.Emit(OpCodes.Ldarg, parameter.Index);
-                            return parameter.Type;
-                        }
-
-                        if (symbol is VariableSymbol variable)
-                        {
-                            il.Emit(OpCodes.Ldloc, variable.LocalIndex);
-
-                            return variable.Type;
-                        }
-
-                        if (symbol is ConstantSymbol constant)
-                        {
-                            return EmitPrimitive(constant.Value);
-                        }
-
-                        var parameters = functionParameters.Pop();
-                        FunctionSymbol? function = st.GetFunction(expr.Name, parameters);
-                        if (function is not null)
-                        {
-                            il.EmitCall(OpCodes.Call, combinedMethods[function], []);
-
-                            return function.Type;
-                        }
-
-                        return TokenType.None;
+                        return variable.Type;
                     }
-                case ExpressionType.Assignment:
+
+                    if (symbol is ConstantSymbol constant)
                     {
-                        var expr = (AssignmentExpr)expression;
-
-                        VariableSymbol? variable = st.GetVariable(expr.Name);
-
-                        if (variable is not null)
-                        {
-                            EmitExpression(expr.Right);
-                            il.Emit(OpCodes.Stloc, variable.LocalIndex);
-
-                            return variable.Type;
-                        }
-
-                        return TokenType.None;
+                        return EmitPrimitive(constant.Value);
                     }
-                case ExpressionType.Call:
+
+                    /*var parameters = functionParameters.Pop();
+                    FunctionSymbol? function = st.GetFunction(expr.Name, parameters);
+                    if (function is not null)
                     {
-                        var expr = (CallExpr)expression;
+                        il.EmitCall(OpCodes.Call, combinedMethods[function], []);
 
-                        TokenType[] parameters = new TokenType[expr.Args.Count];
-                        int i = 0;
-                        foreach (var arg in expr.Args)
-                        {
-                            TokenType type = EmitExpression(arg);
-                            parameters[i++] = type;
-                        }
+                        return function.Type;
+                    }*/
 
-                        functionParameters.Push(parameters);
+                    return TokenKind.None;
+                }
+            case ExpressionKind.Assignment:
+                {
+                    var expr = (BoundAssignmentExpr)expression;
 
-                        return EmitExpression(expr.Callee);
+                    VariableSymbol? variable = st.GetVariable(expr.Name);
+
+                    if (variable is not null)
+                    {
+                        EmitExpression(expr.Right);
+                        il.Emit(OpCodes.Stloc, variable.LocalIndex);
+
+                        return variable.Type;
                     }
-                case ExpressionType.Unary:
+
+                    return TokenKind.None;
+                }
+            case ExpressionKind.Call:
+                {
+                    var expr = (BoundCallExpr)expression;
+
+                    TokenKind[] parameters = new TokenKind[expr.Args.Length];
+                    int i = 0;
+                    foreach (var arg in expr.Args)
                     {
-                        var expr = (UnaryExpr)expression;
-                        var type = EmitExpression(expr.Expression);
-
-                        switch (expr.Operator.Kind)
-                        {
-                            case TokenType.Not when type == TokenType.Bool:
-                                il.Emit(OpCodes.Ldc_I4, 0);
-                                il.Emit(OpCodes.Ceq);
-                                return TokenType.Bool;
-                            case TokenType.Minus when type == TokenType.Int || type == TokenType.Real:
-                                il.Emit(OpCodes.Neg);
-                                return type;
-                        }
-
-                        break;
+                        TokenKind type = EmitExpression(arg);
+                        parameters[i++] = type;
                     }
-                case ExpressionType.Binary:
-                    {
-                        var expr = (BinaryExpr)expression;
-                        var typeLeft = EmitExpression(expr.Left);
-                        var typeRight = EmitExpression(expr.Right);
 
-                        if (typeLeft != typeRight)
+                    //functionParameters.Push(parameters);
+
+                    var function = expr.Function;
+
+                    il.EmitCall(OpCodes.Call, combinedMethods[function], []);
+
+                    return function.Type;
+                }
+            case ExpressionKind.Unary:
+                {
+                    var expr = (BoundUnaryExpr)expression;
+                    var type = EmitExpression(expr.Operand);
+
+                    switch (expr.Operator.Kind)
+                    {
+                        case TokenKind.Not when type == TokenKind.Bool:
+                            il.Emit(OpCodes.Ldc_I4, 0);
+                            il.Emit(OpCodes.Ceq);
+                            return TokenKind.Bool;
+                        case TokenKind.Minus when type == TokenKind.Int || type == TokenKind.Real:
+                            il.Emit(OpCodes.Neg);
+                            return type;
+                    }
+
+                    break;
+                }
+            case ExpressionKind.Binary:
+                {
+                    var expr = (BoundBinaryExpr)expression;
+                    var typeLeft = EmitExpression(expr.Left);
+                    var typeRight = EmitExpression(expr.Right);
+
+                    if (typeLeft != typeRight)
+                    {
+                        ParseError error = new(expr.Operator, appName,
+                            $"Operator {expr.Operator.Kind} cannot be applied between types '{typeLeft}' and '{typeRight}'");
+                        throw error.Exception();
+                    }
+
+                    switch (expr.Operator.Kind)
+                    {
+                        case TokenKind.Equal:
+                            il.Emit(OpCodes.Ceq);
+                            return TokenKind.Bool;
+                        case TokenKind.NotEqual:
+                            il.Emit(OpCodes.Ceq);
+                            il.Emit(OpCodes.Ldc_I4, 0);
+                            il.Emit(OpCodes.Ceq);
+                            return TokenKind.Bool;
+                        case TokenKind.Greater when typeLeft == TokenKind.Int || typeLeft == TokenKind.Real:
+                            il.Emit(OpCodes.Cgt);
+                            return TokenKind.Bool;
+                        case TokenKind.GreaterEqual when typeLeft == TokenKind.Int || typeLeft == TokenKind.Real:
+                            il.Emit(OpCodes.Clt);
+                            il.Emit(OpCodes.Ldc_I4, 0);
+                            il.Emit(OpCodes.Ceq);
+                            return TokenKind.Bool;
+                        case TokenKind.Less when typeLeft == TokenKind.Int || typeLeft == TokenKind.Real:
+                            il.Emit(OpCodes.Clt);
+                            return TokenKind.Bool;
+                        case TokenKind.LessEqual when typeLeft == TokenKind.Int || typeLeft == TokenKind.Real:
+                            il.Emit(OpCodes.Cgt);
+                            il.Emit(OpCodes.Ldc_I4, 0);
+                            il.Emit(OpCodes.Ceq);
+                            return TokenKind.Bool;
+                        case TokenKind.Plus when typeLeft == TokenKind.String && typeRight == TokenKind.String:
+                            il.EmitCall(OpCodes.Call, typeof(string).GetMethod("Concat", [typeof(string), typeof(string)]), []);
+                            return TokenKind.String;
+                        case TokenKind.Plus when typeLeft == TokenKind.Int || typeLeft == TokenKind.Real:
+                            il.Emit(OpCodes.Add);
+                            return typeLeft;
+                        case TokenKind.Minus when typeLeft == TokenKind.Int || typeLeft == TokenKind.Real:
+                            il.Emit(OpCodes.Sub);
+                            return typeLeft;
+                        case TokenKind.Slash when typeLeft == TokenKind.Int || typeLeft == TokenKind.Real:
+                            il.Emit(OpCodes.Div);
+                            return typeLeft;
+                        case TokenKind.Star when typeLeft == TokenKind.Int || typeLeft == TokenKind.Real:
+                            il.Emit(OpCodes.Mul);
+                            return typeLeft;
+                    }
+
+                    break;
+                }
+
+            case ExpressionKind.Logical:
+                {
+                    var expr = (BoundLogicalExpr)expression;
+
+                    if ((expr.Left.Kind == ExpressionKind.Literal || expr.Left.Kind == ExpressionKind.Variable)
+                        && (expr.Right.Kind == ExpressionKind.Literal || expr.Right.Kind == ExpressionKind.Variable))
+                    {
+                        TokenKind typeLeft = EmitExpression(expr.Left);
+                        TokenKind typeRight = EmitExpression(expr.Right);
+
+                        if (typeLeft != TokenKind.Bool && typeLeft != typeRight)
                         {
                             ParseError error = new(expr.Operator, appName,
                                 $"Operator {expr.Operator.Kind} cannot be applied between types '{typeLeft}' and '{typeRight}'");
                             throw error.Exception();
                         }
 
-                        switch (expr.Operator.Kind)
+                        if (expr.Operator.Kind == TokenKind.And)
                         {
-                            case TokenType.Equal:
-                                il.Emit(OpCodes.Ceq);
-                                return TokenType.Bool;
-                            case TokenType.NotEqual:
-                                il.Emit(OpCodes.Ceq);
-                                il.Emit(OpCodes.Ldc_I4, 0);
-                                il.Emit(OpCodes.Ceq);
-                                return TokenType.Bool;
-                            case TokenType.Greater when typeLeft == TokenType.Int || typeLeft == TokenType.Real:
-                                il.Emit(OpCodes.Cgt);
-                                return TokenType.Bool;
-                            case TokenType.GreaterEqual when typeLeft == TokenType.Int || typeLeft == TokenType.Real:
-                                il.Emit(OpCodes.Clt);
-                                il.Emit(OpCodes.Ldc_I4, 0);
-                                il.Emit(OpCodes.Ceq);
-                                return TokenType.Bool;
-                            case TokenType.Less when typeLeft == TokenType.Int || typeLeft == TokenType.Real:
-                                il.Emit(OpCodes.Clt);
-                                return TokenType.Bool;
-                            case TokenType.LessEqual when typeLeft == TokenType.Int || typeLeft == TokenType.Real:
-                                il.Emit(OpCodes.Cgt);
-                                il.Emit(OpCodes.Ldc_I4, 0);
-                                il.Emit(OpCodes.Ceq);
-                                return TokenType.Bool;
-                            case TokenType.Plus when typeLeft == TokenType.String && typeRight == TokenType.String:
-                                il.EmitCall(OpCodes.Call, typeof(string).GetMethod("Concat", [typeof(string), typeof(string)]), []);
-                                return TokenType.String;
-                            case TokenType.Plus when typeLeft == TokenType.Int || typeLeft == TokenType.Real:
-                                il.Emit(OpCodes.Add);
-                                return typeLeft;
-                            case TokenType.Minus when typeLeft == TokenType.Int || typeLeft == TokenType.Real:
-                                il.Emit(OpCodes.Sub);
-                                return typeLeft;
-                            case TokenType.Slash when typeLeft == TokenType.Int || typeLeft == TokenType.Real:
-                                il.Emit(OpCodes.Div);
-                                return typeLeft;
-                            case TokenType.Star when typeLeft == TokenType.Int || typeLeft == TokenType.Real:
-                                il.Emit(OpCodes.Mul);
-                                return typeLeft;
+                            il.Emit(OpCodes.And);
                         }
-
-                        break;
-                    }
-
-                case ExpressionType.Logical:
-                    {
-                        var expr = (LogicalExpr)expression;
-
-                        if ((expr.Left.Type == ExpressionType.Literal || expr.Left.Type == ExpressionType.Variable)
-                            && (expr.Right.Type == ExpressionType.Literal || expr.Right.Type == ExpressionType.Variable))
+                        else
                         {
-                            TokenType typeLeft = EmitExpression(expr.Left);
-                            TokenType typeRight = EmitExpression(expr.Right);
+                            il.Emit(OpCodes.Or);
+                        }
+                    }
+                    else
+                    {
+                        TokenKind typeLeft = EmitExpression(expr.Left);
 
-                            if (typeLeft != TokenType.Bool && typeLeft != typeRight)
+                        if (expr.Operator.Kind == TokenKind.And)
+                        {
+                            Label leftTrue = il.DefineLabel();
+                            il.Emit(OpCodes.Brtrue_S, leftTrue);
+                            il.Emit(OpCodes.Ldc_I4, 0);
+                            Label endLabel = il.DefineLabel();
+                            il.Emit(OpCodes.Br_S, endLabel);
+
+                            il.MarkLabel(leftTrue);
+                            TokenKind typeRight = EmitExpression(expr.Right);
+
+                            if (typeLeft != TokenKind.Bool && typeLeft != typeRight)
                             {
                                 ParseError error = new(expr.Operator, appName,
                                     $"Operator {expr.Operator.Kind} cannot be applied between types '{typeLeft}' and '{typeRight}'");
                                 throw error.Exception();
                             }
 
-                            if (expr.Operator.Kind == TokenType.And)
-                            {
-                                il.Emit(OpCodes.And);
-                            }
-                            else
-                            {
-                                il.Emit(OpCodes.Or);
-                            }
+                            il.MarkLabel(endLabel);
                         }
                         else
                         {
-                            TokenType typeLeft = EmitExpression(expr.Left);
+                            Label leftTrue = il.DefineLabel();
+                            il.Emit(OpCodes.Brtrue_S, leftTrue);
+                            TokenKind typeRight = EmitExpression(expr.Right);
 
-                            if (expr.Operator.Kind == TokenType.And)
+                            if (typeLeft != TokenKind.Bool && typeLeft != typeRight)
                             {
-                                Label leftTrue = il.DefineLabel();
-                                il.Emit(OpCodes.Brtrue_S, leftTrue);
-                                il.Emit(OpCodes.Ldc_I4, 0);
-                                Label endLabel = il.DefineLabel();
-                                il.Emit(OpCodes.Br_S, endLabel);
-
-                                il.MarkLabel(leftTrue);
-                                TokenType typeRight = EmitExpression(expr.Right);
-
-                                if (typeLeft != TokenType.Bool && typeLeft != typeRight)
-                                {
-                                    ParseError error = new(expr.Operator, appName,
-                                        $"Operator {expr.Operator.Kind} cannot be applied between types '{typeLeft}' and '{typeRight}'");
-                                    throw error.Exception();
-                                }
-
-                                il.MarkLabel(endLabel);
+                                ParseError error = new(expr.Operator, appName,
+                                    $"Operator {expr.Operator.Kind} cannot be applied between types '{typeLeft}' and '{typeRight}'");
+                                throw error.Exception();
                             }
-                            else
-                            {
-                                Label leftTrue = il.DefineLabel();
-                                il.Emit(OpCodes.Brtrue_S, leftTrue);
-                                TokenType typeRight = EmitExpression(expr.Right);
+                            Label endLabel = il.DefineLabel();
+                            il.Emit(OpCodes.Br_S, endLabel);
 
-                                if (typeLeft != TokenType.Bool && typeLeft != typeRight)
-                                {
-                                    ParseError error = new(expr.Operator, appName,
-                                        $"Operator {expr.Operator.Kind} cannot be applied between types '{typeLeft}' and '{typeRight}'");
-                                    throw error.Exception();
-                                }
-                                Label endLabel = il.DefineLabel();
-                                il.Emit(OpCodes.Br_S, endLabel);
+                            il.MarkLabel(leftTrue);
+                            il.Emit(OpCodes.Ldc_I4, 1);
 
-                                il.MarkLabel(leftTrue);
-                                il.Emit(OpCodes.Ldc_I4, 1);
-
-                                il.MarkLabel(endLabel);
-                            }
+                            il.MarkLabel(endLabel);
                         }
-
-                        return TokenType.Bool;
                     }
-            }
 
-            return TokenType.None;
-        }
-
-        TokenType EmitPrimitive(in Token token)
-        {
-            switch (token.Kind)
-            {
-                case TokenType.LiteralString: il.Emit(OpCodes.Ldstr, token.StringValue ?? ""); return TokenType.String;
-                case TokenType.LiteralInt: il.Emit(OpCodes.Ldc_I4, (int)token.IntValue); return TokenType.Int;
-                case TokenType.LiteralReal: il.Emit(OpCodes.Ldc_R8, token.RealValue); return TokenType.Real;
-                case TokenType.LiteralTrue: il.Emit(OpCodes.Ldc_I4, 1); return TokenType.Bool;
-                case TokenType.LiteralFalse: il.Emit(OpCodes.Ldc_I4, 0); return TokenType.Bool;
-                default: il.Emit(OpCodes.Ldnull); return TokenType.None;
-            }
-        }
-
-        static Type TranslateType(TokenType type)
-        {
-            return type switch
-            {
-                TokenType.Bool => typeof(bool),
-                TokenType.LiteralTrue => typeof(bool),
-                TokenType.LiteralFalse => typeof(bool),
-                TokenType.Int => typeof(int),
-                TokenType.Real => typeof(double),
-                TokenType.String => typeof(string),
-                _ => typeof(void),
-            };
-        }
-
-        static Type[] TranslateTypes(TokenType[] types)
-        {
-            List<Type> result = new(types.Length);
-
-            foreach (var type in types)
-            {
-                result.Add(TranslateType(type));
-            }
-
-            return [.. result];
-        }
-
-        static int CountReturnStatements(IStatement statement)
-        {
-            if (statement.Type == StatementType.Return)
-            {
-                return 1;
-            }
-
-            int count = 0;
-            if (statement is FunctionStmt fStmt)
-            {
-                count += CountReturnStatements(fStmt.Body);
-            }
-            else if (statement is BlockStmt blockStmt)
-            {
-                foreach (var stmt in blockStmt.Statements)
-                {
-                    count += CountReturnStatements(stmt);
+                    return TokenKind.Bool;
                 }
-            }
-            else if (statement is IfStmt ifStmt)
-            {
-                count += CountReturnStatements(ifStmt.ThenStatement);
-
-                if (ifStmt.ElseStatement is not null)
-                {
-                    count += CountReturnStatements(ifStmt.ElseStatement);
-                }
-            }
-            else if (statement is WhileStmt whileStmt)
-            {
-                count += CountReturnStatements(whileStmt.Statement);
-            }
-
-            return count;
         }
+
+        return TokenKind.None;
+    }
+
+    TokenKind EmitPrimitive(in Token token)
+    {
+        switch (token.Kind)
+        {
+            case TokenKind.LiteralString: il.Emit(OpCodes.Ldstr, token.StringValue ?? ""); return TokenKind.String;
+            case TokenKind.LiteralInt: il.Emit(OpCodes.Ldc_I4, (int)token.IntValue); return TokenKind.Int;
+            case TokenKind.LiteralReal: il.Emit(OpCodes.Ldc_R8, token.RealValue); return TokenKind.Real;
+            case TokenKind.LiteralTrue: il.Emit(OpCodes.Ldc_I4, 1); return TokenKind.Bool;
+            case TokenKind.LiteralFalse: il.Emit(OpCodes.Ldc_I4, 0); return TokenKind.Bool;
+            default: il.Emit(OpCodes.Ldnull); return TokenKind.None;
+        }
+    }
+
+    static Type TranslateType(TokenKind type)
+    {
+        return type switch
+        {
+            TokenKind.Bool => typeof(bool),
+            TokenKind.LiteralTrue => typeof(bool),
+            TokenKind.LiteralFalse => typeof(bool),
+            TokenKind.Int => typeof(int),
+            TokenKind.Real => typeof(double),
+            TokenKind.String => typeof(string),
+            _ => typeof(void),
+        };
+    }
+
+    static Type[] TranslateTypes(TokenKind[] types)
+    {
+        List<Type> result = new(types.Length);
+
+        foreach (var type in types)
+        {
+            result.Add(TranslateType(type));
+        }
+
+        return [.. result];
+    }
+
+    static int CountReturnStatements(BoundStatement statement)
+    {
+        if (statement.Kind == StatementKind.Return)
+        {
+            return 1;
+        }
+
+        int count = 0;
+        if (statement is BoundFunctionDeclaration fStmt)
+        {
+            count += CountReturnStatements(fStmt.Body);
+        }
+        else if (statement is BoundBlockStmt blockStmt)
+        {
+            foreach (var stmt in blockStmt.Statements)
+            {
+                count += CountReturnStatements(stmt);
+            }
+        }
+        else if (statement is BoundIfStmt ifStmt)
+        {
+            count += CountReturnStatements(ifStmt.ThenStatement);
+
+            if (ifStmt.ElseStatement is not null)
+            {
+                count += CountReturnStatements(ifStmt.ElseStatement);
+            }
+        }
+        else if (statement is BoundWhileStmt whileStmt)
+        {
+            count += CountReturnStatements(whileStmt.Statement);
+        }
+
+        return count;
     }
 }

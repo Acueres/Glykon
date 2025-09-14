@@ -2,11 +2,11 @@
 
 namespace Glykon.Compiler.Syntax.Statements
 {
-    public class IfStmt(IExpression condition, IStatement statement, IStatement? elseStatement) : IStatement
+    public class IfStmt(Expression condition, Statement statement, Statement? elseStatement) : Statement
     {
-        public StatementType Type => StatementType.If;
-        public IExpression Expression { get; } = condition;
-        public IStatement ThenStatement { get; } = statement;
-        public IStatement? ElseStatement { get; } = elseStatement;
+        public override StatementKind Kind => StatementKind.If;
+        public Expression Condition { get; } = condition;
+        public Statement ThenStatement { get; } = statement;
+        public Statement? ElseStatement { get; } = elseStatement;
     }
 }

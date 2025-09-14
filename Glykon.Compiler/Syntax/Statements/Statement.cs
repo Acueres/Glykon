@@ -2,7 +2,7 @@
 
 namespace Glykon.Compiler.Syntax.Statements
 {
-    public enum StatementType : byte
+    public enum StatementKind : byte
     {
         Block,
         Expression,
@@ -15,9 +15,8 @@ namespace Glykon.Compiler.Syntax.Statements
         Jump
     }
 
-    public interface IStatement
+    public abstract class Statement
     {
-        StatementType Type { get; }
-        IExpression Expression { get; }
+        public abstract StatementKind Kind { get; }
     }
 }

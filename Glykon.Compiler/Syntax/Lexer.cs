@@ -35,7 +35,7 @@ public class Lexer(string source, string fileName)
                 tokens.Add(last);
             }
 
-            tokens.Add(new(TokenType.EOF, line));
+            tokens.Add(new(TokenKind.EOF, line));
         }
 
         return (tokens.ToArray(), errors);
@@ -49,21 +49,21 @@ public class Lexer(string source, string fileName)
         {
             //symbols
             case '{':
-                return new(TokenType.BraceLeft, line);
+                return new(TokenKind.BraceLeft, line);
             case '}':
-                return new(TokenType.BraceRight, line);
+                return new(TokenKind.BraceRight, line);
             case '(':
-                return new(TokenType.ParenthesisLeft, line);
+                return new(TokenKind.ParenthesisLeft, line);
             case ')':
-                return new(TokenType.ParenthesisRight, line);
+                return new(TokenKind.ParenthesisRight, line);
             case '[':
-                return new(TokenType.BracketLeft, line);
+                return new(TokenKind.BracketLeft, line);
             case ']':
-                return new(TokenType.BracketRight, line);
+                return new(TokenKind.BracketRight, line);
             case ',':
-                return new(TokenType.Comma, line);
+                return new(TokenKind.Comma, line);
             case ':':
-                return new(TokenType.Colon, line);
+                return new(TokenKind.Colon, line);
 
             //long symbols
             case '.':
@@ -73,31 +73,31 @@ public class Lexer(string source, string fileName)
                         return ScanNumber(true);
                     }
 
-                    return new(TokenType.Dot, line);
+                    return new(TokenKind.Dot, line);
                 }
             case '+':
-                return new(TokenType.Plus, line);
+                return new(TokenKind.Plus, line);
             case '-':
                 if (Match('>'))
                 {
-                    return new(TokenType.Arrow, line);
+                    return new(TokenKind.Arrow, line);
                 }
 
-                return new(TokenType.Minus, line);
+                return new(TokenKind.Minus, line);
             case '<':
-                return new(Match('=') ? TokenType.LessEqual : TokenType.Less, line);
+                return new(Match('=') ? TokenKind.LessEqual : TokenKind.Less, line);
             case '>':
-                return new(Match('=') ? TokenType.GreaterEqual : TokenType.Greater, line);
+                return new(Match('=') ? TokenKind.GreaterEqual : TokenKind.Greater, line);
             case '*':
-                return new(Match('*') ? TokenType.StarDouble : TokenType.Star, line);
+                return new(Match('*') ? TokenKind.StarDouble : TokenKind.Star, line);
             case '/':
-                return new(Match('/') ? TokenType.SlashDouble : TokenType.Slash, line);
+                return new(Match('/') ? TokenKind.SlashDouble : TokenKind.Slash, line);
             case '=':
-                return new(Match('=') ? TokenType.Equal : TokenType.Assignment, line);
+                return new(Match('=') ? TokenKind.Equal : TokenKind.Assignment, line);
             case '!': //! is not valid by itself
                 if (Match('='))
                 {
-                    return new(TokenType.NotEqual, line);
+                    return new(TokenKind.NotEqual, line);
                 }
                 else
                 {
@@ -126,7 +126,7 @@ public class Lexer(string source, string fileName)
                 line++;
                 return ScanEndOfLine();
             case ';':
-                return new(TokenType.Semicolon, line);
+                return new(TokenKind.Semicolon, line);
 
             default:
                 if (char.IsAsciiDigit(character))
@@ -154,12 +154,12 @@ public class Lexer(string source, string fileName)
 
         string identifier = source[identifierStart..currentCharIndex];
 
-        if (keywords.TryGetValue(identifier, out TokenType type))
+        if (keywords.TryGetValue(identifier, out TokenKind type))
         {
             return new(type, line);
         }
 
-        return new(TokenType.Identifier, line, identifier);
+        return new(TokenKind.Identifier, line, identifier);
     }
 
     Token ScanNumber(bool isReal = false)
@@ -181,10 +181,10 @@ public class Lexer(string source, string fileName)
 
         if (isReal)
         {
-            return new(TokenType.LiteralReal, line, double.Parse(number, CultureInfo.InvariantCulture));
+            return new(TokenKind.LiteralReal, line, double.Parse(number, CultureInfo.InvariantCulture));
         }
 
-        return new(TokenType.LiteralInt, line, int.Parse(number));
+        return new(TokenKind.LiteralInt, line, int.Parse(number));
     }
 
     Token ScanString(char openingQuote)
@@ -216,7 +216,7 @@ public class Lexer(string source, string fileName)
         }
 
         int stringEndOffset = multiline ? 3 : 1;
-        Token result = new(TokenType.LiteralString, currentLine, source[stringStart..(currentCharIndex - stringEndOffset)]);
+        Token result = new(TokenKind.LiteralString, currentLine, source[stringStart..(currentCharIndex - stringEndOffset)]);
 
         return result;
     }
@@ -233,7 +233,7 @@ public class Lexer(string source, string fileName)
         // Handle long chaining tokens
         if (IsLongChainingToken(nextChar, peekIndex)) return Token.Empty;
 
-        return new(TokenType.Semicolon, line);
+        return new(TokenKind.Semicolon, line);
     }
 
     bool Match(char token)
@@ -346,96 +346,96 @@ public class Lexer(string source, string fileName)
         return c == '_' || char.IsLetterOrDigit(c);
     }
 
-    readonly static Dictionary<string, TokenType> keywords;
+    readonly static Dictionary<string, TokenKind> keywords;
 
-    readonly static HashSet<TokenType> terminatorExceptions;
+    readonly static HashSet<TokenKind> terminatorExceptions;
     readonly static HashSet<char> chainingChars;
 
     static Lexer()
     {
         keywords = new()
             {
-                { "class", TokenType.Class },
-                { "struct", TokenType.Struct },
-                { "interface", TokenType.Interface },
-                { "enum", TokenType.Enum },
-                { "def", TokenType.Def },
-                { "let", TokenType.Let },
-                { "const", TokenType.Const },
-                { "int", TokenType.Int },
-                { "real", TokenType.Real },
-                { "str", TokenType.String },
-                { "bool",  TokenType.Bool },
-                { "true",  TokenType.LiteralTrue },
-                { "false",  TokenType.LiteralFalse },
-                { "none", TokenType.None },
-                { "and", TokenType.And },
-                { "not", TokenType.Not },
-                { "or", TokenType.Or },
-                { "if", TokenType.If },
-                { "else", TokenType.Else },
-                { "elif", TokenType.Elif },
-                { "for", TokenType.For },
-                { "while", TokenType.While },
-                { "return", TokenType.Return },
-                { "break", TokenType.Break },
-                { "continue", TokenType.Continue }
+                { "class", TokenKind.Class },
+                { "struct", TokenKind.Struct },
+                { "interface", TokenKind.Interface },
+                { "enum", TokenKind.Enum },
+                { "def", TokenKind.Def },
+                { "let", TokenKind.Let },
+                { "const", TokenKind.Const },
+                { "int", TokenKind.Int },
+                { "real", TokenKind.Real },
+                { "str", TokenKind.String },
+                { "bool",  TokenKind.Bool },
+                { "true",  TokenKind.LiteralTrue },
+                { "false",  TokenKind.LiteralFalse },
+                { "none", TokenKind.None },
+                { "and", TokenKind.And },
+                { "not", TokenKind.Not },
+                { "or", TokenKind.Or },
+                { "if", TokenKind.If },
+                { "else", TokenKind.Else },
+                { "elif", TokenKind.Elif },
+                { "for", TokenKind.For },
+                { "while", TokenKind.While },
+                { "return", TokenKind.Return },
+                { "break", TokenKind.Break },
+                { "continue", TokenKind.Continue }
             };
 
         terminatorExceptions =
     [
     // Internal/special
-    TokenType.EOF, TokenType.Semicolon,
+    TokenKind.EOF, TokenKind.Semicolon,
 
     // Openers
-    TokenType.BracketLeft,
-    TokenType.ParenthesisLeft,
-    TokenType.BraceLeft,
+    TokenKind.BracketLeft,
+    TokenKind.ParenthesisLeft,
+    TokenKind.BraceLeft,
 
     // Block closer
-    TokenType.BraceRight,
+    TokenKind.BraceRight,
 
     // Punctuation and operators that precede an operand
-    TokenType.Comma,
-    TokenType.Colon,
-    TokenType.Arrow,
-    TokenType.Dot,
-    TokenType.Assignment,
+    TokenKind.Comma,
+    TokenKind.Colon,
+    TokenKind.Arrow,
+    TokenKind.Dot,
+    TokenKind.Assignment,
     
     // Arithmetic operators
-    TokenType.Plus,
-    TokenType.Minus,
-    TokenType.Star,
-    TokenType.StarDouble,
-    TokenType.Slash,
-    TokenType.SlashDouble,
+    TokenKind.Plus,
+    TokenKind.Minus,
+    TokenKind.Star,
+    TokenKind.StarDouble,
+    TokenKind.Slash,
+    TokenKind.SlashDouble,
 
     // Comparison operators
-    TokenType.Equal,
-    TokenType.NotEqual,
-    TokenType.Greater,
-    TokenType.GreaterEqual,
-    TokenType.Less,
-    TokenType.LessEqual,
+    TokenKind.Equal,
+    TokenKind.NotEqual,
+    TokenKind.Greater,
+    TokenKind.GreaterEqual,
+    TokenKind.Less,
+    TokenKind.LessEqual,
     
     // Logical operators
-    TokenType.And,
-    TokenType.Or,
-    TokenType.Not,
+    TokenKind.And,
+    TokenKind.Or,
+    TokenKind.Not,
 
     // Declaration and control-flow keywords
-    TokenType.Def,
-    TokenType.Class,
-    TokenType.Struct,
-    TokenType.Interface,
-    TokenType.Enum,
-    TokenType.Let,
-    TokenType.Const,
-    TokenType.If,
-    TokenType.Else,
-    TokenType.Elif,
-    TokenType.For,
-    TokenType.While
+    TokenKind.Def,
+    TokenKind.Class,
+    TokenKind.Struct,
+    TokenKind.Interface,
+    TokenKind.Enum,
+    TokenKind.Let,
+    TokenKind.Const,
+    TokenKind.If,
+    TokenKind.Else,
+    TokenKind.Elif,
+    TokenKind.For,
+    TokenKind.While
     ];
 
         chainingChars = ['.', '[', '(', '+', '-', '*', '/', '=', '!', '<', '>'];

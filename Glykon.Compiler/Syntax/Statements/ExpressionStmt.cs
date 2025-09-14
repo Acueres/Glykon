@@ -2,9 +2,9 @@
 
 namespace Glykon.Compiler.Syntax.Statements
 {
-    public class ExpressionStmt(IExpression expr) : IStatement
+    public class ExpressionStmt(Expression expr) : Statement
     {
-        public StatementType Type => StatementType.Expression;
-        public IExpression Expression { get; } = expr;
+        public override StatementKind Kind => StatementKind.Expression;
+        public Expression Expression { get; } = expr;
     }
 }

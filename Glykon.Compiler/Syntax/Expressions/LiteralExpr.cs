@@ -1,8 +1,8 @@
 ﻿namespace Glykon.Compiler.Syntax.Expressions
 {
-    public class LiteralExpr(Token token) : IExpression
+    public class LiteralExpr(Token token) : Expression
     {
-        public ExpressionType Type => ExpressionType.Literal;
+        public override ExpressionKind Kind => ExpressionKind.Literal;
         public Token Token { get; } = token;
     }
 }

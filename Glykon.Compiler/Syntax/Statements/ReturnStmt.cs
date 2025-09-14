@@ -2,9 +2,9 @@
 
 namespace Glykon.Compiler.Syntax.Statements
 {
-    public class ReturnStmt(IExpression? expression) : IStatement
+    public class ReturnStmt(Expression? expression) : Statement
     {
-        public StatementType Type => StatementType.Return;
-        public IExpression Expression { get; } = expression;
+        public override StatementKind Kind => StatementKind.Return;
+        public Expression Expression { get; } = expression;
     }
 }

@@ -5,23 +5,23 @@ namespace Tests;
 public class LexerTests
 {
     [Fact]
-    public void ScanIdentifiersTest()
+    public void ScanIdentifiers()
     {
         const string source = @"let text = 'Hello Glykon';";
 
         Lexer lexer = new(source, "IdentifiersTest");
         var (tokens, _) = lexer.Execute();
 
-        tokens = [.. tokens.Where(t => t.Kind != TokenType.EOF)];
+        tokens = [.. tokens.Where(t => t.Kind != TokenKind.EOF)];
 
         Assert.Equal(5, tokens.Length);
-        Assert.Equal(TokenType.Let, tokens[0].Kind);
-        Assert.Equal(TokenType.Identifier, tokens[1].Kind);
+        Assert.Equal(TokenKind.Let, tokens[0].Kind);
+        Assert.Equal(TokenKind.Identifier, tokens[1].Kind);
         Assert.Equal("text", tokens[1].StringValue);
     }
 
     [Fact]
-    public void ScanCommentsTest()
+    public void ScanComments()
     {
         const string commentsSource = @"
             #comment1
@@ -42,41 +42,41 @@ public class LexerTests
     }
 
     [Fact]
-    public void ScanSymbolsTest()
+    public void ScanSymbols()
     {
         const string symbols = "(( )){} *+-/=<> <= == != >= // ** , . ->";
 
         Lexer lexer = new(symbols, "SymbolsTest");
         var (tokens, _) = lexer.Execute();
 
-        tokens = [.. tokens.Where(t => t.Kind != TokenType.EOF)];
+        tokens = [.. tokens.Where(t => t.Kind != TokenKind.EOF)];
 
         Assert.Equal(22, tokens.Length);
 
-        TokenType[] expectedTypes =
+        TokenKind[] expectedTypes =
         [
-            TokenType.ParenthesisLeft,
-        TokenType.ParenthesisLeft,
-        TokenType.ParenthesisRight,
-        TokenType.ParenthesisRight,
-        TokenType.BraceLeft,
-        TokenType.BraceRight,
-        TokenType.Star,
-        TokenType.Plus,
-        TokenType.Minus,
-        TokenType.Slash,
-        TokenType.Assignment,
-        TokenType.Less,
-        TokenType.Greater,
-        TokenType.LessEqual,
-        TokenType.Equal,
-        TokenType.NotEqual,
-        TokenType.GreaterEqual,
-        TokenType.SlashDouble,
-        TokenType.StarDouble,
-        TokenType.Comma,
-        TokenType.Dot,
-        TokenType.Arrow
+            TokenKind.ParenthesisLeft,
+        TokenKind.ParenthesisLeft,
+        TokenKind.ParenthesisRight,
+        TokenKind.ParenthesisRight,
+        TokenKind.BraceLeft,
+        TokenKind.BraceRight,
+        TokenKind.Star,
+        TokenKind.Plus,
+        TokenKind.Minus,
+        TokenKind.Slash,
+        TokenKind.Assignment,
+        TokenKind.Less,
+        TokenKind.Greater,
+        TokenKind.LessEqual,
+        TokenKind.Equal,
+        TokenKind.NotEqual,
+        TokenKind.GreaterEqual,
+        TokenKind.SlashDouble,
+        TokenKind.StarDouble,
+        TokenKind.Comma,
+        TokenKind.Dot,
+        TokenKind.Arrow
         ];
 
         var actualTypes = tokens.Select(t => t.Kind).ToArray();
@@ -85,25 +85,25 @@ public class LexerTests
     }
 
     [Fact]
-    public void ScanKeywordsTest()
+    public void ScanKeywords()
     {
         const string keywords = "if class struct else def int while false";
 
         Lexer lexer = new(keywords, "KeywordsTest");
         var (tokens, _) = lexer.Execute();
 
-        tokens = [.. tokens.Where(t => t.Kind != TokenType.EOF && t.Kind != TokenType.Semicolon)];
+        tokens = [.. tokens.Where(t => t.Kind != TokenKind.EOF && t.Kind != TokenKind.Semicolon)];
 
-        TokenType[] expectedTypes =
+        TokenKind[] expectedTypes =
         [
-            TokenType.If,
-            TokenType.Class,
-            TokenType.Struct,
-            TokenType.Else,
-            TokenType.Def,
-            TokenType.Int,
-            TokenType.While,
-            TokenType.LiteralFalse
+            TokenKind.If,
+            TokenKind.Class,
+            TokenKind.Struct,
+            TokenKind.Else,
+            TokenKind.Def,
+            TokenKind.Int,
+            TokenKind.While,
+            TokenKind.LiteralFalse
         ];
 
         var actualTypes = tokens.Select(t => t.Kind).ToArray();
@@ -112,24 +112,24 @@ public class LexerTests
     }
 
     [Fact]
-    public void ScanStringTest()
+    public void ScanString()
     {
         const string stringsSource = "\"some text\" 'other text' \"\"\"multiline oneliner\"\"\" \"unterminated";
 
         Lexer lexer = new(stringsSource, "StringTest");
         var (tokens, _) = lexer.Execute();
 
-        tokens = [.. tokens.Where(t => t.Kind != TokenType.EOF && t.Kind != TokenType.Semicolon)];
+        tokens = [.. tokens.Where(t => t.Kind != TokenKind.EOF && t.Kind != TokenKind.Semicolon)];
 
         Assert.Equal(3, tokens.Length);
-        Assert.Equal(TokenType.LiteralString, tokens[0].Kind);
+        Assert.Equal(TokenKind.LiteralString, tokens[0].Kind);
         Assert.Equal("some text", tokens[0].StringValue);
         Assert.Equal("other text", tokens[1].StringValue);
         Assert.Equal("multiline oneliner", tokens[2].StringValue);
     }
 
     [Fact]
-    public void ScanMultilineStringTest()
+    public void ScanMultilineString()
     {
         const string stringsSource = @"'''multiline string
 '''
@@ -144,7 +144,7 @@ public class LexerTests
         var (tokens, _) = lexer.Execute();
 
         //filter out statement terminators
-        tokens = [.. tokens.Where(t => t.Kind != TokenType.Semicolon && t.Kind != TokenType.EOF)];
+        tokens = [.. tokens.Where(t => t.Kind != TokenKind.Semicolon && t.Kind != TokenKind.EOF)];
 
         Assert.Equal(3, tokens.Length);
         Assert.Equal("multiline string\n", ((string)tokens.First().StringValue).Replace("\r", string.Empty));
@@ -155,29 +155,29 @@ public class LexerTests
     }
 
     [Fact]
-    public void ScanNumbersTest()
+    public void ScanNumbers()
     {
         const string numbers = "123 42 1.2 .2 2.";
 
         Lexer lexer = new(numbers, "NumbersTest");
         var (tokens, _) = lexer.Execute();
 
-        tokens = [.. tokens.Where(t => t.Kind != TokenType.EOF)];
+        tokens = [.. tokens.Where(t => t.Kind != TokenKind.EOF)];
 
         Assert.Equal(6, tokens.Length);
-        Assert.Equal(TokenType.LiteralInt, tokens[0].Kind);
+        Assert.Equal(TokenKind.LiteralInt, tokens[0].Kind);
         Assert.Equal(123, tokens[0].IntValue);
         Assert.Equal(42, tokens[1].IntValue);
 
-        Assert.Equal(TokenType.LiteralReal, tokens[2].Kind);
+        Assert.Equal(TokenKind.LiteralReal, tokens[2].Kind);
         Assert.Equal(1.2, tokens[2].RealValue);
         Assert.Equal(.2, tokens[3].RealValue);
 
-        Assert.Equal(TokenType.LiteralInt, tokens[4].Kind);
+        Assert.Equal(TokenKind.LiteralInt, tokens[4].Kind);
     }
 
     [Fact]
-    public void SemicolonInsertionTest()
+    public void SemicolonInsertion()
     {
         const string source = @"
 # 1. Basic insertion
@@ -207,31 +207,31 @@ if a > b
         Lexer lexer = new(source, "SemicolonInsertionTest");
         var (tokens, _) = lexer.Execute();
 
-        TokenType[] expectedTypes =
+        TokenKind[] expectedTypes =
         [
         // let a = 1;
-        TokenType.Let, TokenType.Identifier, TokenType.Assignment, TokenType.LiteralInt, TokenType.Semicolon,
+        TokenKind.Let, TokenKind.Identifier, TokenKind.Assignment, TokenKind.LiteralInt, TokenKind.Semicolon,
         // let b = 2;
-        TokenType.Let, TokenType.Identifier, TokenType.Assignment, TokenType.LiteralInt, TokenType.Semicolon,
+        TokenKind.Let, TokenKind.Identifier, TokenKind.Assignment, TokenKind.LiteralInt, TokenKind.Semicolon,
         // b = a + 2; (newline after + is ignored)
-        TokenType.Identifier, TokenType.Assignment, TokenType.Identifier, TokenType.Plus, TokenType.LiteralInt, TokenType.Semicolon,
+        TokenKind.Identifier, TokenKind.Assignment, TokenKind.Identifier, TokenKind.Plus, TokenKind.LiteralInt, TokenKind.Semicolon,
         // def func(a, b) { return a; } (newlines after def, comma, {, }, and before } are ignored or handled)
-        TokenType.Def, TokenType.Identifier,
-        TokenType.ParenthesisLeft, TokenType.Identifier, TokenType.Comma, TokenType.Identifier, TokenType.ParenthesisRight,
-        TokenType.BraceLeft,
-        TokenType.Return, TokenType.Identifier, TokenType.Semicolon,
-        TokenType.BraceRight,
+        TokenKind.Def, TokenKind.Identifier,
+        TokenKind.ParenthesisLeft, TokenKind.Identifier, TokenKind.Comma, TokenKind.Identifier, TokenKind.ParenthesisRight,
+        TokenKind.BraceLeft,
+        TokenKind.Return, TokenKind.Identifier, TokenKind.Semicolon,
+        TokenKind.BraceRight,
         // let c = 3;
-        TokenType.Let, TokenType.Identifier, TokenType.Assignment, TokenType.LiteralInt, TokenType.Semicolon,
+        TokenKind.Let, TokenKind.Identifier, TokenKind.Assignment, TokenKind.LiteralInt, TokenKind.Semicolon,
         // let d = 4;
-        TokenType.Let, TokenType.Identifier, TokenType.Assignment, TokenType.LiteralInt, TokenType.Semicolon,
+        TokenKind.Let, TokenKind.Identifier, TokenKind.Assignment, TokenKind.LiteralInt, TokenKind.Semicolon,
         // if a > b { d = 5; }
-        TokenType.If, TokenType.Identifier, TokenType.Greater, TokenType.Identifier, TokenType.Semicolon,
-        TokenType.BraceLeft,
-        TokenType.Identifier, TokenType.Assignment, TokenType.LiteralInt, TokenType.Semicolon,
-        TokenType.BraceRight,
+        TokenKind.If, TokenKind.Identifier, TokenKind.Greater, TokenKind.Identifier, TokenKind.Semicolon,
+        TokenKind.BraceLeft,
+        TokenKind.Identifier, TokenKind.Assignment, TokenKind.LiteralInt, TokenKind.Semicolon,
+        TokenKind.BraceRight,
         // Final EOF
-        TokenType.EOF
+        TokenKind.EOF
     ];
 
         var actualTypes = tokens.Select(t => t.Kind).ToArray();
@@ -240,7 +240,7 @@ if a > b
     }
 
     [Fact]
-    public void ChainingAndLineContinuationTest()
+    public void ChainingAndLineContinuation()
     {
         const string source = @"
 # Test 1: Method chaining
@@ -280,30 +280,30 @@ let details = ""...""
         var expectedTypes = new[]
         {
         // Test 1: `let item = my_collection.get_name()`
-        TokenType.Let, TokenType.Identifier, TokenType.Assignment, TokenType.Identifier, TokenType.Dot,
-        TokenType.Identifier, TokenType.ParenthesisLeft, TokenType.ParenthesisRight, TokenType.Semicolon,
+        TokenKind.Let, TokenKind.Identifier, TokenKind.Assignment, TokenKind.Identifier, TokenKind.Dot,
+        TokenKind.Identifier, TokenKind.ParenthesisLeft, TokenKind.ParenthesisRight, TokenKind.Semicolon,
         
         // Test 2: `let result = 100 + 20;`
-        TokenType.Let, TokenType.Identifier, TokenType.Assignment, TokenType.LiteralInt, TokenType.Plus,
-        TokenType.LiteralInt, TokenType.Semicolon,
+        TokenKind.Let, TokenKind.Identifier, TokenKind.Assignment, TokenKind.LiteralInt, TokenKind.Plus,
+        TokenKind.LiteralInt, TokenKind.Semicolon,
 
         // Test 3: `if user.is_valid and user.has_permission; { }`
-        TokenType.If, TokenType.Identifier, TokenType.Dot, TokenType.Identifier, TokenType.And,
-        TokenType.Identifier, TokenType.Dot, TokenType.Identifier, TokenType.Semicolon, TokenType.BraceLeft, TokenType.BraceRight,
+        TokenKind.If, TokenKind.Identifier, TokenKind.Dot, TokenKind.Identifier, TokenKind.And,
+        TokenKind.Identifier, TokenKind.Dot, TokenKind.Identifier, TokenKind.Semicolon, TokenKind.BraceLeft, TokenKind.BraceRight,
 
         // Test 4: `if user.is_guest or user.is_new; { }`
-        TokenType.If, TokenType.Identifier, TokenType.Dot, TokenType.Identifier, TokenType.Or,
-        TokenType.Identifier, TokenType.Dot, TokenType.Identifier, TokenType.Semicolon, TokenType.BraceLeft, TokenType.BraceRight,
+        TokenKind.If, TokenKind.Identifier, TokenKind.Dot, TokenKind.Identifier, TokenKind.Or,
+        TokenKind.Identifier, TokenKind.Dot, TokenKind.Identifier, TokenKind.Semicolon, TokenKind.BraceLeft, TokenKind.BraceRight,
 
         // Test 5: `let name = "andre";` and `let id = 1;`
-        TokenType.Let, TokenType.Identifier, TokenType.Assignment, TokenType.LiteralString, TokenType.Semicolon,
-        TokenType.Let, TokenType.Identifier, TokenType.Assignment, TokenType.LiteralInt, TokenType.Semicolon,
+        TokenKind.Let, TokenKind.Identifier, TokenKind.Assignment, TokenKind.LiteralString, TokenKind.Semicolon,
+        TokenKind.Let, TokenKind.Identifier, TokenKind.Assignment, TokenKind.LiteralInt, TokenKind.Semicolon,
 
         // Test 6: `let status = "order";` and `let details = "...";`
-        TokenType.Let, TokenType.Identifier, TokenType.Assignment, TokenType.LiteralString, TokenType.Semicolon,
-        TokenType.Let, TokenType.Identifier, TokenType.Assignment, TokenType.LiteralString, TokenType.Semicolon,
+        TokenKind.Let, TokenKind.Identifier, TokenKind.Assignment, TokenKind.LiteralString, TokenKind.Semicolon,
+        TokenKind.Let, TokenKind.Identifier, TokenKind.Assignment, TokenKind.LiteralString, TokenKind.Semicolon,
 
-        TokenType.EOF
+        TokenKind.EOF
     };
 
         var actualTypes = tokens.Select(t => t.Kind).ToArray();

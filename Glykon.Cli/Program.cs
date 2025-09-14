@@ -4,6 +4,7 @@ using Glykon.Compiler.Emitter;
 using Glykon.Compiler.Semantics;
 using Glykon.Compiler.Syntax;
 using Glykon.Compiler.Diagnostics.Errors;
+using Glykon.Compiler.Semantics.Binding;
 
 namespace Glykon.Cli;
 
@@ -23,7 +24,6 @@ internal class Program
                 }
 
                 def fib(n: int) -> int {
-                    #println(i)
                     if n <= 1 {
                         return n
                     }
@@ -45,11 +45,8 @@ internal class Program
 
         errors.AddRange(parserErrors);
 
-        SemanticBinder binder = new(syntaxTree, interner);
-        SymbolTable symbolTable = binder.Bind();
-
-        SemanticAnalyzer semanticAnalyzer = new(syntaxTree, symbolTable, filename);
-        var semanticErrors = semanticAnalyzer.Execute();
+        SemanticAnalyzer semanticAnalyzer = new(syntaxTree, interner, filename);
+        var (boundTree, symbolTable, semanticErrors) = semanticAnalyzer.Analyze();
 
         errors.AddRange(semanticErrors);
 
@@ -60,7 +57,7 @@ internal class Program
 
         if (errors.Count != 0) return;
 
-        var emitter = new TypeEmitter(syntaxTree, symbolTable, interner, filename);
+        var emitter = new TypeEmitter(boundTree, symbolTable, interner, filename);
         emitter.EmitAssembly();
 
         Assembly assembly = emitter.GetAssembly();

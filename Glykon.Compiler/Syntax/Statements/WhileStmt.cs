@@ -2,10 +2,10 @@
 
 namespace Glykon.Compiler.Syntax.Statements
 {
-    public class WhileStmt(IExpression condition, IStatement statement) : IStatement
+    public class WhileStmt(Expression condition, Statement statement) : Statement
     {
-        public StatementType Type => StatementType.While;
-        public IExpression Expression { get; } = condition;
-        public IStatement Statement { get; } = statement;
+        public override StatementKind Kind => StatementKind.While;
+        public Expression Condition { get; } = condition;
+        public Statement Statement { get; } = statement;
     }
 }

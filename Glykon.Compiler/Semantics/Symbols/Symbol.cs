@@ -2,8 +2,8 @@ using Glykon.Compiler.Syntax;
 
 namespace Glykon.Compiler.Semantics.Symbols;
 
-public abstract class Symbol(int id, TokenType type)
+public abstract class Symbol(int id, TokenKind type)
 {
     public int Id { get; } = id;
-    public TokenType Type { get; set; } = type;
+    public TokenKind Type { get; set; } = type;
 }

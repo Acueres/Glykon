@@ -1,9 +1,9 @@
 ﻿namespace Glykon.Compiler.Syntax.Expressions
 {
-    public class UnaryExpr(Token oper, IExpression expr) : IExpression
+    public class UnaryExpr(Token oper, Expression expr) : Expression
     {
-        public ExpressionType Type => ExpressionType.Unary;
+        public override ExpressionKind Kind => ExpressionKind.Unary;
         public Token Operator { get; } = oper;
-        public IExpression Expression { get; } = expr;
+        public Expression Operand { get; } = expr;
     }
 }

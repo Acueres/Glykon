@@ -1,8 +1,8 @@
 ﻿namespace Glykon.Compiler.Syntax.Expressions
 {
-    public class GroupingExpr(IExpression expr) : IExpression
+    public class GroupingExpr(Expression expr) : Expression
     {
-        public ExpressionType Type => ExpressionType.Grouping;
-        public IExpression Expression { get; } = expr;
+        public override ExpressionKind Kind => ExpressionKind.Grouping;
+        public Expression Expression { get; } = expr;
     }
 }

@@ -3,11 +3,9 @@ using Glykon.Compiler.Syntax.Expressions;
 
 namespace Glykon.Compiler.Syntax.Statements
 {
-    public class BlockStmt(List<IStatement> statements) : IStatement
+    public class BlockStmt(List<Statement> statements) : Statement
     {
-        public StatementType Type => StatementType.Block;
-        public IExpression Expression { get; }
-        public Scope Scope { get; set; }
-        public List<IStatement> Statements { get; } = statements;
+        public override StatementKind Kind => StatementKind.Block;
+        public List<Statement> Statements { get; } = statements;
     }
 }

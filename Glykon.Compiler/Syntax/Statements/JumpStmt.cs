@@ -1,11 +1,8 @@
-﻿using Glykon.Compiler.Syntax.Expressions;
-
-namespace Glykon.Compiler.Syntax.Statements
+﻿namespace Glykon.Compiler.Syntax.Statements
 {
-    public class JumpStmt(Token token): IStatement
+    public class JumpStmt(Token token): Statement
     {
-        public StatementType Type => StatementType.Jump;
-        public IExpression Expression { get; }
+        public override StatementKind Kind => StatementKind.Jump;
         public Token Token { get; } = token;
     }
 }

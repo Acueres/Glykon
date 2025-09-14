@@ -1,7 +1,7 @@
 ﻿using Glykon.Compiler.Semantics.Symbols;
 using Glykon.Compiler.Syntax;
 
-namespace Glykon.Compiler.Semantics;
+namespace Glykon.Compiler.Semantics.Binding;
 
 public class SymbolTable
 {
@@ -23,14 +23,16 @@ public class SymbolTable
         return current.ContainingFunction;
     }
 
-    public FunctionSymbol? RegisterFunction(string name, TokenType returnType, TokenType[] parameterTypes)
+    public FunctionSymbol? RegisterFunction(string name, TokenKind returnType, TokenKind[] parameterTypes)
     {
         int symbolIndex = interner.Intern(name);
-        FunctionSymbol? signature = current.AddFunction(symbolIndex, returnType, parameterTypes);
+        string qualifiedName = ComputeQualifiedName(name);
+        int qualifiedId = interner.Intern(qualifiedName);
+        FunctionSymbol? signature = current.AddFunction(symbolIndex, qualifiedId, returnType, parameterTypes);
         return signature;
     }
 
-    public FunctionSymbol? GetFunction(string name, TokenType[] parameters)
+    public FunctionSymbol? GetFunction(string name, TokenKind[] parameters)
     {
         if (!interner.TryGetId(name, out var id)) return null;
         return current.GetFunction(id, parameters);
@@ -42,21 +44,21 @@ public class SymbolTable
         return current.GetFunctionOverloads(id).Count > 0;
     }
 
-    public ConstantSymbol RegisterConstant(string name, in Token value, TokenType type)
+    public ConstantSymbol RegisterConstant(string name, in Token value, TokenKind type)
     {
         int symbolIndex = interner.Intern(name);
         ConstantSymbol constant = current.AddConstant(symbolIndex, value, type);
         return constant;
     }
 
-    public ParameterSymbol RegisterParameter(string name, TokenType type)
+    public ParameterSymbol RegisterParameter(string name, TokenKind type)
     {
         int symbolIndex = interner.Intern(name);
         ParameterSymbol parameter = current.AddParameter(symbolIndex, type);
         return parameter;
     }
 
-    public VariableSymbol RegisterVariable(string name, TokenType type)
+    public VariableSymbol RegisterVariable(string name, TokenKind type)
     {
         int symbolIndex = interner.Intern(name);
         VariableSymbol variable = current.AddVariable(symbolIndex, type);
@@ -106,9 +108,33 @@ public class SymbolTable
         current = global;
     }
 
-    public bool UpdateType(string name, TokenType type)
+    public bool UpdateType(string name, TokenKind type)
     {
         if (!interner.TryGetId(name, out var id)) return false;
         return current.UpdateSymbolType(id, type);
+    }
+
+    string ComputeQualifiedName(string localName)
+    {
+        var stack = GetContainingFunctionStack();
+        return stack.Count == 0 ? localName : string.Join('.', stack.Append(localName));
+    }
+
+    List<string> GetContainingFunctionStack()
+    {
+        Scope currentScope = current;
+        List<string> stack = [];
+
+        while (currentScope != null && currentScope.ContainingFunction != null)
+        {
+            string name = interner[currentScope.ContainingFunction.Id];
+            stack.Add(name);
+
+            currentScope = currentScope.Parent;
+        }
+
+        stack.Reverse();
+
+        return stack;
     }
 }

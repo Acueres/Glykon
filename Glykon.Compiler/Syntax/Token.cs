@@ -1,8 +1,6 @@
-﻿using Glykon.Compiler.Syntax.Statements;
+﻿namespace Glykon.Compiler.Syntax;
 
-namespace Glykon.Compiler.Syntax;
-
-public enum TokenType : byte
+public enum TokenKind : byte
 {
     // Sentinel
     Empty,
@@ -34,40 +32,40 @@ public enum TokenType : byte
 
 public readonly struct Token
 {
-    public TokenType Kind { get; init; }
+    public TokenKind Kind { get; init; }
     public int Line { get; init; }
 
     public string StringValue { get; init; } = string.Empty;
     public long IntValue { get; init; }
     public double RealValue { get; init; }
 
-    static readonly Token empty = new(TokenType.Empty, 0);
+    static readonly Token empty = new(TokenKind.Empty, 0);
     public static ref readonly Token Empty => ref empty;
 
-    public bool IsEmpty => Kind == TokenType.Empty;
+    public bool IsEmpty => Kind == TokenKind.Empty;
 
-    public Token(TokenType type, int line, string value)
+    public Token(TokenKind type, int line, string value)
     {
         Kind = type;
         Line = line;
         StringValue = value;
     }
 
-    public Token(TokenType type, int line, long value)
+    public Token(TokenKind type, int line, long value)
     {
         Kind = type;
         Line = line;
         IntValue = value;
     }
 
-    public Token(TokenType type, int line, double value)
+    public Token(TokenKind type, int line, double value)
     {
         Kind = type;
         Line = line;
         RealValue = value;
     }
 
-    public Token(TokenType type, int line)
+    public Token(TokenKind type, int line)
     {
         Kind = type;
         Line = line;

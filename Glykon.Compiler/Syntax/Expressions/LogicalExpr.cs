@@ -1,10 +1,10 @@
 ﻿namespace Glykon.Compiler.Syntax.Expressions
 {
-    public class LogicalExpr(Token oper, IExpression left, IExpression right) : IExpression
+    public class LogicalExpr(Token oper, Expression left, Expression right) : Expression
     {
-        public ExpressionType Type => ExpressionType.Logical;
+        public override ExpressionKind Kind => ExpressionKind.Logical;
         public Token Operator { get; } = oper;
-        public IExpression Left { get; } = left;
-        public IExpression Right { get; } = right;
+        public Expression Left { get; } = left;
+        public Expression Right { get; } = right;
     }
 }

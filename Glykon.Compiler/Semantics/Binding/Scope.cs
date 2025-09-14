@@ -1,7 +1,7 @@
 ﻿using Glykon.Compiler.Semantics.Symbols;
 using Glykon.Compiler.Syntax;
 
-namespace Glykon.Compiler.Semantics;
+namespace Glykon.Compiler.Semantics.Binding;
 
 public enum ScopeKind
 {
@@ -42,7 +42,7 @@ public class Scope
 
     public Scope() { Kind = ScopeKind.Top; }
 
-    public FunctionSymbol? AddFunction(int symbolId, TokenType returnType, TokenType[] parameters)
+    public FunctionSymbol? AddFunction(int symbolId, int qualifiedId, TokenKind returnType, TokenKind[] parameters)
     {
         FunctionSymbol symbol;
 
@@ -59,19 +59,19 @@ public class Scope
                 }
             }
 
-            symbol = new(symbolId, returnType, parameters);
+            symbol = new(symbolId, qualifiedId, returnType, parameters);
             overloads.Add(symbol);
         }
         else
         {
-            symbol = new(symbolId, returnType, parameters);
+            symbol = new(symbolId, qualifiedId, returnType, parameters);
             functions.Add(symbolId, [symbol]);
         }
 
         return symbol;
     }
 
-    public FunctionSymbol? GetFunction(int id, TokenType[] parameters)
+    public FunctionSymbol? GetFunction(int id, TokenKind[] parameters)
     {
         List<FunctionSymbol> allOverloads = GetFunctionOverloads(id);
 
@@ -103,21 +103,21 @@ public class Scope
         return allOverloads;
     }
 
-    public ConstantSymbol AddConstant(int id, in Token value, TokenType type)
+    public ConstantSymbol AddConstant(int id, in Token value, TokenKind type)
     {
         ConstantSymbol symbol = new(id, type, value);
         symbols.Add(id, symbol);
         return symbol;
     }
 
-    public ParameterSymbol AddParameter(int id, TokenType type)
+    public ParameterSymbol AddParameter(int id, TokenKind type)
     {
         ParameterSymbol symbol = new(id, type, parameterCount++);
         symbols.Add(id, symbol);
         return symbol;
     }
 
-    public VariableSymbol AddVariable(int id, TokenType type)
+    public VariableSymbol AddVariable(int id, TokenKind type)
     {
         VariableSymbol symbol = new(id, type);
         symbols.Add(id, symbol);
@@ -156,7 +156,7 @@ public class Scope
         else return null;
     }
 
-    public bool UpdateSymbolType(int id, TokenType type)
+    public bool UpdateSymbolType(int id, TokenKind type)
     {
         Symbol? symbol = GetSymbol(id);
         if (symbol is not null)

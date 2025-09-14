@@ -12,7 +12,7 @@ public class Parser(Token[] tokens, string filename)
     bool AtEnd => tokenIndex >= tokens.Length;
 
     readonly Token[] tokens = tokens;
-    readonly List<IStatement> statements = [];
+    readonly List<Statement> statements = [];
     readonly List<IGlykonError> errors = [];
     int tokenIndex;
 
@@ -22,8 +22,8 @@ public class Parser(Token[] tokens, string filename)
         {
             try
             {
-                if (Current.Kind == TokenType.EOF) break;
-                IStatement stmt = ParseStatement();
+                if (Current.Kind == TokenKind.EOF) break;
+                Statement stmt = ParseStatement();
                 statements.Add(stmt);
             }
             catch (ParseException)
@@ -35,40 +35,40 @@ public class Parser(Token[] tokens, string filename)
         return (syntaxTree, errors);
     }
 
-    IStatement ParseStatement()
+    Statement ParseStatement()
     {
-        if (Match(TokenType.Const))
+        if (Match(TokenKind.Const))
         {
             return ParseConstantDeclaration();
         }
 
-        if (Match(TokenType.Let))
+        if (Match(TokenKind.Let))
         {
             return ParseVariableDeclarationStatement();
         }
 
-        if (Match(TokenType.Return))
+        if (Match(TokenKind.Return))
         {
             return ParseReturnStatement();
         }
 
-        if (Match(TokenType.BraceLeft))
+        if (Match(TokenKind.BraceLeft))
         {
             var blockStatement = ParseBlockStatement();
             return blockStatement;
         }
 
-        if (Match(TokenType.If))
+        if (Match(TokenKind.If))
         {
             return ParseIfStatement();
         }
 
-        if (Match(TokenType.While))
+        if (Match(TokenKind.While))
         {
             return ParseWhileStatement();
         }
 
-        if (Match(TokenType.Break, TokenType.Continue))
+        if (Match(TokenKind.Break, TokenKind.Continue))
         {
             JumpStmt jumpStmt = new(Previous);
 
@@ -76,12 +76,12 @@ public class Parser(Token[] tokens, string filename)
             return jumpStmt;
         }
 
-        if (Match(TokenType.Def))
+        if (Match(TokenKind.Def))
         {
             return ParseFunctionDeclaration();
         }
 
-        IExpression expr = ParseExpression();
+        Expression expr = ParseExpression();
 
         TerminateStatement("Expect ';' after expression");
 
@@ -90,49 +90,49 @@ public class Parser(Token[] tokens, string filename)
 
     BlockStmt ParseBlockStatement()
     {
-        List<IStatement> statements = [];
+        List<Statement> statements = [];
 
-        while (Current.Kind != TokenType.BraceRight && !AtEnd)
+        while (Current.Kind != TokenKind.BraceRight && !AtEnd)
         {
-            IStatement stmt = ParseStatement();
+            Statement stmt = ParseStatement();
             statements.Add(stmt);
         }
 
-        Consume(TokenType.BraceRight, "Expect '}' after block");
+        Consume(TokenKind.BraceRight, "Expect '}' after block");
 
         return new BlockStmt(statements);
     }
 
     IfStmt ParseIfStatement()
     {
-        IExpression condition = ParseExpression();
+        Expression condition = ParseLogicalOr();
 
         // Handle ASI artefacts
-        Match(TokenType.Semicolon);
+        Match(TokenKind.Semicolon);
 
-        IStatement stmt;
-        if (Match(TokenType.BraceLeft))
+        Statement stmt;
+        if (Match(TokenKind.BraceLeft))
         {
             stmt = ParseBlockStatement();
         }
         else
         {
-            Consume(TokenType.Colon, "Expect ':' after if condition");
+            Consume(TokenKind.Colon, "Expect ':' after if condition");
 
             stmt = ParseStatement();
         }
 
-        IStatement? elseStmt = null;
-        if (Match(TokenType.Else))
+        Statement? elseStmt = null;
+        if (Match(TokenKind.Else))
         {
             // Handle ASI artefacts
-            Match(TokenType.Semicolon);
+            Match(TokenKind.Semicolon);
             elseStmt = ParseStatement();
         }
-        else if (Match(TokenType.Elif))
+        else if (Match(TokenKind.Elif))
         {
             // Handle ASI artefacts
-            Match(TokenType.Semicolon);
+            Match(TokenKind.Semicolon);
             elseStmt = ParseIfStatement();
         }
 
@@ -141,78 +141,86 @@ public class Parser(Token[] tokens, string filename)
 
     WhileStmt ParseWhileStatement()
     {
-        IExpression condition = ParseExpression();
+        Expression condition = ParseLogicalOr();
 
         // Handle ASI artefacts
-        Match(TokenType.Semicolon);
+        Match(TokenKind.Semicolon);
 
-        if (Match(TokenType.BraceLeft))
+        if (Match(TokenKind.BraceLeft))
         {
             var body = ParseBlockStatement();
             return new WhileStmt(condition, body);
         }
 
-        Consume(TokenType.Colon, "Expect ':' after while condition");
+        Consume(TokenKind.Colon, "Expect ':' after while condition");
 
         var statement = ParseStatement();
 
         return new WhileStmt(condition, statement);
     }
 
-    FunctionStmt ParseFunctionDeclaration()
+    FunctionDeclaration ParseFunctionDeclaration()
     {
-        Token functionName = Consume(TokenType.Identifier, "Expect function name");
-        Consume(TokenType.ParenthesisLeft, "Expect '(' after function name");
-        List<(string Name, TokenType Type)> parameters = [];
+        Token functionName = Consume(TokenKind.Identifier, "Expect function name");
+        Consume(TokenKind.ParenthesisLeft, "Expect '(' after function name");
+        List<(string Name, TokenKind Type)> parameters = [];
 
-        if (Current.Kind != TokenType.ParenthesisRight)
+        if (Current.Kind != TokenKind.ParenthesisRight)
         {
             parameters = ParseParameters();
         }
 
-        Consume(TokenType.ParenthesisRight, "Expect ')' after parameters");
+        Consume(TokenKind.ParenthesisRight, "Expect ')' after parameters");
 
-        TokenType returnType = TokenType.None;
-        if (Match(TokenType.Arrow))
+        TokenKind returnType = TokenKind.None;
+        if (Match(TokenKind.Arrow))
         {
             returnType = ParseTypeDeclaration();
         }
 
-        Consume(TokenType.BraceLeft, "Expect '{' before function body");
+        BlockStmt body;
+        if (Match(TokenKind.BraceLeft))
+        {
+            body = ParseBlockStatement();
+        }
+        else
+        {
+            Consume(TokenKind.Colon, "Body must be declared");
+            var stmt = ParseStatement();
+            body = new BlockStmt([stmt]);
+        }
 
-        BlockStmt body = ParseBlockStatement();
-
-        return new FunctionStmt(functionName.StringValue, parameters, returnType, body);
+        return new FunctionDeclaration(functionName.StringValue, parameters, returnType, body);
     }
 
     ReturnStmt ParseReturnStatement()
     {
-        if (Match(TokenType.Semicolon) || Current.Kind == TokenType.BraceRight)
+        if (Match(TokenKind.Semicolon) || Current.Kind == TokenKind.BraceRight)
         {
             return new ReturnStmt(null);
         }
 
-        IExpression value = ParseExpression();
+        Expression value = ParseLogicalOr();
 
         TerminateStatement("Expect ';' after return value");
 
         return new ReturnStmt(value);
     }
 
-    VariableStmt ParseVariableDeclarationStatement()
+    VariableDeclaration ParseVariableDeclarationStatement()
     {
-        Token token = Consume(TokenType.Identifier, "Expect variable name");
+        Token token = Consume(TokenKind.Identifier, "Expect variable name");
 
-        TokenType declaredType = TokenType.None;
-        if (Match(TokenType.Colon))
+        TokenKind declaredType = TokenKind.None;
+        if (Match(TokenKind.Colon))
         {
             declaredType = ParseTypeDeclaration();
         }
 
-        IExpression? initializer = null;
-        if (Match(TokenType.Assignment))
+        Expression? initializer = null;
+        if (Match(TokenKind.Assignment))
         {
-            initializer = ParseExpression();
+            initializer = ParseLogicalOr();
         }
 
         if (initializer == null)
@@ -230,15 +238,15 @@ public class Parser(Token[] tokens, string filename)
         }
     }
 
-    ConstantStmt ParseConstantDeclaration()
+    ConstantDeclaration ParseConstantDeclaration()
     {
-        Token token = Consume(TokenType.Identifier, "Expect constant name");
+        Token token = Consume(TokenKind.Identifier, "Expect constant name");
 
-        Consume(TokenType.Colon, "Expect type declaration");
-        TokenType declaredType = ParseTypeDeclaration();
+        Consume(TokenKind.Colon, "Expect type declaration");
+        TokenKind declaredType = ParseTypeDeclaration();
 
-        Consume(TokenType.Assignment, "Expect constant value");
-        IExpression initializer = ParseExpression();
+        Consume(TokenKind.Assignment, "Expect constant value");
+        Expression initializer = ParseExpression();
 
         if (initializer is not LiteralExpr literal)
         {
@@ -253,15 +261,15 @@ public class Parser(Token[] tokens, string filename)
         return new(initializer, name, literal.Token, declaredType);
     }
 
-    TokenType ParseTypeDeclaration()
+    TokenKind ParseTypeDeclaration()
     {
         Token next = Advance();
         return next.Kind;
     }
 
-    List<(string Name, TokenType Type)> ParseParameters()
+    List<(string Name, TokenKind Type)> ParseParameters()
     {
-        List<(string Name, TokenType Type)> parameters = [];
+        List<(string Name, TokenKind Type)> parameters = [];
         do
         {
             if (parameters.Count > ushort.MaxValue)
@@ -269,34 +277,34 @@ public class Parser(Token[] tokens, string filename)
                 errors.Add(new ParseError(Current, fileName, "Argument count exceeded"));
             }
 
-            Token name = Consume(TokenType.Identifier, "Expect parameter name");
-            Consume(TokenType.Colon, "Expect colon before type declaration");
+            Token name = Consume(TokenKind.Identifier, "Expect parameter name");
+            Consume(TokenKind.Colon, "Expect colon before type declaration");
             Token type = Advance();
 
             var parameter = (name.StringValue, type.Kind);
             parameters.Add(parameter);
         }
-        while (Match(TokenType.Comma));
+        while (Match(TokenKind.Comma));
 
         return parameters;
     }
 
-    public IExpression ParseExpression()
+    public Expression ParseExpression()
     {
         return ParseAssignment();
     }
 
-    IExpression ParseAssignment()
+    Expression ParseAssignment()
     {
-        IExpression expr = ParseLogicalOr();
+        Expression expr = ParseLogicalOr();
 
-        if (Match(TokenType.Assignment))
+        if (Match(TokenKind.Assignment))
         {
             Token token = Peek(-2);
 
-            IExpression value = ParseAssignment();
+            Expression value = ParseAssignment();
 
-            if (expr.Type == ExpressionType.Variable)
+            if (expr.Kind == ExpressionKind.Variable)
             {
                 string name = ((VariableExpr)expr).Name;
                 return new AssignmentExpr(name, value);
@@ -309,107 +317,107 @@ public class Parser(Token[] tokens, string filename)
         return expr;
     }
 
-    IExpression ParseLogicalOr()
+    Expression ParseLogicalOr()
     {
-        IExpression expr = ParseLogicalAnd();
+        Expression expr = ParseLogicalAnd();
 
-        while (Match(TokenType.Or))
+        while (Match(TokenKind.Or))
         {
             Token oper = Previous;
-            IExpression right = ParseLogicalAnd();
+            Expression right = ParseLogicalAnd();
             expr = new LogicalExpr(oper, expr, right);
         }
 
         return expr;
     }
 
-    IExpression ParseLogicalAnd()
+    Expression ParseLogicalAnd()
     {
-        IExpression expr = ParseEquality();
+        Expression expr = ParseEquality();
 
-        while (Match(TokenType.And))
+        while (Match(TokenKind.And))
         {
             Token oper = Previous;
-            IExpression right = ParseEquality();
+            Expression right = ParseEquality();
             expr = new LogicalExpr(oper, expr, right);
         }
 
         return expr;
     }
 
-    IExpression ParseEquality()
+    Expression ParseEquality()
     {
-        IExpression expr = ParseComparison();
+        Expression expr = ParseComparison();
 
-        while (Match(TokenType.Equal, TokenType.NotEqual))
+        while (Match(TokenKind.Equal, TokenKind.NotEqual))
         {
             Token oper = Previous;
-            IExpression right = ParseComparison();
+            Expression right = ParseComparison();
             expr = new BinaryExpr(oper, expr, right);
         }
 
         return expr;
     }
 
-    IExpression ParseComparison()
+    Expression ParseComparison()
     {
-        IExpression expr = ParseTerm();
+        Expression expr = ParseTerm();
 
-        while (Match(TokenType.Greater, TokenType.GreaterEqual, TokenType.Less, TokenType.LessEqual))
+        while (Match(TokenKind.Greater, TokenKind.GreaterEqual, TokenKind.Less, TokenKind.LessEqual))
         {
             Token oper = Previous;
-            IExpression right = ParseTerm();
+            Expression right = ParseTerm();
             expr = new BinaryExpr(oper, expr, right);
         }
 
         return expr;
     }
 
-    IExpression ParseTerm()
+    Expression ParseTerm()
     {
-        IExpression expr = ParseFactor();
+        Expression expr = ParseFactor();
 
-        while (Match(TokenType.Plus, TokenType.Minus))
+        while (Match(TokenKind.Plus, TokenKind.Minus))
         {
             Token oper = Previous;
-            IExpression right = ParseFactor();
+            Expression right = ParseFactor();
             expr = new BinaryExpr(oper, expr, right);
         }
 
         return expr;
     }
 
-    IExpression ParseFactor()
+    Expression ParseFactor()
     {
-        IExpression expr = ParseUnary();
+        Expression expr = ParseUnary();
 
-        while (Match(TokenType.Slash, TokenType.Star))
+        while (Match(TokenKind.Slash, TokenKind.Star))
         {
             Token oper = Previous;
-            IExpression right = ParseUnary();
+            Expression right = ParseUnary();
             expr = new BinaryExpr(oper, expr, right);
         }
 
         return expr;
     }
 
-    IExpression ParseUnary()
+    Expression ParseUnary()
     {
-        if (Match(TokenType.Not, TokenType.Minus))
+        if (Match(TokenKind.Not, TokenKind.Minus))
         {
             Token oper = Previous;
-            IExpression right = ParseUnary();
+            Expression right = ParseUnary();
             return new UnaryExpr(oper, right);
         }
 
         return ParseCall();
     }
 
-    IExpression ParseCall()
+    Expression ParseCall()
     {
-        IExpression expr = ParsePrimary();
+        Expression expr = ParsePrimary();
 
-        while (Match(TokenType.ParenthesisLeft))
+        while (Match(TokenKind.ParenthesisLeft))
         {
             expr = CompleteCall(expr);
         }
@@ -417,10 +425,10 @@ public class Parser(Token[] tokens, string filename)
         return expr;
     }
 
-    CallExpr CompleteCall(IExpression callee)
+    CallExpr CompleteCall(Expression callee)
     {
-        List<IExpression> args = [];
-        if (Current.Kind != TokenType.ParenthesisRight)
+        List<Expression> args = [];
+        if (Current.Kind != TokenKind.ParenthesisRight)
         {
             do
             {
@@ -431,28 +439,28 @@ public class Parser(Token[] tokens, string filename)
 
                 args.Add(ParseExpression());
             }
-            while (Match(TokenType.Comma));
+            while (Match(TokenKind.Comma));
         }
-        Token closingParenthesis = Consume(TokenType.ParenthesisRight, "Expect ')' after arguments.");
+        Token closingParenthesis = Consume(TokenKind.ParenthesisRight, "Expect ')' after arguments.");
         return new CallExpr(callee, closingParenthesis, args);
     }
 
-    IExpression ParsePrimary()
+    Expression ParsePrimary()
     {
-        if (Match(TokenType.None, TokenType.LiteralTrue, TokenType.LiteralFalse,
-                  TokenType.LiteralInt, TokenType.LiteralReal, TokenType.LiteralString))
+        if (Match(TokenKind.None, TokenKind.LiteralTrue, TokenKind.LiteralFalse,
+                  TokenKind.LiteralInt, TokenKind.LiteralReal, TokenKind.LiteralString))
             return new LiteralExpr(Previous);
 
-        if (Match(TokenType.Identifier))
+        if (Match(TokenKind.Identifier))
         {
             string name = Previous.StringValue;
             return new VariableExpr(name);
         }
 
-        if (Match(TokenType.ParenthesisLeft))
+        if (Match(TokenKind.ParenthesisLeft))
         {
-            IExpression expr = ParseExpression();
-            Consume(TokenType.ParenthesisRight, "Expect ')' after expression");
+            Expression expr = ParseExpression();
+            Consume(TokenKind.ParenthesisRight, "Expect ')' after expression");
             return new GroupingExpr(expr);
         }
 
@@ -467,9 +475,9 @@ public class Parser(Token[] tokens, string filename)
     /// <param name="errorMessage"></param>
     void TerminateStatement(string errorMessage)
     {
-        if (Current.Kind != TokenType.BraceRight)
+        if (Current.Kind != TokenKind.BraceRight)
         {
-            Consume(TokenType.Semicolon, errorMessage);
+            Consume(TokenKind.Semicolon, errorMessage);
         }
     }
 
@@ -479,19 +487,19 @@ public class Parser(Token[] tokens, string filename)
 
         while (!AtEnd)
         {
-            if (Current.Kind == TokenType.Semicolon) return;
+            if (Current.Kind == TokenKind.Semicolon) return;
 
             switch (Current.Kind)
             {
-                case TokenType.Class:
-                case TokenType.Struct:
-                case TokenType.Interface:
-                case TokenType.Enum:
-                case TokenType.Def:
-                case TokenType.For:
-                case TokenType.If:
-                case TokenType.While:
-                case TokenType.Return:
+                case TokenKind.Class:
+                case TokenKind.Struct:
+                case TokenKind.Interface:
+                case TokenKind.Enum:
+                case TokenKind.Def:
+                case TokenKind.For:
+                case TokenKind.If:
+                case TokenKind.While:
+                case TokenKind.Return:
                     return;
             }
 
@@ -499,7 +507,7 @@ public class Parser(Token[] tokens, string filename)
         }
     }
 
-    Token Consume(TokenType symbol, string message)
+    Token Consume(TokenKind symbol, string message)
     {
         if (Current.Kind == symbol) return Advance();
         ParseError error = new(Current, fileName, message);
@@ -526,9 +534,9 @@ public class Parser(Token[] tokens, string filename)
     ref readonly Token Current => ref Peek(0);
     ref readonly Token Previous => ref Peek(-1);
 
-    bool Match(params TokenType[] values)
+    bool Match(params TokenKind[] values)
     {
-        foreach (TokenType value in values)
+        foreach (TokenKind value in values)
         {
             if (Current.Kind == value)
             {

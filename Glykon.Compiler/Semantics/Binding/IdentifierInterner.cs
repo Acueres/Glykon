@@ -1,4 +1,4 @@
-﻿namespace Glykon.Compiler.Semantics;
+﻿namespace Glykon.Compiler.Semantics.Binding;
 
 public class IdentifierInterner
 {

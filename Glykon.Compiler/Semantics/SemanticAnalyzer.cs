@@ -1,35 +1,26 @@
 ﻿using Glykon.Compiler.Diagnostics.Errors;
+using Glykon.Compiler.Semantics.Binding;
+using Glykon.Compiler.Semantics.Flow;
 using Glykon.Compiler.Syntax;
-using Glykon.Compiler.Syntax.Statements;
 
 namespace Glykon.Compiler.Semantics;
 
-public class SemanticAnalyzer(SyntaxTree syntaxTree, SymbolTable symbolTable, string fileName)
+public class SemanticAnalyzer(SyntaxTree syntaxTree, IdentifierInterner interner, string fileName)
 {
-    readonly SyntaxTree syntaxTree = syntaxTree;
+    readonly SemanticBinder binder = new(syntaxTree, interner, fileName);
 
-    readonly TypeChecker typeChecker = new(symbolTable, fileName);
-    readonly SemanticRefiner refiner = new(symbolTable, fileName);
-
-    public List<IGlykonError> Execute()
+    public (BoundTree, SymbolTable, List<IGlykonError>) Analyze()
     {
-        symbolTable.ResetScope();
+        var (boundTree, st) = binder.Bind();
 
-        foreach (var statement in syntaxTree)
-        {
-            typeChecker.Analyze(statement);
-        }
+        FlowAnalyzer flowAnalyzer = new(boundTree, fileName);
 
-        symbolTable.ResetScope();
-        foreach (var statement in syntaxTree)
-        {
-            refiner.Refine(statement);
-        }
+        flowAnalyzer.AnalyzeFlow();
 
-        var typeErrors = typeChecker.GetErrors();
-        var refinerErrors = refiner.GetErrors();
+        var typeErrors = binder.GetErrors();
+        var refinerErrors = flowAnalyzer.GetErrors();
 
         var errors = typeErrors.Concat(refinerErrors);
-        return [.. errors];
+        return (boundTree, st, [.. errors]);
     }
 }

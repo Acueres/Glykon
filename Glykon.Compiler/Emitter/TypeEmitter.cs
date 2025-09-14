@@ -4,25 +4,24 @@ using System.Reflection.PortableExecutable;
 using System.Reflection;
 using System.Reflection.Emit;
 using System.Runtime.Loader;
-
-using Glykon.Compiler.Semantics;
-using Glykon.Compiler.Syntax.Statements;
+using Glykon.Compiler.Semantics.Binding;
 using Glykon.Compiler.Semantics.Symbols;
 using Glykon.Compiler.Syntax;
+using Glykon.Compiler.Semantics.Binding.BoundStatements;
 
 namespace Glykon.Compiler.Emitter;
 
 public class TypeEmitter
 {
     readonly string appName;
-    readonly SyntaxTree syntaxTree;
+    readonly BoundTree syntaxTree;
     readonly SymbolTable symbolTable;
     readonly IdentifierInterner interner;
 
     readonly PersistedAssemblyBuilder ab;
     MethodBuilder main;
 
-    public TypeEmitter(SyntaxTree syntaxTree, SymbolTable symbolTable, IdentifierInterner interner, string appname)
+    public TypeEmitter(BoundTree syntaxTree, SymbolTable symbolTable, IdentifierInterner interner, string appname)
     {
         appName = appname;
         this.syntaxTree = syntaxTree;
@@ -44,7 +43,7 @@ public class TypeEmitter
 
         foreach (var stmt in syntaxTree)
         {
-            if (stmt is FunctionStmt f)
+            if (stmt is BoundFunctionDeclaration f)
             {
                 MethodEmitter mg = new(f, symbolTable, interner, tb, appName);
                 methodGenerators.Add(mg);
@@ -113,16 +112,16 @@ public class TypeEmitter
 
         var console = typeof(Console);
 
-        stdFunctions.Add(symbolTable.GetFunction("println", [TokenType.String]),
+        stdFunctions.Add(symbolTable.GetFunction("println", [TokenKind.String]),
             console.GetMethod("WriteLine", [typeof(string)]));
 
-        stdFunctions.Add(symbolTable.GetFunction("println", [TokenType.Int]),
+        stdFunctions.Add(symbolTable.GetFunction("println", [TokenKind.Int]),
             console.GetMethod("WriteLine", [typeof(int)]));
 
-        stdFunctions.Add(symbolTable.GetFunction("println", [TokenType.Real]),
+        stdFunctions.Add(symbolTable.GetFunction("println", [TokenKind.Real]),
             console.GetMethod("WriteLine", [typeof(double)]));
 
-        stdFunctions.Add(symbolTable.GetFunction("println", [TokenType.Bool]),
+        stdFunctions.Add(symbolTable.GetFunction("println", [TokenKind.Bool]),
             console.GetMethod("WriteLine", [typeof(bool)]));
 
         return stdFunctions;

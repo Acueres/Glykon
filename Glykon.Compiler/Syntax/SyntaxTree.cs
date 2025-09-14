@@ -4,13 +4,13 @@ using Glykon.Compiler.Syntax.Statements;
 
 namespace Glykon.Compiler.Syntax;
 
-public class SyntaxTree(IStatement[] statements, string fileName) : IEnumerable<IStatement>
+public class SyntaxTree(Statement[] statements, string fileName) : IEnumerable<Statement>
 {
     public readonly string FileName = fileName;
 
-    readonly IStatement[] statements = statements;
+    readonly Statement[] statements = statements;
 
-    public IStatement this[int index]
+    public Statement this[int index]
     {
         get => statements[index];
         set => statements[index] = value;
@@ -18,7 +18,7 @@ public class SyntaxTree(IStatement[] statements, string fileName) : IEnumerable<
 
     public int Length => statements.Length;
 
-    public IEnumerator<IStatement> GetEnumerator()
+    public IEnumerator<Statement> GetEnumerator()
     {
         foreach (var statement in statements)
         {

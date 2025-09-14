@@ -1,6 +1,6 @@
 ﻿namespace Glykon.Compiler.Syntax.Expressions
 {
-    public enum ExpressionType : byte
+    public enum ExpressionKind : byte
     {
         Unary,
         Binary,
@@ -12,8 +12,8 @@
         Logical
     }
 
-    public interface IExpression
+    public abstract class Expression
     {
-        ExpressionType Type { get; }
+        public abstract ExpressionKind Kind { get; }
     }
 }
