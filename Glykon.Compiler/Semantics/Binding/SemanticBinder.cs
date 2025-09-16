@@ -13,7 +13,7 @@ public class SemanticBinder(SyntaxTree syntaxTree, IdentifierInterner interner, 
 {
     readonly SyntaxTree syntaxTree = syntaxTree;
     readonly SymbolTable symbolTable = new(interner);
-    readonly TypeChecker typeChecker = new(syntaxTree.FileName);
+    readonly TypeChecker typeChecker = new(syntaxTree.FileName, interner);
     readonly List<IGlykonError> errors = [];
     readonly string fileName = fileName;
 
@@ -93,19 +93,19 @@ public class SemanticBinder(SyntaxTree syntaxTree, IdentifierInterner interner, 
                     BoundExpression boundExpression = BindExpression(variableStmt.Expression);
                     var variableType = typeChecker.CheckDeclaredType(boundExpression, variableStmt.DeclaredType);
 
-                    symbolTable.RegisterVariable(variableStmt.Name, variableType);
+                    var symbol = symbolTable.RegisterVariable(variableStmt.Name, variableType);
 
-                    return new BoundVariableDeclaration(boundExpression, variableStmt.Name, variableType);
+                    return new BoundVariableDeclaration(boundExpression, symbol, variableType);
                 }
             case StatementKind.Constant:
                 {
                     var constantStmt = (ConstantDeclaration)stmt;
 
-                    symbolTable.RegisterConstant(constantStmt.Name, constantStmt.Token, constantStmt.DeclaredType);
+                    var symbol = symbolTable.RegisterConstant(constantStmt.Name, constantStmt.Token, constantStmt.DeclaredType);
 
                     BoundExpression boundExpression = BindExpression(constantStmt.Expression);
-                    var constantType = typeChecker.CheckDeclaredType(boundExpression, constantStmt.DeclaredType);
-                    return new BoundConstantDeclaration(boundExpression, constantStmt.Name, constantStmt.Token, constantType);
+                    typeChecker.CheckDeclaredType(boundExpression, constantStmt.DeclaredType);
+                    return new BoundConstantDeclaration(symbol);
                 }
 
             case StatementKind.Function:
@@ -125,23 +125,14 @@ public class SemanticBinder(SyntaxTree syntaxTree, IdentifierInterner interner, 
                     List<BoundStatement> boundStatements = new(functionStmt.Body.Statements.Count);
                     var functionDeclarations = functionStmt.Body.Statements.Where(stmt =>  stmt.Kind == StatementKind.Function);
                     var statements = functionStmt.Body.Statements.Where(stmt => stmt.Kind != StatementKind.Function);
-                    foreach (var statement in functionDeclarations)
-                    {
-                        var boundStatement = BindStatement(statement);
-                        boundStatements.Add(boundStatement);
-                    }
-
-                    foreach (var statement in statements)
-                    {
-                        var boundStatement = BindStatement(statement);
-                        boundStatements.Add(boundStatement);
-                    }
+                    boundStatements.AddRange(functionDeclarations.Select(statement => BindStatement(statement)));
+                    boundStatements.AddRange(statements.Select(statement => BindStatement(statement)));
 
                     BoundBlockStmt boundBody = new([.. boundStatements], scope);
 
                     symbolTable.ExitScope();
 
-                    return new BoundFunctionDeclaration(functionStmt.Name, signature, [.. parameterSymbols], functionStmt.ReturnType, boundBody);
+                    return new BoundFunctionDeclaration(signature, [.. parameterSymbols], functionStmt.ReturnType, boundBody);
                 }
             case StatementKind.Return:
                 {
@@ -164,7 +155,7 @@ public class SemanticBinder(SyntaxTree syntaxTree, IdentifierInterner interner, 
             case StatementKind.Jump:
                 {
                     var jumpStmt = (JumpStmt)stmt;
-                    return new BoundJumpStmt(jumpStmt.Token);
+                    return new BoundJumpStmt(jumpStmt.Token.Kind);
                 }
             default: return null;
         }
@@ -206,13 +197,13 @@ public class SemanticBinder(SyntaxTree syntaxTree, IdentifierInterner interner, 
                     AssignmentExpr assignmentExpr = (AssignmentExpr)expression;
                     BoundExpression right = BindExpression(assignmentExpr.Right);
                     Symbol symbol = symbolTable.GetSymbol(assignmentExpr.Name);
-                    return new BoundAssignmentExpr(assignmentExpr.Name, right, symbol);
+                    return new BoundAssignmentExpr(right, symbol);
                 }
             case ExpressionKind.Variable:
                 {
                     var variableExpr = (VariableExpr)expression;
                     var symbol = symbolTable.GetSymbol(variableExpr.Name);
-                    return new BoundVariableExpr(variableExpr.Name, symbol);
+                    return new BoundVariableExpr(symbol);
                 }
             case ExpressionKind.Grouping:
                 {

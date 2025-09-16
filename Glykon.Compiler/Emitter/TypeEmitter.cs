@@ -4,6 +4,7 @@ using System.Reflection.PortableExecutable;
 using System.Reflection;
 using System.Reflection.Emit;
 using System.Runtime.Loader;
+
 using Glykon.Compiler.Semantics.Binding;
 using Glykon.Compiler.Semantics.Symbols;
 using Glykon.Compiler.Syntax;
@@ -45,11 +46,12 @@ public class TypeEmitter
         {
             if (stmt is BoundFunctionDeclaration f)
             {
-                MethodEmitter mg = new(f, symbolTable, interner, tb, appName);
+                MethodEmitter mg = new(f, interner, tb, appName);
                 methodGenerators.Add(mg);
                 methods.Add(f.Signature, mg.GetMethodBuilder());
 
-                if (f.Name == "main")
+                string name = interner[f.Signature.QualifiedId];
+                if (name == "main")
                 {
                     main = mg.GetMethodBuilder();
                 }
@@ -91,7 +93,7 @@ public class TypeEmitter
         using var fileStream = new FileStream($"{appName}.exe", FileMode.Create, FileAccess.Write);
         peBlob.WriteContentTo(fileStream);
 
-        const string runtimeconfig = @"{
+        const string runtimeConfig = @"{
     ""runtimeOptions"": {
       ""tfm"": ""net9.0"",
       ""framework"": {
@@ -103,7 +105,7 @@ public class TypeEmitter
 ";
 
         using StreamWriter outputFile = new($"{appName}.runtimeconfig.json");
-        outputFile.WriteLine(runtimeconfig);
+        outputFile.WriteLine(runtimeConfig);
     }
 
     Dictionary<FunctionSymbol, MethodInfo> LoadStdLibrary()

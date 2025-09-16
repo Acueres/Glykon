@@ -46,7 +46,7 @@ public class FlowAnalyzer(BoundTree boundTree, string fileName)
 
         if (statement is BoundJumpStmt jumpStmt)
         {
-            ParseError error = new(jumpStmt.Token, fileName, "No enclosing loop out of which to break or continue");
+            TypeError error = new(fileName, "No enclosing loop out of which to break or continue");
             errors.Add(error);
         }
     }

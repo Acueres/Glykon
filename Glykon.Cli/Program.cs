@@ -15,6 +15,8 @@ internal class Program
         const string filename = "Test";
         const string src = @"
             def main() {
+                const pi: real = 3.14
+                println(pi)
                 let i = 0
 
                 while i < 20

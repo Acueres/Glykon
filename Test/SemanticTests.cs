@@ -51,7 +51,9 @@ public class SemanticTests
         Assert.Equal(2, boundTree.Length);
         Assert.Equal(StatementKind.Variable, boundTree[1].Kind);
         var stmt = (BoundVariableDeclaration)boundTree[1];
-        Assert.Equal("res", stmt.Name);
+
+        string name = interner[stmt.Symbol.Id];
+        Assert.Equal("res", name);
         Assert.NotNull(stmt.Expression);
         Assert.Equal(TokenKind.Int, stmt.VariableType);
     }

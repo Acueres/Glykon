@@ -1,4 +1,5 @@
 ﻿using Glykon.Compiler.Diagnostics.Errors;
+using Glykon.Compiler.Semantics.Binding;
 using Glykon.Compiler.Semantics.Binding.BoundExpressions;
 using Glykon.Compiler.Semantics.Symbols;
 using Glykon.Compiler.Syntax;
@@ -6,9 +7,10 @@ using Glykon.Compiler.Syntax.Expressions;
 
 namespace Glykon.Compiler.Semantics.TypeChecking;
 
-public class TypeChecker(string fileName)
+public class TypeChecker(string fileName, IdentifierInterner interner)
 {
     readonly string fileName = fileName;
+    private readonly IdentifierInterner interner = interner;
     readonly List<IGlykonError> errors = [];
 
     public List<IGlykonError> GetErrors() => errors;
@@ -188,8 +190,9 @@ public class TypeChecker(string fileName)
 
                     if (symbol is FunctionSymbol)
                     {
+                        string name = interner[variableExpr.Symbol.Id];
                         errors.Add(new TypeError(fileName,
-                            $"Function '{variableExpr.Name}' used as a value; did you forget ‘()’?"));
+                            $"Function '{name}' used as a value; did you forget ‘()’?"));
                         return TokenKind.None;
                     }
 

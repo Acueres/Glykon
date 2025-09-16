@@ -17,7 +17,6 @@ internal class MethodEmitter
     readonly ILGenerator il;
 
     readonly BoundFunctionDeclaration fStmt;
-    readonly SymbolTable st;
     readonly string appName;
 
     Dictionary<FunctionSymbol, MethodInfo> combinedMethods = [];
@@ -31,16 +30,17 @@ internal class MethodEmitter
     readonly Stack<Label> loopStart = [];
     readonly Stack<Label> loopEnd = [];
 
-    public MethodEmitter(BoundFunctionDeclaration stmt, SymbolTable symbolTable, IdentifierInterner interner, TypeBuilder typeBuilder, string appName)
+    public MethodEmitter(BoundFunctionDeclaration stmt, IdentifierInterner interner, TypeBuilder typeBuilder, string appName)
     {
         fStmt = stmt;
-        st = symbolTable;
         this.appName = appName;
 
         var parameterTypes = TranslateTypes([.. stmt.Parameters.Select(p => p.Type)]);
         var returnType = TranslateType(stmt.ReturnType);
 
-        mb = typeBuilder.DefineMethod(stmt.Name,
+        string name = interner[stmt.Signature.QualifiedId];
+
+        mb = typeBuilder.DefineMethod(name,
             MethodAttributes.HideBySig | MethodAttributes.Public | MethodAttributes.Static,
             returnType, parameterTypes);
 
@@ -68,7 +68,7 @@ internal class MethodEmitter
         var locals = stmt.Body.Statements.Where(s => s.Kind == StatementKind.Function).Select(s => (BoundFunctionDeclaration)s);
         foreach (var f in locals)
         {
-            MethodEmitter mg = new(f, symbolTable, interner, typeBuilder, appName);
+            MethodEmitter mg = new(f, interner, typeBuilder, appName);
             methodGenerators.Add(mg);
             localFunctions.Add(f.Signature, mg.GetMethodBuilder());
         }
@@ -79,9 +79,7 @@ internal class MethodEmitter
     public void EmitMethod(Dictionary<FunctionSymbol, MethodInfo> methods)
     {
         combinedMethods = methods.Concat(localFunctions).ToDictionary();
-
-        st.EnterScope(fStmt.Body.Scope);
-
+        
         foreach (BoundStatement stmt in fStmt.Body.Statements)
         {
             EmitStatement(stmt);
@@ -91,8 +89,6 @@ internal class MethodEmitter
         {
             mg.EmitMethod(combinedMethods);
         }
-
-        st.ExitScope();
 
         if (returnLabel is not null)
         {
@@ -129,7 +125,8 @@ internal class MethodEmitter
             case StatementKind.Return:
                 EmitReturnStatement((BoundReturnStmt)statement);
                 break;
-            case StatementKind.Function: break;
+            case StatementKind.Function:
+            case StatementKind.Constant:  break;
             default:
                 EmitExpression(((BoundExpressionStmt)statement).Expression);
                 break;
@@ -138,19 +135,15 @@ internal class MethodEmitter
 
     void EmitBlockStatement(BoundBlockStmt blockStmt)
     {
-        st.EnterScope(blockStmt.Scope);
-
         foreach (var s in blockStmt.Statements)
         {
             EmitStatement(s);
         }
-
-        st.ExitScope();
     }
 
     void EmitVariableDeclarationStatement(BoundVariableDeclaration statement)
     {
-        VariableSymbol symbol = st.GetVariable(statement.Name);
+        VariableSymbol symbol = statement.Symbol;
 
         Type type = TranslateType(symbol.Type);
 
@@ -237,11 +230,11 @@ internal class MethodEmitter
 
     void EmitJumpStatement(BoundJumpStmt jumpStatement)
     {
-        if (jumpStatement.Token.Kind == TokenKind.Break)
+        if (jumpStatement.JumpKind == JumpKind.Break)
         {
             il.Emit(OpCodes.Br_S, loopEnd.Last());
         }
-        else if (jumpStatement.Token.Kind == TokenKind.Continue)
+        else if (jumpStatement.JumpKind ==  JumpKind.Continue)
         {
             il.Emit(OpCodes.Br_S, loopStart.Last());
         }
@@ -260,7 +253,7 @@ internal class MethodEmitter
                 {
                     var expr = (BoundVariableExpr)expression;
 
-                    Symbol? symbol = st.GetSymbol(expr.Name);
+                    Symbol symbol = expr.Symbol;
 
                     if (symbol is ParameterSymbol parameter)
                     {
@@ -280,32 +273,21 @@ internal class MethodEmitter
                         return EmitPrimitive(constant.Value);
                     }
 
-                    /*var parameters = functionParameters.Pop();
-                    FunctionSymbol? function = st.GetFunction(expr.Name, parameters);
-                    if (function is not null)
-                    {
-                        il.EmitCall(OpCodes.Call, combinedMethods[function], []);
-
-                        return function.Type;
-                    }*/
-
                     return TokenKind.None;
                 }
             case ExpressionKind.Assignment:
                 {
                     var expr = (BoundAssignmentExpr)expression;
-
-                    VariableSymbol? variable = st.GetVariable(expr.Name);
-
-                    if (variable is not null)
+                    
+                    if (expr.Symbol is not VariableSymbol variableSymbol)
                     {
-                        EmitExpression(expr.Right);
-                        il.Emit(OpCodes.Stloc, variable.LocalIndex);
-
-                        return variable.Type;
+                        return TokenKind.None;
                     }
 
-                    return TokenKind.None;
+                    EmitExpression(expr.Right);
+                    il.Emit(OpCodes.Stloc, variableSymbol.LocalIndex);
+
+                    return variableSymbol.Type;
                 }
             case ExpressionKind.Call:
                 {
@@ -318,9 +300,7 @@ internal class MethodEmitter
                         TokenKind type = EmitExpression(arg);
                         parameters[i++] = type;
                     }
-
-                    //functionParameters.Push(parameters);
-
+                    
                     var function = expr.Function;
 
                     il.EmitCall(OpCodes.Call, combinedMethods[function], []);
