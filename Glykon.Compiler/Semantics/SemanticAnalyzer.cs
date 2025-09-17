@@ -15,12 +15,10 @@ public class SemanticAnalyzer(SyntaxTree syntaxTree, IdentifierInterner interner
 
         FlowAnalyzer flowAnalyzer = new(boundTree, fileName);
 
-        flowAnalyzer.AnalyzeFlow();
-
+        var flowErrors = flowAnalyzer.Analyze();
         var typeErrors = binder.GetErrors();
-        var refinerErrors = flowAnalyzer.GetErrors();
 
-        var errors = typeErrors.Concat(refinerErrors);
+        var errors = typeErrors.Concat(flowErrors);
         return (boundTree, st, [.. errors]);
     }
 }

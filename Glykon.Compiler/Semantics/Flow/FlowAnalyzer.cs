@@ -1,53 +1,60 @@
 ﻿using Glykon.Compiler.Diagnostics.Errors;
 using Glykon.Compiler.Semantics.Binding;
 using Glykon.Compiler.Semantics.Binding.BoundStatements;
-using Glykon.Compiler.Syntax.Statements;
 
 namespace Glykon.Compiler.Semantics.Flow;
 
 public class FlowAnalyzer(BoundTree boundTree, string fileName)
 {
-    readonly BoundTree boundTree = boundTree;
-    readonly List<IGlykonError> errors = [];
+    private readonly BoundTree tree = boundTree;
+    private readonly string fileName = fileName;
+    private readonly List<IGlykonError> errors = [];
 
-    public void AnalyzeFlow()
+    public List<IGlykonError> Analyze()
     {
-        foreach (var stmt in boundTree)
+        foreach (var stmt in tree)
         {
-            CheckUnenclosedJumpStatements(stmt);
+            Visit(stmt, inFunction: false, loopDepth: 0);
         }
+        return errors;
     }
 
-    public List<IGlykonError> GetErrors() => errors;
-    void CheckUnenclosedJumpStatements(BoundStatement statement)
+    private void Visit(BoundStatement s, bool inFunction, int loopDepth)
     {
-        if (statement.Kind == StatementKind.While) return;
-
-        if (statement is BoundIfStmt ifStmt)
+        switch (s)
         {
-            CheckUnenclosedJumpStatements(ifStmt.ThenStatement);
+            case BoundBlockStmt b:
+                foreach (var child in b.Statements)
+                    Visit(child, inFunction, loopDepth);
+                break;
 
-            if (ifStmt.ElseStatement is not null)
-            {
-                CheckUnenclosedJumpStatements(ifStmt.ElseStatement);
-            }
-            return;
-        }
+            case BoundIfStmt iff:
+                Visit(iff.ThenStatement, inFunction, loopDepth);
+                if (iff.ElseStatement is not null)
+                    Visit(iff.ElseStatement, inFunction, loopDepth);
+                break;
 
-        if (statement is BoundBlockStmt blockStmt)
-        {
-            foreach (BoundStatement s in blockStmt.Statements)
-            {
-                CheckUnenclosedJumpStatements(s);
-            }
+            case BoundWhileStmt w: // enter a loop
+                Visit(w.Body, inFunction, loopDepth + 1);
+                break;
 
-            return;
-        }
+            case BoundFunctionDeclaration f:
+                Visit(f.Body, inFunction: true, loopDepth: 0);
+                break;
 
-        if (statement is BoundJumpStmt jumpStmt)
-        {
-            TypeError error = new(fileName, "No enclosing loop out of which to break or continue");
-            errors.Add(error);
+            case BoundReturnStmt r:
+                if (!inFunction)
+                    errors.Add(new FlowError(fileName, "Return statement outside of a function", r.Token));
+                break;
+
+            case BoundJumpStmt j: // break/continue
+                if (loopDepth == 0)
+                    errors.Add(new FlowError(fileName,
+                        $"No enclosing loop out of which to {(j.IsBreak ? "break" : "continue")}", j.Token));
+                break;
+
+            default:
+                break;
         }
     }
 }

@@ -117,7 +117,6 @@ public class TypeCheckingTests
             if 0: let a = 1
             while 'text': break
         """;
-        // both conditions wrong -> 2 errors
         Assert.Equal(2, Check(code, nameof(IfWhileConditionMustBeBool)).Count);
     }
 
@@ -154,5 +153,18 @@ public class TypeCheckingTests
             }
         """;
         Assert.Single(Check(code, nameof(VoidFunctionReturningValue)));
+    }
+
+    [Fact]
+    public void ReturnWithoutValueFromTypedFunction_ShouldFail_WithTypeError()
+    {
+        const string code = """
+            def get_value() -> int {
+                return
+            }
+        """;
+        var errors = Check(code, nameof(ReturnWithoutValueFromTypedFunction_ShouldFail_WithTypeError));
+        Assert.Single(errors);
+        Assert.IsType<TypeError>(errors[0]);
     }
 }

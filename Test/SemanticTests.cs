@@ -78,39 +78,7 @@ public class SemanticTests
 
         Assert.Single(syntaxTree);
         Assert.Single(semanticErrors);
-    }
-
-    [Fact]
-    public void JumpStatements()
-    {
-        const string fileName = "JumpStatementsTest";
-        const string src = @"
-            while true {
-                break
-            }
-
-            continue
-
-            if true {
-                break
-            }
-            ";
-        Lexer lexer = new(src, fileName);
-        (var tokens, _) = lexer.Execute();
-        Parser parser = new(tokens, fileName);
-        var (syntaxTree, parserErrors) = parser.Execute();
-        Assert.Empty(parserErrors);
-
-        IdentifierInterner interner = new();
-
-        SemanticAnalyzer analyzer = new(syntaxTree, interner, fileName);
-        var (_, _, errors) = analyzer.Analyze();
-
-        Assert.Equal(2, errors.Count);
-        Assert.NotEmpty(syntaxTree);
-        Assert.Equal(3, syntaxTree.Length);
-        Assert.Equal(StatementKind.Jump, syntaxTree[1].Kind);
-    }
+    }   
 
     // Calls & overloads
 

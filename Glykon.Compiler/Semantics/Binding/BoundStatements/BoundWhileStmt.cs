@@ -6,6 +6,6 @@ namespace Glykon.Compiler.Semantics.Binding.BoundStatements;
 public class BoundWhileStmt(BoundExpression condition, BoundStatement statement) : BoundStatement
 {
     public override StatementKind Kind => StatementKind.While;
-    public BoundExpression Expression { get; } = condition;
-    public BoundStatement Statement { get; } = statement;
+    public BoundExpression Condition { get; } = condition;
+    public BoundStatement Body { get; } = statement;
 }

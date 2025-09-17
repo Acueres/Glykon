@@ -142,9 +142,10 @@ public class SemanticBinder(SyntaxTree syntaxTree, IdentifierInterner interner, 
 
                     var boundExpression = BindExpression(returnStmt.Expression);
 
-                    typeChecker.ValidateReturnStatementType(boundExpression, currentFunctionSymbol.Type);
+                    if (currentFunctionSymbol is not null)
+                        typeChecker.ValidateReturnStatementType(boundExpression, currentFunctionSymbol.Type);
 
-                    return new BoundReturnStmt(boundExpression);
+                    return new BoundReturnStmt(boundExpression, returnStmt.Token);
                 }
             case StatementKind.Expression:
                 {
@@ -155,7 +156,7 @@ public class SemanticBinder(SyntaxTree syntaxTree, IdentifierInterner interner, 
             case StatementKind.Jump:
                 {
                     var jumpStmt = (JumpStmt)stmt;
-                    return new BoundJumpStmt(jumpStmt.Token.Kind);
+                    return new BoundJumpStmt(jumpStmt.Token);
                 }
             default: return null;
         }

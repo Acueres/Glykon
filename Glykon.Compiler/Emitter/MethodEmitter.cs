@@ -214,11 +214,11 @@ internal class MethodEmitter
         loopEnd.Push(loopEndLabel);
 
         il.MarkLabel(loopStartLabel);
-        EmitExpression(whileStmt.Expression);
+        EmitExpression(whileStmt.Condition);
 
         il.Emit(OpCodes.Brfalse_S, loopEndLabel);
 
-        EmitStatement(whileStmt.Statement);
+        EmitStatement(whileStmt.Body);
 
         il.Emit(OpCodes.Br_S, loopStartLabel);
 
@@ -230,11 +230,11 @@ internal class MethodEmitter
 
     void EmitJumpStatement(BoundJumpStmt jumpStatement)
     {
-        if (jumpStatement.JumpKind == JumpKind.Break)
+        if (jumpStatement.IsBreak)
         {
             il.Emit(OpCodes.Br_S, loopEnd.Last());
         }
-        else if (jumpStatement.JumpKind ==  JumpKind.Continue)
+        else if (jumpStatement.IsContinue)
         {
             il.Emit(OpCodes.Br_S, loopStart.Last());
         }
@@ -532,7 +532,7 @@ internal class MethodEmitter
         }
         else if (statement is BoundWhileStmt whileStmt)
         {
-            count += CountReturnStatements(whileStmt.Statement);
+            count += CountReturnStatements(whileStmt.Body);
         }
 
         return count;

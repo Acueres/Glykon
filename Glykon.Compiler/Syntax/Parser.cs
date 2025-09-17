@@ -195,16 +195,17 @@ public class Parser(Token[] tokens, string filename)
 
     ReturnStmt ParseReturnStatement()
     {
+        Token token = Previous;
         if (Match(TokenKind.Semicolon) || Current.Kind == TokenKind.BraceRight)
         {
-            return new ReturnStmt(null);
+            return new ReturnStmt(null, token);
         }
 
         Expression value = ParseLogicalOr();
 
         TerminateStatement("Expect ';' after return value");
 
-        return new ReturnStmt(value);
+        return new ReturnStmt(value, token);
     }
 
     VariableDeclaration ParseVariableDeclarationStatement()
