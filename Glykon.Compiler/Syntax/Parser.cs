@@ -249,17 +249,10 @@ public class Parser(Token[] tokens, string filename)
         Consume(TokenKind.Assignment, "Expect constant value");
         Expression initializer = ParseExpression();
 
-        if (initializer is not LiteralExpr literal)
-        {
-            ParseError error = new(token, fileName, "Const value must be literal");
-            errors.Add(error);
-            throw error.Exception();
-        }
-
         TerminateStatement("Expect ';' after constant declaration");
 
         string name = token.StringValue;
-        return new(initializer, name, literal.Token, declaredType);
+        return new(initializer, name, declaredType);
     }
 
     TokenKind ParseTypeDeclaration()

@@ -1,6 +1,7 @@
 ﻿using Glykon.Compiler.Diagnostics.Errors;
 using Glykon.Compiler.Semantics.Binding.BoundExpressions;
 using Glykon.Compiler.Semantics.Binding.BoundStatements;
+using Glykon.Compiler.Semantics.Optimization;
 using Glykon.Compiler.Semantics.Symbols;
 using Glykon.Compiler.Semantics.TypeChecking;
 using Glykon.Compiler.Syntax;
@@ -14,6 +15,8 @@ public class SemanticBinder(SyntaxTree syntaxTree, IdentifierInterner interner, 
     readonly SyntaxTree syntaxTree = syntaxTree;
     readonly SymbolTable symbolTable = new(interner);
     readonly TypeChecker typeChecker = new(syntaxTree.FileName, interner);
+    readonly ConstantFolder folder = new(null);
+    
     readonly List<IGlykonError> errors = [];
     readonly string fileName = fileName;
 
@@ -100,11 +103,19 @@ public class SemanticBinder(SyntaxTree syntaxTree, IdentifierInterner interner, 
             case StatementKind.Constant:
                 {
                     var constantStmt = (ConstantDeclaration)stmt;
-
-                    var symbol = symbolTable.RegisterConstant(constantStmt.Name, constantStmt.Token, constantStmt.DeclaredType);
-
+                    
                     BoundExpression boundExpression = BindExpression(constantStmt.Expression);
+                    BoundExpression foldedExpression = folder.FoldExpression(boundExpression);
+                    if (foldedExpression is not BoundLiteralExpr foldedLiteralExpr)
+                    {
+                        errors.Add(new TypeError(fileName, "Initializer of 'const' must be a constant expression"));
+                        return new BoundConstantDeclaration(null);
+                    }
+                    
+                    var symbol = symbolTable.RegisterConstant(constantStmt.Name, foldedLiteralExpr.Token, constantStmt.DeclaredType);
+                    
                     typeChecker.CheckDeclaredType(boundExpression, constantStmt.DeclaredType);
+                    
                     return new BoundConstantDeclaration(symbol);
                 }
 

@@ -32,12 +32,14 @@ public enum TokenKind : byte
 
 public readonly struct Token
 {
-    public TokenKind Kind { get; init; }
-    public int Line { get; init; }
-
-    public string StringValue { get; init; } = string.Empty;
-    public long IntValue { get; init; }
-    public double RealValue { get; init; }
+    public TokenKind Kind { get; }
+    public int Line { get; }
+    
+    public bool IsBool => Kind is TokenKind.Bool or TokenKind.LiteralTrue or TokenKind.LiteralFalse;
+    public bool BoolValue => Kind == TokenKind.LiteralTrue;
+    public string StringValue { get; } = string.Empty;
+    public long IntValue { get; }
+    public double RealValue { get; }
 
     static readonly Token empty = new(TokenKind.Empty, 0);
     public static ref readonly Token Empty => ref empty;

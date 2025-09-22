@@ -7,6 +7,6 @@ namespace Glykon.Compiler.Semantics.Binding.BoundStatements;
 public class BoundReturnStmt(BoundExpression? expression, Token token) : BoundStatement
 {
     public override StatementKind Kind => StatementKind.Return;
-    public BoundExpression Expression { get; } = expression;
+    public BoundExpression? Expression { get; } = expression;
     public Token Token { get; } = token;
 }

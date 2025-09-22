@@ -78,7 +78,29 @@ public class SemanticTests
 
         Assert.Single(syntaxTree);
         Assert.Single(semanticErrors);
-    }   
+    }
+    
+    [Fact]
+    public void CheckVariableInsideConstantDeclaration()
+    {
+        const string src = """
+                                let v = 1
+                                const c: int = 5 * v
+                            """;
+        string fileName = nameof(CheckVariableInsideConstantDeclaration);
+        
+        Lexer lexer = new(src, fileName);
+        (var tokens, _) = lexer.Execute();
+        Parser parser = new(tokens, fileName);
+        var (syntaxTree, parseErrors) = parser.Execute();
+        Assert.Empty(parseErrors);
+
+        IdentifierInterner interner = new();
+
+        var semanticAnalyzer = new SemanticAnalyzer(syntaxTree, interner, fileName);
+        var (_, _, semanticErrors) = semanticAnalyzer.Analyze();
+        Assert.Single(semanticErrors);
+    }
 
     // Calls & overloads
 

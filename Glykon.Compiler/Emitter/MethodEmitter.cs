@@ -174,7 +174,7 @@ internal class MethodEmitter
 
     void EmitIfStatement(BoundIfStmt ifStmt)
     {
-        EmitExpression(ifStmt.Expression);
+        EmitExpression(ifStmt.Condition);
 
         if (ifStmt.ElseStatement is not null)
         {

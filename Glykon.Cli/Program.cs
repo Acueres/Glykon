@@ -15,7 +15,7 @@ internal class Program
         const string filename = "Test";
         const string src = @"
             def main() {
-                const pi: real = 3.14
+                const pi: real = 2.0 * 3.14
                 println(pi)
                 let i = 0
 
@@ -40,13 +40,13 @@ internal class Program
         var (tokens, lexerErrors) = lexer.Execute();
 
         errors.AddRange(lexerErrors);
-
-        IdentifierInterner interner = new();
+        
         Parser parser = new(tokens, filename);
         var (syntaxTree, parserErrors) = parser.Execute();
 
         errors.AddRange(parserErrors);
-
+        
+        IdentifierInterner interner = new();
         SemanticAnalyzer semanticAnalyzer = new(syntaxTree, interner, filename);
         var (boundTree, symbolTable, semanticErrors) = semanticAnalyzer.Analyze();
 
