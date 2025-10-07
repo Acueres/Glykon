@@ -17,8 +17,8 @@ public class SemanticAnalyzer(SyntaxTree syntaxTree, IdentifierInterner interner
         FlowAnalyzer flowAnalyzer = new(boundTree, fileName);
         var flowErrors = flowAnalyzer.Analyze();
         
-        ConstantFolder folder = new(boundTree);
-        var foldedTree = folder.Fold();
+        ConstantFolder folder = new();
+        var foldedTree = folder.Fold(boundTree);
         
         var typeErrors = binder.GetErrors();
         var errors = typeErrors.Concat(flowErrors);

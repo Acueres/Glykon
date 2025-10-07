@@ -6,14 +6,10 @@ using Glykon.Compiler.Syntax;
 
 namespace Glykon.Compiler.Semantics.Optimization;
 
-public class ConstantFolder(BoundTree? boundTree) : BoundTreeRewriter
+public class ConstantFolder: BoundTreeRewriter
 {
-    readonly BoundTree? boundTree = boundTree;
-    
-    public BoundTree Fold()
+    public BoundTree Fold(BoundTree boundTree)
     {
-        if (boundTree is null) return new BoundTree([], "Empty bound tree");
-        
         List<BoundStatement> rewritten = new(boundTree.Length);
         rewritten.AddRange(boundTree.Select(VisitStmt));
         return new BoundTree([..rewritten], boundTree.FileName);

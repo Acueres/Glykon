@@ -15,7 +15,7 @@ public class SemanticBinder(SyntaxTree syntaxTree, IdentifierInterner interner, 
     readonly SyntaxTree syntaxTree = syntaxTree;
     readonly SymbolTable symbolTable = new(interner);
     readonly TypeChecker typeChecker = new(syntaxTree.FileName, interner);
-    readonly ConstantFolder folder = new(null);
+    readonly ConstantFolder folder = new();
     
     readonly List<IGlykonError> errors = [];
     readonly string fileName = fileName;

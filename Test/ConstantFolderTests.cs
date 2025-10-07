@@ -3,7 +3,6 @@ using Glykon.Compiler.Semantics.Binding;
 using Glykon.Compiler.Semantics.Binding.BoundStatements;
 using Glykon.Compiler.Semantics.Binding.BoundExpressions;
 using Glykon.Compiler.Semantics.Optimization;
-using Glykon.Compiler.Semantics.Symbols;
 using Glykon.Compiler.Syntax;
 
 namespace Tests;
@@ -23,8 +22,8 @@ public class ConstantFoldingTests
         var (boundTree, _, semErr) = analyzer.Analyze();
         Assert.Empty(semErr);
 
-        var folder = new ConstantFolder(boundTree);
-        var foldedTree = folder.Fold();
+        var folder = new ConstantFolder();
+        var foldedTree = folder.Fold(boundTree);
         return (boundTree, foldedTree.Select(x => x).ToArray(), interner);
     }
 

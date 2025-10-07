@@ -1,4 +1,7 @@
-﻿using Glykon.Compiler.Diagnostics.Errors;
+﻿using System.Reflection;
+using System.Reflection.Emit;
+
+using Glykon.Compiler.Diagnostics.Errors;
 using Glykon.Compiler.Semantics.Binding;
 using Glykon.Compiler.Semantics.Binding.BoundExpressions;
 using Glykon.Compiler.Semantics.Binding.BoundStatements;
@@ -6,8 +9,6 @@ using Glykon.Compiler.Semantics.Symbols;
 using Glykon.Compiler.Syntax;
 using Glykon.Compiler.Syntax.Expressions;
 using Glykon.Compiler.Syntax.Statements;
-using System.Reflection;
-using System.Reflection.Emit;
 
 namespace Glykon.Compiler.Emitter;
 
@@ -26,7 +27,6 @@ internal class MethodEmitter
     readonly Label? returnLabel;
     readonly LocalBuilder? returnLocal;
 
-    //readonly Stack<TokenKind[]> functionParameters = [];
     readonly Stack<Label> loopStart = [];
     readonly Stack<Label> loopEnd = [];
 
