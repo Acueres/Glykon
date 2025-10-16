@@ -1,5 +1,5 @@
 ﻿using Glykon.Compiler.Diagnostics.Errors;
-using Glykon.Compiler.Semantics;
+using Glykon.Compiler.Semantics.Analysis;
 using Glykon.Compiler.Semantics.Binding;
 using Glykon.Compiler.Syntax;
 namespace Tests;

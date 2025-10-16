@@ -1,4 +1,5 @@
 ﻿using Glykon.Compiler.Diagnostics.Errors;
+using Glykon.Compiler.Semantics.Analysis;
 using Glykon.Compiler.Semantics.Binding.BoundExpressions;
 using Glykon.Compiler.Semantics.Binding.BoundStatements;
 using Glykon.Compiler.Semantics.Optimization;
@@ -54,12 +55,7 @@ public class SemanticBinder(SyntaxTree syntaxTree, IdentifierInterner interner, 
                     Scope scope = symbolTable.BeginScope(ScopeKind.Block);
                     var blockStmt = (BlockStmt)stmt;
 
-                    List<BoundStatement> boundStatements = new(blockStmt.Statements.Count);
-                    foreach (var statement in blockStmt.Statements)
-                    {
-                        var boundStatement = BindStatement(statement);
-                        boundStatements.Add(boundStatement);
-                    }
+                    var boundStatements = BindBlockStatements(blockStmt.Statements);
 
                     BoundBlockStmt boundBlockStmt = new([.. boundStatements], scope);
 
@@ -103,7 +99,7 @@ public class SemanticBinder(SyntaxTree syntaxTree, IdentifierInterner interner, 
             case StatementKind.Constant:
                 {
                     var constantStmt = (ConstantDeclaration)stmt;
-                    
+
                     BoundExpression boundExpression = BindExpression(constantStmt.Expression);
                     BoundExpression foldedExpression = folder.FoldExpression(boundExpression);
                     if (foldedExpression is not BoundLiteralExpr foldedLiteralExpr)
@@ -111,11 +107,11 @@ public class SemanticBinder(SyntaxTree syntaxTree, IdentifierInterner interner, 
                         errors.Add(new TypeError(fileName, "Initializer of 'const' must be a constant expression"));
                         return new BoundConstantDeclaration(null);
                     }
-                    
+
                     var symbol = symbolTable.RegisterConstant(constantStmt.Name, foldedLiteralExpr.Token, constantStmt.DeclaredType);
-                    
+
                     typeChecker.CheckDeclaredType(boundExpression, constantStmt.DeclaredType);
-                    
+
                     return new BoundConstantDeclaration(symbol);
                 }
 
@@ -123,22 +119,17 @@ public class SemanticBinder(SyntaxTree syntaxTree, IdentifierInterner interner, 
                 {
                     var functionStmt = (FunctionDeclaration)stmt;
 
-                    var signature = symbolTable.RegisterFunction(functionStmt.Name, functionStmt.ReturnType, [.. functionStmt.Parameters.Select(p => p.Type)]);
-                    var scope = symbolTable.BeginScope(signature);
+                    TokenKind[] paramTypes = [.. functionStmt.Parameters.Select(p => p.Type)];
 
-                    List<ParameterSymbol> parameterSymbols = new(functionStmt.Parameters.Count);
-                    foreach (var parameter in functionStmt.Parameters)
-                    {
-                        var parameterSymbol = symbolTable.RegisterParameter(parameter.Name, parameter.Type);
-                        parameterSymbols.Add(parameterSymbol);
-                    }
+                    FunctionSymbol? signature = symbolTable.GetLocalFunction(functionStmt.Name, paramTypes);
+                    signature ??= symbolTable.RegisterFunction(functionStmt.Name, functionStmt.ReturnType, paramTypes);
 
-                    List<BoundStatement> boundStatements = new(functionStmt.Body.Statements.Count);
-                    var functionDeclarations = functionStmt.Body.Statements.Where(stmt =>  stmt.Kind == StatementKind.Function);
-                    var statements = functionStmt.Body.Statements.Where(stmt => stmt.Kind != StatementKind.Function);
-                    boundStatements.AddRange(functionDeclarations.Select(statement => BindStatement(statement)));
-                    boundStatements.AddRange(statements.Select(statement => BindStatement(statement)));
+                    var scope = symbolTable.BeginScope(signature!);
+                    signature!.Scope = scope;
 
+                    var parameterSymbols = functionStmt.Parameters.Select(p => symbolTable.RegisterParameter(p.Name, p.Type)).ToList();
+
+                    var boundStatements = BindBlockStatements(functionStmt.Body.Statements);
                     BoundBlockStmt boundBody = new([.. boundStatements], scope);
 
                     symbolTable.ExitScope();
@@ -149,7 +140,7 @@ public class SemanticBinder(SyntaxTree syntaxTree, IdentifierInterner interner, 
                 {
                     var returnStmt = (ReturnStmt)stmt;
 
-                    var currentFunctionSymbol = symbolTable.GetCurrentContainingFunction();
+                    var currentFunctionSymbol = symbolTable.GetCurrentFunction();
 
                     var boundExpression = BindExpression(returnStmt.Expression);
 
@@ -208,14 +199,24 @@ public class SemanticBinder(SyntaxTree syntaxTree, IdentifierInterner interner, 
                 {
                     AssignmentExpr assignmentExpr = (AssignmentExpr)expression;
                     BoundExpression right = BindExpression(assignmentExpr.Right);
-                    Symbol symbol = symbolTable.GetSymbol(assignmentExpr.Name);
+
+                    var symbol = symbolTable.GetSymbol(assignmentExpr.Name);
+
                     return new BoundAssignmentExpr(right, symbol);
                 }
             case ExpressionKind.Variable:
                 {
                     var variableExpr = (VariableExpr)expression;
+
+                    if (!interner.TryGetId(variableExpr.Name, out var id))
+                    {
+                        errors.Add(new TypeError(fileName, $"Unknown identifier: {variableExpr.Name}"));
+                        return new BoundVariableExpr(null);
+                    }
+
                     var symbol = symbolTable.GetSymbol(variableExpr.Name);
-                    return new BoundVariableExpr(symbol);
+
+                    return new BoundVariableExpr(symbol!);
                 }
             case ExpressionKind.Grouping:
                 {
@@ -264,6 +265,28 @@ public class SemanticBinder(SyntaxTree syntaxTree, IdentifierInterner interner, 
                 }
             default: return null;
         }
+    }
+
+    List<BoundStatement> BindBlockStatements(List<Statement> statements)
+    {
+        List<BoundStatement> boundStatements = new(statements.Count);
+
+        var declarations = statements.Where(s => s.Kind == StatementKind.Function)
+                                .Cast<FunctionDeclaration>()
+                                .ToList();
+        var nonDeclarations = statements.Where(s => s.Kind != StatementKind.Function)
+                                           .ToList();
+
+        // Predeclaring function definitions
+        foreach (var f in declarations)
+        {
+            symbolTable.RegisterFunction(f.Name, f.ReturnType, [.. f.Parameters.Select(p => p.Type)]);
+        }
+
+        boundStatements.AddRange(nonDeclarations.Select(BindStatement));
+        boundStatements.AddRange(declarations.Select(BindStatement));
+
+        return boundStatements;
     }
 
     void RegisterStd()

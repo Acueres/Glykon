@@ -15,17 +15,17 @@ namespace Glykon.Compiler.Emitter;
 public class TypeEmitter
 {
     readonly string appName;
-    readonly BoundTree syntaxTree;
+    readonly BoundTree boundTree;
     readonly SymbolTable symbolTable;
     readonly IdentifierInterner interner;
 
     readonly PersistedAssemblyBuilder ab;
     MethodBuilder main;
 
-    public TypeEmitter(BoundTree syntaxTree, SymbolTable symbolTable, IdentifierInterner interner, string appname)
+    public TypeEmitter(BoundTree boundTree, SymbolTable symbolTable, IdentifierInterner interner, string appname)
     {
         appName = appname;
-        this.syntaxTree = syntaxTree;
+        this.boundTree = boundTree;
         this.symbolTable = symbolTable;
         this.interner = interner;
 
@@ -42,7 +42,7 @@ public class TypeEmitter
         List<MethodEmitter> methodGenerators = [];
         Dictionary<FunctionSymbol, MethodInfo> methods = LoadStdLibrary();
 
-        foreach (var stmt in syntaxTree)
+        foreach (var stmt in boundTree)
         {
             if (stmt is BoundFunctionDeclaration f)
             {
@@ -50,7 +50,7 @@ public class TypeEmitter
                 methodGenerators.Add(mg);
                 methods.Add(f.Signature, mg.GetMethodBuilder());
 
-                string name = interner[f.Signature.QualifiedId];
+                string name = interner[f.Signature.QualifiedNameId];
                 if (name == "main")
                 {
                     main = mg.GetMethodBuilder();

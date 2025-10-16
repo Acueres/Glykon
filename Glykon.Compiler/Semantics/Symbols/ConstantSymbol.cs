@@ -2,7 +2,7 @@
 
 namespace Glykon.Compiler.Semantics.Symbols;
 
-public class ConstantSymbol(int id, TokenKind type, Token value) : Symbol(id, type)
+public class ConstantSymbol(int nameId, TokenKind type, Token value) : Symbol(nameId, type)
 {
     public Token Value { get; } = value;
 }

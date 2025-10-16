@@ -1,7 +1,7 @@
 ﻿using System.Reflection;
 
 using Glykon.Compiler.Emitter;
-using Glykon.Compiler.Semantics;
+using Glykon.Compiler.Semantics.Analysis;
 using Glykon.Compiler.Syntax;
 using Glykon.Compiler.Diagnostics.Errors;
 using Glykon.Compiler.Semantics.Binding;

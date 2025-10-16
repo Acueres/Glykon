@@ -1,5 +1,5 @@
 ﻿using Glykon.Compiler.Diagnostics.Errors;
-using Glykon.Compiler.Semantics;
+using Glykon.Compiler.Semantics.Analysis;
 using Glykon.Compiler.Semantics.Binding;
 using Glykon.Compiler.Semantics.Binding.BoundStatements;
 using Glykon.Compiler.Syntax;
@@ -52,7 +52,7 @@ public class SemanticTests
         Assert.Equal(StatementKind.Variable, boundTree[1].Kind);
         var stmt = (BoundVariableDeclaration)boundTree[1];
 
-        string name = interner[stmt.Symbol.Id];
+        string name = interner[stmt.Symbol.NameId];
         Assert.Equal("res", name);
         Assert.NotNull(stmt.Expression);
         Assert.Equal(TokenKind.Int, stmt.VariableType);
@@ -275,8 +275,8 @@ public class SemanticTests
         Assert.NotNull(add);
 
         // Qualified name should be "main.add"
-        var simple = interner[add!.Id];
-        var qualified = interner[add.QualifiedId];
+        var simple = interner[add!.NameId];
+        var qualified = interner[add.QualifiedNameId];
 
         Assert.Equal("add", simple);
         Assert.Equal("main.add", qualified);
@@ -299,7 +299,7 @@ public class SemanticTests
         var add = table.RegisterFunction("add", TokenKind.Int, [TokenKind.Int, TokenKind.Int]);
         Assert.NotNull(add);
 
-        var qualified = interner[add!.QualifiedId];
+        var qualified = interner[add!.QualifiedNameId];
         Assert.Equal("main.inner.add", qualified);
     }
 
@@ -312,8 +312,8 @@ public class SemanticTests
         var top = table.RegisterFunction("util", TokenKind.Int, []);
         Assert.NotNull(top);
 
-        var simple = interner[top!.Id];
-        var qualified = interner[top.QualifiedId];
+        var simple = interner[top!.NameId];
+        var qualified = interner[top.QualifiedNameId];
 
         Assert.Equal("util", simple);
         Assert.Equal("util", qualified);

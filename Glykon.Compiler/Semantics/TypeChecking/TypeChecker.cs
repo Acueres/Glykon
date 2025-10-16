@@ -190,7 +190,7 @@ public class TypeChecker(string fileName, IdentifierInterner interner)
 
                     if (symbol is FunctionSymbol)
                     {
-                        string name = interner[variableExpr.Symbol.Id];
+                        string name = interner[variableExpr.Symbol.NameId];
                         errors.Add(new TypeError(fileName,
                             $"Function '{name}' used as a value; did you forget ‘()’?"));
                         return TokenKind.None;

@@ -42,7 +42,23 @@ public class Scope
 
     public Scope() { Kind = ScopeKind.Top; }
 
-    public FunctionSymbol? AddFunction(int symbolId, int qualifiedId, TokenKind returnType, TokenKind[] parameters)
+    public FunctionSymbol? GetLocalFunction(int id, TokenKind[] parameters)
+    {
+        if (functions.TryGetValue(id, out var localOverloads))
+        {
+            foreach (var overload in localOverloads)
+            {
+                if (overload.Parameters.SequenceEqual(parameters))
+                {
+                    return overload;
+                }
+            }
+        }
+
+        return null;
+    }
+
+    public FunctionSymbol? AddFunction(int symbolId, int serialId, int qualifiedId, TokenKind returnType, TokenKind[] parameters)
     {
         FunctionSymbol symbol;
 
@@ -59,12 +75,12 @@ public class Scope
                 }
             }
 
-            symbol = new(symbolId, qualifiedId, returnType, parameters);
+            symbol = new(symbolId, serialId, qualifiedId, returnType, parameters);
             overloads.Add(symbol);
         }
         else
         {
-            symbol = new(symbolId, qualifiedId, returnType, parameters);
+            symbol = new(symbolId, serialId, qualifiedId, returnType, parameters);
             functions.Add(symbolId, [symbol]);
         }
 
@@ -103,9 +119,10 @@ public class Scope
         return allOverloads;
     }
 
-    public ConstantSymbol AddConstant(int id, in Token value, TokenKind type)
+    public ConstantSymbol RegisterConstant(int id, in Token value, TokenKind type)
     {
         ConstantSymbol symbol = new(id, type, value);
+        symbols.Remove(id);
         symbols.Add(id, symbol);
         return symbol;
     }
@@ -137,34 +154,5 @@ public class Scope
         }
 
         return symbol;
-    }
-
-    public VariableSymbol? GetVariable(int id)
-    {
-        if (!symbols.TryGetValue(id, out Symbol? symbol))
-        {
-            if (Parent is null)
-            {
-                return null;
-            }
-
-            return Parent.GetVariable(id);
-        }
-
-        if (symbol is VariableSymbol variableSymbol)
-            return variableSymbol;
-        else return null;
-    }
-
-    public bool UpdateSymbolType(int id, TokenKind type)
-    {
-        Symbol? symbol = GetSymbol(id);
-        if (symbol is not null)
-        {
-            symbol.Type = type;
-            return true;
-        }
-
-        return false;
     }
 }

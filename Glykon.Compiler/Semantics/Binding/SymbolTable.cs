@@ -11,6 +11,8 @@ public class SymbolTable
 
     Scope current;
 
+    int functionSerial = 0;
+
     public SymbolTable(IdentifierInterner interner)
     {
         scopes = [global];
@@ -18,7 +20,7 @@ public class SymbolTable
         this.interner = interner;
     }
 
-    public FunctionSymbol? GetCurrentContainingFunction()
+    public FunctionSymbol? GetCurrentFunction()
     {
         return current.ContainingFunction;
     }
@@ -28,7 +30,7 @@ public class SymbolTable
         int symbolIndex = interner.Intern(name);
         string qualifiedName = ComputeQualifiedName(name);
         int qualifiedId = interner.Intern(qualifiedName);
-        FunctionSymbol? signature = current.AddFunction(symbolIndex, qualifiedId, returnType, parameterTypes);
+        FunctionSymbol? signature = current.AddFunction(symbolIndex, functionSerial++, qualifiedId, returnType, parameterTypes);
         return signature;
     }
 
@@ -36,6 +38,12 @@ public class SymbolTable
     {
         if (!interner.TryGetId(name, out var id)) return null;
         return current.GetFunction(id, parameters);
+    }
+
+    public FunctionSymbol? GetLocalFunction(string name, TokenKind[] parameters)
+    {
+        if (!interner.TryGetId(name, out var nameId)) return null;
+        return current.GetLocalFunction(nameId, parameters);
     }
 
     public bool IsFunction(string name)
@@ -47,7 +55,7 @@ public class SymbolTable
     public ConstantSymbol RegisterConstant(string name, in Token value, TokenKind type)
     {
         int symbolIndex = interner.Intern(name);
-        ConstantSymbol constant = current.AddConstant(symbolIndex, value, type);
+        ConstantSymbol constant = current.RegisterConstant(symbolIndex, value, type);
         return constant;
     }
 
@@ -71,12 +79,6 @@ public class SymbolTable
         return current.GetSymbol(id);
     }
 
-    public VariableSymbol? GetVariable(string name)
-    {
-        if (!interner.TryGetId(name, out var id)) return null;
-        return current.GetVariable(id);
-    }
-
     public Scope BeginScope(ScopeKind scopeKind)
     {
         int index = scopes.Count;
@@ -98,20 +100,9 @@ public class SymbolTable
         current = current.Parent;
     }
 
-    public void EnterScope(Scope scope)
-    {
-        current = scope;
-    }
-
     public void ResetScope()
     {
         current = global;
-    }
-
-    public bool UpdateType(string name, TokenKind type)
-    {
-        if (!interner.TryGetId(name, out var id)) return false;
-        return current.UpdateSymbolType(id, type);
     }
 
     string ComputeQualifiedName(string localName)
@@ -125,10 +116,13 @@ public class SymbolTable
         Scope currentScope = current;
         List<string> stack = [];
 
-        while (currentScope != null && currentScope.ContainingFunction != null)
+        while (currentScope != null)
         {
-            string name = interner[currentScope.ContainingFunction.Id];
-            stack.Add(name);
+            if (currentScope.Kind == ScopeKind.Function && currentScope.ContainingFunction != null)
+            {
+                string name = interner[currentScope.ContainingFunction.NameId];
+                stack.Add(name);
+            }
 
             currentScope = currentScope.Parent;
         }

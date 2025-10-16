@@ -1,4 +1,4 @@
-using Glykon.Compiler.Semantics;
+using Glykon.Compiler.Semantics.Analysis;
 using Glykon.Compiler.Semantics.Binding;
 using Glykon.Compiler.Semantics.Binding.BoundStatements;
 using Glykon.Compiler.Semantics.Binding.BoundExpressions;
@@ -40,7 +40,7 @@ public class ConstantFoldingTests
         var (_, folded, interner) = BuildAndFold(code, nameof(IntArithmetic));
 
         var decl = GetVar(folded.Single());
-        Assert.Equal("x", interner[decl.Symbol.Id]);
+        Assert.Equal("x", interner[decl.Symbol.NameId]);
 
         var lit = GetLit(decl.Expression);
         // Expect 2 + 3*4 = 14
@@ -127,7 +127,7 @@ public class ConstantFoldingTests
 
         var block = Assert.IsType<BoundBlockStmt>(folded.Single());
         var decl = GetVar(block.Statements.Single());
-        Assert.Equal("then_only", interner[decl.Symbol.Id]);
+        Assert.Equal("then_only", interner[decl.Symbol.NameId]);
         Assert.Equal(1, GetLit(decl.Expression).Token.IntValue);
     }
 
@@ -145,7 +145,7 @@ public class ConstantFoldingTests
 
         var block = Assert.IsType<BoundBlockStmt>(folded.Single());
         var decl = GetVar(block.Statements.Single());
-        Assert.Equal("elseOnly", interner[decl.Symbol.Id]);
+        Assert.Equal("elseOnly", interner[decl.Symbol.NameId]);
         Assert.Equal(2, GetLit(decl.Expression).Token.IntValue);
     }
 
@@ -165,7 +165,7 @@ public class ConstantFoldingTests
         Assert.Empty(first.Statements);
 
         var y = GetVar(folded[1]);
-        Assert.Equal("y", interner[y.Symbol.Id]);
+        Assert.Equal("y", interner[y.Symbol.NameId]);
         Assert.Equal(2, GetLit(y.Expression).Token.IntValue);
     }
 

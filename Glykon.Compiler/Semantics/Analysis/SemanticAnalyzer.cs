@@ -4,7 +4,7 @@ using Glykon.Compiler.Semantics.Flow;
 using Glykon.Compiler.Semantics.Optimization;
 using Glykon.Compiler.Syntax;
 
-namespace Glykon.Compiler.Semantics;
+namespace Glykon.Compiler.Semantics.Analysis;
 
 public class SemanticAnalyzer(SyntaxTree syntaxTree, IdentifierInterner interner, string fileName)
 {

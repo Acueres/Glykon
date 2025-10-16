@@ -38,7 +38,7 @@ internal class MethodEmitter
         var parameterTypes = TranslateTypes([.. stmt.Parameters.Select(p => p.Type)]);
         var returnType = TranslateType(stmt.ReturnType);
 
-        string name = interner[stmt.Signature.QualifiedId];
+        string name = interner[stmt.Signature.QualifiedNameId];
 
         mb = typeBuilder.DefineMethod(name,
             MethodAttributes.HideBySig | MethodAttributes.Public | MethodAttributes.Static,
@@ -48,7 +48,7 @@ internal class MethodEmitter
 
         for (int i = 0; i < stmt.Parameters.Length; i++)
         {
-            string paramName = interner[stmt.Parameters[i].Id];
+            string paramName = interner[stmt.Parameters[i].NameId];
             mb.DefineParameter(i + 1, ParameterAttributes.None, paramName);
         }
 

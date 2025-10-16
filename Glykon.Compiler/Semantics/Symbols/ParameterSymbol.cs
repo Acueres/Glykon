@@ -2,7 +2,7 @@
 
 namespace Glykon.Compiler.Semantics.Symbols
 {
-    public class ParameterSymbol(int id, TokenKind type, int index) : Symbol(id, type)
+    public class ParameterSymbol(int nameId, TokenKind type, int index) : Symbol(nameId, type)
     {
         public int Index { get; } = index;
     }
