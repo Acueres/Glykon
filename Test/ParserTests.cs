@@ -1,4 +1,5 @@
-﻿using Glykon.Compiler.Semantics.Binding;
+﻿using Glykon.Compiler.Core;
+using Glykon.Compiler.Semantics.Binding;
 using Glykon.Compiler.Semantics.Symbols;
 using Glykon.Compiler.Syntax;
 using Glykon.Compiler.Syntax.Expressions;
@@ -18,7 +19,8 @@ namespace Tests
                 let i = 5
             }
             ";
-            Lexer lexer = new(src, fileName);
+            SourceText source = new(fileName, src);
+            Lexer lexer = new(source, fileName);
             (var tokens, _) = lexer.Execute();
             Parser parser = new(tokens, fileName);
             var (syntaxTree, errors) = parser.Execute();
@@ -56,7 +58,8 @@ namespace Tests
             }
             ";
 
-            Lexer lexer = new(src, fileName);
+            SourceText source = new(fileName, src);
+            Lexer lexer = new(source, fileName);
             (var tokens, var lexerErrors) = lexer.Execute();
 
             Assert.Empty(lexerErrors);
@@ -88,7 +91,8 @@ namespace Tests
             }
             ";
 
-            Lexer lexer = new(src, fileName);
+            SourceText source = new(fileName, src);
+            Lexer lexer = new(source, fileName);
             (var tokens, var lexerErrors) = lexer.Execute();
 
             Assert.Empty(lexerErrors);
@@ -114,7 +118,8 @@ namespace Tests
             }
             ";
 
-            Lexer lexer = new(src, fileName);
+            SourceText source = new(fileName, src);
+            Lexer lexer = new(source, fileName);
             (var tokens, _) = lexer.Execute();
 
             Parser parser = new(tokens, fileName);
@@ -137,11 +142,14 @@ namespace Tests
         public void ConstantDeclaration()
         {
             const string fileName = "ConstantDeclarationTest";
+            const string src = "const pi: real = 3.14";
 
-            Token[] tokens = [new(TokenKind.Const, 0), new(TokenKind.Identifier, 0, "pi"),
-            new(TokenKind.Colon, 0), new(TokenKind.Real, 0),
-            new(TokenKind.Assignment, 0), new(TokenKind.LiteralReal, 0, 3.14), new(TokenKind.Semicolon, 0)];
-            Parser parser = new(tokens, fileName);
+            SourceText source = new(fileName, src);
+            var lexer = new Lexer(source, fileName);
+            (var tokens, var lexErrs) = lexer.Execute();
+            Assert.Empty(lexErrs);
+
+            var parser = new Parser(tokens, fileName);
             var (syntaxTree, errors) = parser.Execute();
 
             Assert.Empty(errors);
@@ -156,14 +164,21 @@ namespace Tests
             Assert.True(symbol is ConstantSymbol);
 
             var constant = (ConstantSymbol)symbol;
-            Assert.Equal(3.14, constant.Value.RealValue);
+            Assert.Equal(3.14, constant.Value.Real);
         }
 
         [Fact]
         public void VariableDeclaration()
         {
-            Token[] tokens = [new(TokenKind.Let, 0), new(TokenKind.Identifier, 0, "value"), new(TokenKind.Assignment, 0), new(TokenKind.LiteralInt, 0, 42), new(TokenKind.Semicolon, 0)];
-            Parser parser = new(tokens, "VariableDeclarationTest");
+            const string fileName = "VariableDeclarationTest";
+            const string src = "let value = 42;";
+
+            SourceText source = new(fileName, src);
+            var lexer = new Lexer(source, fileName);
+            (var tokens, var lexErrs) = lexer.Execute();
+            Assert.Empty(lexErrs);
+
+            var parser = new Parser(tokens, fileName);
             var (syntaxTree, _) = parser.Execute();
 
             Assert.NotEmpty(syntaxTree);
@@ -172,17 +187,22 @@ namespace Tests
             VariableDeclaration stmt = (VariableDeclaration)syntaxTree.First();
             Assert.Equal("value", stmt.Name);
             Assert.NotNull(stmt.Expression);
-            Assert.Equal(TokenKind.None, stmt.DeclaredType); // Parser cannot infer types
-            Assert.Equal(42, ((LiteralExpr)stmt.Expression).Token.IntValue);
+            Assert.Equal(TokenKind.None, stmt.DeclaredType);
+            Assert.Equal(42, ((LiteralExpr)stmt.Expression).Value.Int);
         }
 
         [Fact]
         public void VariableTypeDeclaration()
         {
-            Token[] tokens = [new(TokenKind.Let, 0), new(TokenKind.Identifier, 0, "value"),
-                new(TokenKind.Colon, 0), new(TokenKind.Int, 0),
-                new(TokenKind.Assignment, 0), new(TokenKind.LiteralInt, 0, 42), new(TokenKind.Semicolon, 0)];
-            Parser parser = new(tokens, "VariableTypeDeclarationTest");
+            const string fileName = "VariableTypeDeclarationTest";
+            const string src = "let value: int = 42;";
+
+            SourceText source = new(fileName, src);
+            var lexer = new Lexer(source, fileName);
+            (var tokens, var lexErrs) = lexer.Execute();
+            Assert.Empty(lexErrs);
+
+            var parser = new Parser(tokens, fileName);
             var (syntaxTree, _) = parser.Execute();
 
             Assert.NotEmpty(syntaxTree);
@@ -192,7 +212,7 @@ namespace Tests
             Assert.Equal("value", stmt.Name);
             Assert.NotNull(stmt.Expression);
             Assert.Equal(TokenKind.Int, stmt.DeclaredType);
-            Assert.Equal(42, (stmt.Expression as LiteralExpr).Token.IntValue);
+            Assert.Equal(42, (stmt.Expression as LiteralExpr).Value.Int);
         }
 
         [Fact]
@@ -203,7 +223,8 @@ namespace Tests
             function('call test')
             ";
 
-            Lexer lexer = new(src, fileName);
+            SourceText source = new(fileName, src);
+            Lexer lexer = new(source, fileName);
             (var tokens, _) = lexer.Execute();
             Parser parser = new(tokens, fileName);
             var (syntaxTree, errors) = parser.Execute();
@@ -223,8 +244,9 @@ namespace Tests
             const string src = @"
             let a = 5
             a = 3
-";
-            Lexer lexer = new(src, fileName);
+"; 
+            SourceText source = new(fileName, src);
+            Lexer lexer = new(source, fileName);
             (var tokens, _) = lexer.Execute();
             Parser parser = new(tokens, fileName);
             var (syntaxTree, errors) = parser.Execute();
@@ -240,8 +262,15 @@ namespace Tests
         [Fact]
         public void UnaryOperator()
         {
-            Token[] tokens = [new(TokenKind.Not, 0), new(TokenKind.LiteralFalse, 0), new(TokenKind.Semicolon, 0)];
-            Parser parser = new(tokens, "UnaryTest");
+            const string fileName = "UnaryTest";
+            const string src = "not false;";
+
+            SourceText source = new(fileName, src);
+            var lexer = new Lexer(source, fileName);
+            (var tokens, var lexErrs) = lexer.Execute();
+            Assert.Empty(lexErrs);
+
+            var parser = new Parser(tokens, fileName);
             var ast = parser.ParseExpression();
 
             Assert.NotNull(ast);
@@ -250,14 +279,21 @@ namespace Tests
             var unary = (UnaryExpr)ast;
             Assert.Equal(TokenKind.Not, unary.Operator.Kind);
             Assert.NotNull(unary.Operand);
-            Assert.Equal(TokenKind.LiteralFalse, (unary.Operand as LiteralExpr).Token.Kind);
+            Assert.False((unary.Operand as LiteralExpr).Value.Bool);
         }
 
         [Fact]
         public void Equality()
         {
-            Token[] tokens = [new(TokenKind.LiteralTrue, 0), new(TokenKind.Equal, 0), new(TokenKind.LiteralFalse, 0), new(TokenKind.Semicolon, 0)];
-            Parser parser = new(tokens, "EqualityTest");
+            const string fileName = "EqualityTest";
+            const string src = "true == false;";
+
+            SourceText source = new(fileName, src);
+            var lexer = new Lexer(source, fileName);
+            (var tokens, var lexErrs) = lexer.Execute();
+            Assert.Empty(lexErrs);
+
+            var parser = new Parser(tokens, fileName);
             var ast = parser.ParseExpression();
 
             Assert.NotNull(ast);
@@ -266,16 +302,23 @@ namespace Tests
             var binary = (BinaryExpr)ast;
             Assert.Equal(TokenKind.Equal, binary.Operator.Kind);
             Assert.NotNull(binary.Left);
-            Assert.Equal(TokenKind.LiteralTrue, (binary.Left as LiteralExpr).Token.Kind);
+            Assert.True((binary.Left as LiteralExpr).Value.Bool);
             Assert.NotNull(binary.Right);
-            Assert.Equal(TokenKind.LiteralFalse, (binary.Right as LiteralExpr).Token.Kind);
+            Assert.False((binary.Right as LiteralExpr).Value.Bool);
         }
 
         [Fact]
         public void Comparison()
         {
-            Token[] tokens = [new(TokenKind.LiteralInt, 0, 2), new(TokenKind.Greater, 0), new(TokenKind.LiteralInt, 0, 1), new(TokenKind.Semicolon, 0)];
-            Parser parser = new(tokens, "ComparisonTest");
+            const string fileName = "ComparisonTest";
+            const string src = "2 > 1;";
+
+            SourceText source = new(fileName, src);
+            var lexer = new Lexer(source, fileName);
+            (var tokens, var lexErrs) = lexer.Execute();
+            Assert.Empty(lexErrs);
+
+            var parser = new Parser(tokens, fileName);
             var ast = parser.ParseExpression();
 
             Assert.NotNull(ast);
@@ -284,16 +327,23 @@ namespace Tests
             var binary = (BinaryExpr)ast;
             Assert.Equal(TokenKind.Greater, binary.Operator.Kind);
             Assert.NotNull(binary.Left);
-            Assert.Equal(2, (binary.Left as LiteralExpr).Token.IntValue);
+            Assert.Equal(2, (binary.Left as LiteralExpr).Value.Int);
             Assert.NotNull(binary.Right);
-            Assert.Equal(1, (binary.Right as LiteralExpr).Token.IntValue);
+            Assert.Equal(1, (binary.Right as LiteralExpr).Value.Int);
         }
 
         [Fact]
         public void Term()
         {
-            Token[] tokens = [new(TokenKind.LiteralInt, 0, 2), new(TokenKind.Minus, 0), new(TokenKind.LiteralInt, 0, 3), new(TokenKind.Semicolon, 0)];
-            Parser parser = new(tokens, "TermTest");
+            const string fileName = "TermTest";
+            const string src = "2 - 3;";
+
+            SourceText source = new(fileName, src);
+            var lexer = new Lexer(source, fileName);
+            (var tokens, var lexErrs) = lexer.Execute();
+            Assert.Empty(lexErrs);
+
+            var parser = new Parser(tokens, fileName);
             var ast = parser.ParseExpression();
 
             Assert.NotNull(ast);
@@ -302,16 +352,23 @@ namespace Tests
             var binary = (BinaryExpr)ast;
             Assert.Equal(TokenKind.Minus, binary.Operator.Kind);
             Assert.NotNull(binary.Left);
-            Assert.Equal(2, (binary.Left as LiteralExpr).Token.IntValue);
+            Assert.Equal(2, (binary.Left as LiteralExpr).Value.Int);
             Assert.NotNull(binary.Right);
-            Assert.Equal(3, (binary.Right as LiteralExpr).Token.IntValue);
+            Assert.Equal(3, (binary.Right as LiteralExpr).Value.Int);
         }
 
         [Fact]
         public void Factor()
         {
-            Token[] tokens = [new(TokenKind.LiteralInt, 0, 6), new(TokenKind.Slash, 0), new(TokenKind.LiteralInt, 0, 3), new(TokenKind.Semicolon, 0)];
-            Parser parser = new(tokens, "FactorTest");
+            const string fileName = "FactorTest";
+            const string src = "6 / 3;";
+
+            SourceText source = new(fileName, src);
+            var lexer = new Lexer(source, fileName);
+            (var tokens, var lexErrs) = lexer.Execute();
+            Assert.Empty(lexErrs);
+
+            var parser = new Parser(tokens, fileName);
             var ast = parser.ParseExpression();
 
             Assert.NotNull(ast);
@@ -320,17 +377,23 @@ namespace Tests
             var binary = (BinaryExpr)ast;
             Assert.Equal(TokenKind.Slash, binary.Operator.Kind);
             Assert.NotNull(binary.Left);
-            Assert.Equal(6, (binary.Left as LiteralExpr).Token.IntValue);
+            Assert.Equal(6, (binary.Left as LiteralExpr).Value.Int);
             Assert.NotNull(binary.Right);
-            Assert.Equal(3, (binary.Right as LiteralExpr).Token.IntValue);
+            Assert.Equal(3, (binary.Right as LiteralExpr).Value.Int);
         }
 
         [Fact]
         public void LogicalAnd()
         {
-            Token[] tokens = [
-                new(TokenKind.LiteralTrue, 0), new(TokenKind.And, 0), new(TokenKind.LiteralFalse, 0), new(TokenKind.Semicolon, 0)];
-            Parser parser = new(tokens, "LogicalAndTest");
+            const string fileName = "LogicalAndTest";
+            const string src = "true and false;";
+
+            SourceText source = new(fileName, src);
+            var lexer = new Lexer(source, fileName);
+            (var tokens, var lexErrs) = lexer.Execute();
+            Assert.Empty(lexErrs);
+
+            var parser = new Parser(tokens, fileName);
             var ast = parser.ParseExpression();
 
             Assert.NotNull(ast);
@@ -339,17 +402,23 @@ namespace Tests
             var logicalAnd = (LogicalExpr)ast;
             Assert.Equal(TokenKind.And, logicalAnd.Operator.Kind);
             Assert.NotNull(logicalAnd.Left);
-            Assert.Equal(TokenKind.LiteralTrue, (logicalAnd.Left as LiteralExpr).Token.Kind);
+            Assert.True((logicalAnd.Left as LiteralExpr).Value.Bool);
             Assert.NotNull(logicalAnd.Right);
-            Assert.Equal(TokenKind.LiteralFalse, (logicalAnd.Right as LiteralExpr).Token.Kind);
+            Assert.False((logicalAnd.Right as LiteralExpr).Value.Bool);
         }
 
         [Fact]
         public void LogicalOr()
         {
-            Token[] tokens = [
-                new(TokenKind.LiteralTrue, 0), new(TokenKind.Or, 0), new(TokenKind.LiteralFalse, 0), new(TokenKind.Semicolon, 0)];
-            Parser parser = new(tokens, "LogicalOrTest");
+            const string fileName = "LogicalOrTest";
+            const string src = "true or false;";
+
+            SourceText source = new(fileName, src);
+            var lexer = new Lexer(source, fileName);
+            (var tokens, var lexErrs) = lexer.Execute();
+            Assert.Empty(lexErrs);
+
+            var parser = new Parser(tokens, fileName);
             var ast = parser.ParseExpression();
 
             Assert.NotNull(ast);
@@ -358,9 +427,9 @@ namespace Tests
             var logicalAnd = (LogicalExpr)ast;
             Assert.Equal(TokenKind.Or, logicalAnd.Operator.Kind);
             Assert.NotNull(logicalAnd.Left);
-            Assert.Equal(TokenKind.LiteralTrue, (logicalAnd.Left as LiteralExpr).Token.Kind);
+            Assert.True((logicalAnd.Left as LiteralExpr).Value.Bool);
             Assert.NotNull(logicalAnd.Right);
-            Assert.Equal(TokenKind.LiteralFalse, (logicalAnd.Right as LiteralExpr).Token.Kind);
+            Assert.False((logicalAnd.Right as LiteralExpr).Value.Bool);
         }
     }
 }

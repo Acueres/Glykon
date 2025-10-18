@@ -1,10 +1,10 @@
-﻿using Glykon.Compiler.Syntax;
+﻿using Glykon.Compiler.Core;
 using Glykon.Compiler.Syntax.Expressions;
 
 namespace Glykon.Compiler.Semantics.Binding.BoundExpressions;
 
-public class BoundLiteralExpr(Token token) : BoundExpression
+public class BoundLiteralExpr(ConstantValue value) : BoundExpression
 {
     public override ExpressionKind Kind => ExpressionKind.Literal;
-    public Token Token { get; } = token;
+    public ConstantValue Value { get; } = value;
 }

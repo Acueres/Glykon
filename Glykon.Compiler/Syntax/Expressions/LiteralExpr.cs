@@ -1,8 +1,10 @@
-﻿namespace Glykon.Compiler.Syntax.Expressions
+﻿using Glykon.Compiler.Core;
+
+namespace Glykon.Compiler.Syntax.Expressions
 {
-    public class LiteralExpr(Token token) : Expression
+    public class LiteralExpr(ConstantValue value) : Expression
     {
         public override ExpressionKind Kind => ExpressionKind.Literal;
-        public Token Token { get; } = token;
+        public ConstantValue Value { get; } = value;
     }
 }

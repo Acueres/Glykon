@@ -1,4 +1,5 @@
-﻿using Glykon.Compiler.Semantics.Symbols;
+﻿using Glykon.Compiler.Core;
+using Glykon.Compiler.Semantics.Symbols;
 using Glykon.Compiler.Syntax;
 
 namespace Glykon.Compiler.Semantics.Binding;
@@ -119,7 +120,7 @@ public class Scope
         return allOverloads;
     }
 
-    public ConstantSymbol RegisterConstant(int id, in Token value, TokenKind type)
+    public ConstantSymbol RegisterConstant(int id, in ConstantValue value, TokenKind type)
     {
         ConstantSymbol symbol = new(id, type, value);
         symbols.Remove(id);

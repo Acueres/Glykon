@@ -39,14 +39,14 @@ public class TypeEmitter
         ModuleBuilder mob = ab.DefineDynamicModule(appName);
         TypeBuilder tb = mob.DefineType("Program", TypeAttributes.Public | TypeAttributes.Class);
 
-        List<MethodEmitter> methodGenerators = [];
+        List<FunctionEmitter> methodGenerators = [];
         Dictionary<FunctionSymbol, MethodInfo> methods = LoadStdLibrary();
 
         foreach (var stmt in boundTree)
         {
             if (stmt is BoundFunctionDeclaration f)
             {
-                MethodEmitter mg = new(f, interner, tb, appName);
+                FunctionEmitter mg = new(f, interner, tb, appName);
                 methodGenerators.Add(mg);
                 methods.Add(f.Signature, mg.GetMethodBuilder());
 

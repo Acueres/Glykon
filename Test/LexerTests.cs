@@ -1,3 +1,4 @@
+using Glykon.Compiler.Core;
 using Glykon.Compiler.Syntax;
 
 namespace Tests;
@@ -7,9 +8,11 @@ public class LexerTests
     [Fact]
     public void ScanIdentifiers()
     {
-        const string source = @"let text = 'Hello Glykon';";
+        string filename = nameof(ScanIdentifiers);
+        const string src = @"let text = 'Hello Glykon';";
 
-        Lexer lexer = new(source, "IdentifiersTest");
+        SourceText source = new(filename, src);
+        Lexer lexer = new(source, filename);
         var (tokens, _) = lexer.Execute();
 
         tokens = [.. tokens.Where(t => t.Kind != TokenKind.EOF)];
@@ -17,13 +20,14 @@ public class LexerTests
         Assert.Equal(5, tokens.Length);
         Assert.Equal(TokenKind.Let, tokens[0].Kind);
         Assert.Equal(TokenKind.Identifier, tokens[1].Kind);
-        Assert.Equal("text", tokens[1].StringValue);
+        Assert.Equal("text", tokens[1].Text);
     }
 
     [Fact]
     public void ScanComments()
     {
-        const string commentsSource = @"
+        string filename = nameof(ScanComments);
+        const string src = @"
             #comment1
 
             code1
@@ -34,7 +38,8 @@ public class LexerTests
             code3
 
 ";
-        Lexer lexer = new(commentsSource, "CommentsTest");
+        SourceText source = new(filename, src);
+        Lexer lexer = new(source, filename);
         var (tokens, _) = lexer.Execute();
 
         //three identifiers, three statement terminators and EOF
@@ -44,9 +49,11 @@ public class LexerTests
     [Fact]
     public void ScanSymbols()
     {
-        const string symbols = "(( )){} *+-/=<> <= == != >= // ** , . ->";
+        string filename = nameof(ScanSymbols);
+        const string src = "(( )){} *+-/=<> <= == != >= // ** , . ->";
 
-        Lexer lexer = new(symbols, "SymbolsTest");
+        SourceText source = new(filename, src);
+        Lexer lexer = new(source, filename);
         var (tokens, _) = lexer.Execute();
 
         tokens = [.. tokens.Where(t => t.Kind != TokenKind.EOF)];
@@ -87,9 +94,11 @@ public class LexerTests
     [Fact]
     public void ScanKeywords()
     {
-        const string keywords = "if class struct else def int while false";
+        string filename = nameof(ScanKeywords);
+        const string src = "if class struct else def int while false";
 
-        Lexer lexer = new(keywords, "KeywordsTest");
+        SourceText source = new(filename, src);
+        Lexer lexer = new(source, filename);
         var (tokens, _) = lexer.Execute();
 
         tokens = [.. tokens.Where(t => t.Kind != TokenKind.EOF && t.Kind != TokenKind.Semicolon)];
@@ -114,24 +123,27 @@ public class LexerTests
     [Fact]
     public void ScanString()
     {
-        const string stringsSource = "\"some text\" 'other text' \"\"\"multiline oneliner\"\"\" \"unterminated";
+        var filename = nameof(ScanString);
+        const string src = "\"some text\" 'other text' \"\"\"multiline oneliner\"\"\" \"unterminated";
 
-        Lexer lexer = new(stringsSource, "StringTest");
+        SourceText source = new(filename, src);
+        Lexer lexer = new(source, filename);
         var (tokens, _) = lexer.Execute();
 
         tokens = [.. tokens.Where(t => t.Kind != TokenKind.EOF && t.Kind != TokenKind.Semicolon)];
 
         Assert.Equal(3, tokens.Length);
         Assert.Equal(TokenKind.LiteralString, tokens[0].Kind);
-        Assert.Equal("some text", tokens[0].StringValue);
-        Assert.Equal("other text", tokens[1].StringValue);
-        Assert.Equal("multiline oneliner", tokens[2].StringValue);
+        Assert.Equal("some text", tokens[0].Text);
+        Assert.Equal("other text", tokens[1].Text);
+        Assert.Equal("multiline oneliner", tokens[2].Text);
     }
 
     [Fact]
     public void ScanMultilineString()
     {
-        const string stringsSource = @"'''multiline string
+        var filename = nameof(ScanMultilineString);
+        const string src = @"'''multiline string
 '''
             'regular string'
 
@@ -140,38 +152,41 @@ public class LexerTests
 '''
             '''unterminated";
 
-        Lexer lexer = new(stringsSource, "StringTest");
+        SourceText source = new(filename, src);
+        Lexer lexer = new(source, filename);
         var (tokens, _) = lexer.Execute();
 
         //filter out statement terminators
         tokens = [.. tokens.Where(t => t.Kind != TokenKind.Semicolon && t.Kind != TokenKind.EOF)];
 
         Assert.Equal(3, tokens.Length);
-        Assert.Equal("multiline string\n", ((string)tokens.First().StringValue).Replace("\r", string.Empty));
-        Assert.Equal("regular string", tokens[1].StringValue);
+        Assert.Equal("multiline string\n", (tokens.First().Text).Replace("\r", string.Empty));
+        Assert.Equal("regular string", tokens[1].Text);
         Assert.Equal(2, tokens[1].Line);
-        Assert.Equal("another 'multiline' string\n text\n", ((string)tokens[2].StringValue).Replace("\r", string.Empty));
+        Assert.Equal("another 'multiline' string\n text\n", (tokens[2].Text).Replace("\r", string.Empty));
         Assert.Equal(4, tokens[2].Line);
     }
 
     [Fact]
     public void ScanNumbers()
     {
-        const string numbers = "123 42 1.2 .2 2.";
+        string filename = nameof(ScanNumbers);
+        const string src = "123 42 1.2 .2 2.";
 
-        Lexer lexer = new(numbers, "NumbersTest");
+        SourceText source = new(filename, src);
+        Lexer lexer = new(source, filename);
         var (tokens, _) = lexer.Execute();
 
         tokens = [.. tokens.Where(t => t.Kind != TokenKind.EOF)];
 
         Assert.Equal(6, tokens.Length);
         Assert.Equal(TokenKind.LiteralInt, tokens[0].Kind);
-        Assert.Equal(123, tokens[0].IntValue);
-        Assert.Equal(42, tokens[1].IntValue);
+        Assert.Equal("123", tokens[0].Text);
+        Assert.Equal("42", tokens[1].Text);
 
         Assert.Equal(TokenKind.LiteralReal, tokens[2].Kind);
-        Assert.Equal(1.2, tokens[2].RealValue);
-        Assert.Equal(.2, tokens[3].RealValue);
+        Assert.Equal("1.2", tokens[2].Text);
+        Assert.Equal(".2", tokens[3].Text);
 
         Assert.Equal(TokenKind.LiteralInt, tokens[4].Kind);
     }
@@ -179,7 +194,8 @@ public class LexerTests
     [Fact]
     public void SemicolonInsertion()
     {
-        const string source = @"
+        string filename = nameof(SemicolonInsertion);
+        const string src = @"
 # 1. Basic insertion
 let a = 1
 let b = 2
@@ -204,7 +220,8 @@ if a > b
 }
 ";
 
-        Lexer lexer = new(source, "SemicolonInsertionTest");
+        SourceText source = new(filename, src);
+        Lexer lexer = new(source, filename);
         var (tokens, _) = lexer.Execute();
 
         TokenKind[] expectedTypes =
@@ -242,7 +259,8 @@ if a > b
     [Fact]
     public void ChainingAndLineContinuation()
     {
-        const string source = @"
+        string filename = nameof(ChainingAndLineContinuation);
+        const string src = @"
 # Test 1: Method chaining
 let item = my_collection
     .get_name()
@@ -274,7 +292,8 @@ let status = ""order""
 let details = ""...""
 ";
 
-        Lexer lexer = new(source, "AdvancedASITest");
+        SourceText source = new(filename, src);
+        Lexer lexer = new(source, filename);
         var (tokens, _) = lexer.Execute();
 
         var expectedTypes = new[]

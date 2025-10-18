@@ -1,4 +1,5 @@
-﻿using Glykon.Compiler.Diagnostics.Errors;
+﻿using Glykon.Compiler.Core;
+using Glykon.Compiler.Diagnostics.Errors;
 using Glykon.Compiler.Semantics.Analysis;
 using Glykon.Compiler.Semantics.Binding;
 using Glykon.Compiler.Semantics.Binding.BoundStatements;
@@ -12,7 +13,8 @@ public class SemanticTests
     // Helpers
     private static (SyntaxTree syntaxTree, List<IGlykonError> parseErr) Parse(string src, string file)
     {
-        var (tokens, _) = new Lexer(src, file).Execute();
+        SourceText source = new(file, src);
+        var (tokens, _) = new Lexer(source, file).Execute();
         return new Parser(tokens, file).Execute();
     }
 
@@ -35,7 +37,8 @@ public class SemanticTests
             let i = 6
             let res = i + (2 + 2 * 3)
 ";
-        Lexer lexer = new(src, fileName);
+        SourceText source = new(fileName, src);
+        Lexer lexer = new(source, fileName);
         (var tokens, _) = lexer.Execute();
         Parser parser = new(tokens, fileName);
         var (syntaxTree, parseErrors) = parser.Execute();
@@ -65,7 +68,8 @@ public class SemanticTests
         const string src = @"
             let res = (2 + 2 * 'text')
 ";
-        Lexer lexer = new(src, fileName);
+        SourceText source = new(fileName, src);
+        Lexer lexer = new(source, fileName);
         (var tokens, _) = lexer.Execute();
         Parser parser = new(tokens, fileName);
         var (syntaxTree, parseErrors) = parser.Execute();
@@ -88,8 +92,9 @@ public class SemanticTests
                                 const c: int = 5 * v
                             """;
         string fileName = nameof(CheckVariableInsideConstantDeclaration);
-        
-        Lexer lexer = new(src, fileName);
+
+        SourceText source = new(fileName, src);
+        Lexer lexer = new(source, fileName);
         (var tokens, _) = lexer.Execute();
         Parser parser = new(tokens, fileName);
         var (syntaxTree, parseErrors) = parser.Execute();
@@ -155,7 +160,8 @@ public class SemanticTests
             foo()      # unknown
         ";
 
-        var lexer = new Lexer(src, fileName);
+        SourceText source = new(fileName, src);
+        var lexer = new Lexer(source, fileName);
         (var tokens, _) = lexer.Execute();
         var parser = new Parser(tokens, fileName);
         var (syntax, parseErrors) = parser.Execute();
@@ -177,7 +183,8 @@ public class SemanticTests
             x()        # variable, not a function
         ";
 
-        var lexer = new Lexer(src, fileName);
+        SourceText source = new(fileName, src);
+        var lexer = new Lexer(source, fileName);
         (var tokens, _) = lexer.Execute();
         var parser = new Parser(tokens, fileName);
         var (syntax, parseErrors) = parser.Execute();
@@ -199,7 +206,8 @@ public class SemanticTests
             (ping)()   # grouping around identifier is allowed
         ";
 
-        var lexer = new Lexer(src, fileName);
+        SourceText source = new(fileName, src);
+        var lexer = new Lexer(source, fileName);
         (var tokens, _) = lexer.Execute();
         var parser = new Parser(tokens, fileName);
         var (syntax, parseErrors) = parser.Execute();
@@ -222,7 +230,8 @@ public class SemanticTests
             log(true)     # no matching overload for (bool)
         ";
 
-        var lexer = new Lexer(src, fileName);
+        SourceText source = new(fileName, src);
+        var lexer = new Lexer(source, fileName);
         (var tokens, _) = lexer.Execute();
         var parser = new Parser(tokens, fileName);
         var (syntax, parseErrors) = parser.Execute();
@@ -246,7 +255,8 @@ public class SemanticTests
             log(1, 2)
         ";
 
-        var lexer = new Lexer(src, fileName);
+        SourceText source = new(fileName, src);
+        var lexer = new Lexer(source, fileName);
         (var tokens, _) = lexer.Execute();
         var parser = new Parser(tokens, fileName);
         var (syntax, parseErrors) = parser.Execute();

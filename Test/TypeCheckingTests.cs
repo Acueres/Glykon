@@ -1,6 +1,7 @@
-using Glykon.Compiler.Syntax;
+using Glykon.Compiler.Core;
 using Glykon.Compiler.Diagnostics.Errors;
 using Glykon.Compiler.Semantics.Binding;
+using Glykon.Compiler.Syntax;
 
 namespace Tests;
 
@@ -9,7 +10,8 @@ public class TypeCheckingTests
     // Helpers
     private static (SyntaxTree syntaxTree, List<IGlykonError> parseErr) Parse(string src, string file)
     {
-        var (tokens, _) = new Lexer(src, file).Execute();
+        SourceText source = new(file, src);
+        var (tokens, _) = new Lexer(source, file).Execute();
         return new Parser(tokens, file).Execute();
     }
 

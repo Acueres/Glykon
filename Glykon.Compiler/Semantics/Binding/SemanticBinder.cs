@@ -108,7 +108,7 @@ public class SemanticBinder(SyntaxTree syntaxTree, IdentifierInterner interner, 
                         return new BoundConstantDeclaration(null);
                     }
 
-                    var symbol = symbolTable.RegisterConstant(constantStmt.Name, foldedLiteralExpr.Token, constantStmt.DeclaredType);
+                    var symbol = symbolTable.RegisterConstant(constantStmt.Name, foldedLiteralExpr.Value, constantStmt.DeclaredType);
 
                     typeChecker.CheckDeclaredType(boundExpression, constantStmt.DeclaredType);
 
@@ -173,7 +173,7 @@ public class SemanticBinder(SyntaxTree syntaxTree, IdentifierInterner interner, 
             case ExpressionKind.Literal:
                 {
                     LiteralExpr literalExpr = (LiteralExpr)expression;
-                    return new BoundLiteralExpr(literalExpr.Token);
+                    return new BoundLiteralExpr(literalExpr.Value);
                 }
             case ExpressionKind.Unary:
                 {

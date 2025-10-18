@@ -1,7 +1,9 @@
-﻿using Glykon.Compiler.Diagnostics.Exceptions;
+﻿using Glykon.Compiler.Core;
 using Glykon.Compiler.Diagnostics.Errors;
+using Glykon.Compiler.Diagnostics.Exceptions;
 using Glykon.Compiler.Syntax.Expressions;
 using Glykon.Compiler.Syntax.Statements;
+using System.Globalization;
 
 namespace Glykon.Compiler.Syntax;
 
@@ -190,7 +192,7 @@ public class Parser(Token[] tokens, string filename)
             body = new BlockStmt([stmt]);
         }
 
-        return new FunctionDeclaration(functionName.StringValue, parameters, returnType, body);
+        return new FunctionDeclaration(functionName.Text, parameters, returnType, body);
     }
 
     ReturnStmt ParseReturnStatement()
@@ -234,7 +236,7 @@ public class Parser(Token[] tokens, string filename)
         {
             TerminateStatement("Expect ';' after variable declaration");
 
-            string name = token.StringValue;
+            string name = token.Text;
             return new(initializer, name, declaredType);
         }
     }
@@ -251,7 +253,7 @@ public class Parser(Token[] tokens, string filename)
 
         TerminateStatement("Expect ';' after constant declaration");
 
-        string name = token.StringValue;
+        string name = token.Text;
         return new(initializer, name, declaredType);
     }
 
@@ -275,7 +277,7 @@ public class Parser(Token[] tokens, string filename)
             Consume(TokenKind.Colon, "Expect colon before type declaration");
             Token type = Advance();
 
-            var parameter = (name.StringValue, type.Kind);
+            var parameter = (name.Text, type.Kind);
             parameters.Add(parameter);
         }
         while (Match(TokenKind.Comma));
@@ -443,11 +445,11 @@ public class Parser(Token[] tokens, string filename)
     {
         if (Match(TokenKind.None, TokenKind.LiteralTrue, TokenKind.LiteralFalse,
                   TokenKind.LiteralInt, TokenKind.LiteralReal, TokenKind.LiteralString))
-            return new LiteralExpr(Previous);
+            return ParseLiteral();
 
         if (Match(TokenKind.Identifier))
         {
-            string name = Previous.StringValue;
+            string name = Previous.Text;
             return new VariableExpr(name);
         }
 
@@ -461,6 +463,40 @@ public class Parser(Token[] tokens, string filename)
         ParseError error = new(Current, fileName, "Expect expression");
         errors.Add(error);
         throw error.Exception();
+    }
+
+    LiteralExpr ParseLiteral()
+    {
+        if (Previous.Kind == TokenKind.LiteralTrue)
+        {
+            return new LiteralExpr(ConstantValue.FromBool(true));
+        }
+        if (Previous.Kind == TokenKind.LiteralFalse)
+        {
+            return new LiteralExpr(ConstantValue.FromBool(false));
+        }
+        if (Previous.Kind == TokenKind.None)
+        {
+            return new LiteralExpr(ConstantValue.None());
+        }
+
+        TextSpan span = Previous.Span!.Value;
+
+        switch (Previous.Kind)
+        {
+            case TokenKind.LiteralInt when
+                long.TryParse(span.AsSpan(), NumberStyles.Integer, CultureInfo.InvariantCulture, out var i):
+                return new LiteralExpr(ConstantValue.FromInt(i));
+            case TokenKind.LiteralReal when
+                double.TryParse(span.AsSpan(), CultureInfo.InvariantCulture, out var d):
+                return new LiteralExpr(ConstantValue.FromReal(d));
+            case TokenKind.LiteralString:
+                return new LiteralExpr(ConstantValue.FromString(span.Text));
+            default:
+                ParseError error = new(Current, fileName, $"{Previous.Kind} not a valid literal kind");
+                errors.Add(error);
+                throw error.Exception();
+        }
     }
 
     /// <summary>

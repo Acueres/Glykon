@@ -1,11 +1,12 @@
 ﻿using System.Globalization;
+using Glykon.Compiler.Core;
 using Glykon.Compiler.Diagnostics.Errors;
 
 namespace Glykon.Compiler.Syntax;
 
-public class Lexer(string source, string fileName)
+public class Lexer(SourceText source, string fileName)
 {
-    readonly string source = source;
+    readonly SourceText source = source;
     readonly string fileName = fileName;
 
     bool AtEnd => currentCharIndex >= source.Length;
@@ -152,9 +153,9 @@ public class Lexer(string source, string fileName)
 
         while (IsAllowedIdentifierCharacter(Peek())) Advance();
 
-        string identifier = source[identifierStart..currentCharIndex];
+        TextSpan identifier = new(source, identifierStart, currentCharIndex - identifierStart);
 
-        if (keywords.TryGetValue(identifier, out TokenKind type))
+        if (keywords.TryGetValue(identifier.Text, out TokenKind type))
         {
             return new(type, line);
         }
@@ -177,14 +178,15 @@ public class Lexer(string source, string fileName)
             while (char.IsAsciiDigit(Peek())) Advance();
         }
 
-        string number = source[numberStart..currentCharIndex];
+        TextSpan number = new(source, numberStart, currentCharIndex - numberStart);
 
+        TokenKind type = TokenKind.LiteralInt;
         if (isReal)
         {
-            return new(TokenKind.LiteralReal, line, double.Parse(number, CultureInfo.InvariantCulture));
+            type = TokenKind.LiteralReal;
         }
 
-        return new(TokenKind.LiteralInt, line, int.Parse(number));
+        return new(type, line, number);
     }
 
     Token ScanString(char openingQuote)
@@ -216,7 +218,7 @@ public class Lexer(string source, string fileName)
         }
 
         int stringEndOffset = multiline ? 3 : 1;
-        Token result = new(TokenKind.LiteralString, currentLine, source[stringStart..(currentCharIndex - stringEndOffset)]);
+        Token result = new(TokenKind.LiteralString, currentLine, new TextSpan(source, stringStart, currentCharIndex - stringStart - stringEndOffset));
 
         return result;
     }
@@ -291,7 +293,7 @@ public class Lexer(string source, string fileName)
             const int len = 3;
             int end = index + len;
 
-            if (source.Length >= end && source.Substring(index, len) == "and")
+            if (source.Length >= end && source.Slice(index, len).ToString() == "and")
             {
                 if (source.Length == end || !IsAllowedIdentifierCharacter(source[end]))
                 {
@@ -305,7 +307,7 @@ public class Lexer(string source, string fileName)
             const int len = 2;
             int end = index + len;
 
-            if (source.Length >= end && source.Substring(index, len) == "or")
+            if (source.Length >= end && source.Slice(index, len).ToString() == "or")
             {
                 if (source.Length == end || !IsAllowedIdentifierCharacter(source[end]))
                 {
@@ -319,7 +321,7 @@ public class Lexer(string source, string fileName)
             const int len = 3;
             int end = index + len;
 
-            if (source.Length >= end && source.Substring(index, len) == "not")
+            if (source.Length >= end && source.Slice(index, len).ToString() == "not")
             {
                 if (source.Length == end || !IsAllowedIdentifierCharacter(source[end]))
                 {

@@ -1,4 +1,5 @@
-﻿using Glykon.Compiler.Diagnostics.Errors;
+﻿using Glykon.Compiler.Core;
+using Glykon.Compiler.Diagnostics.Errors;
 using Glykon.Compiler.Semantics.Analysis;
 using Glykon.Compiler.Semantics.Binding;
 using Glykon.Compiler.Syntax;
@@ -8,7 +9,8 @@ public class FlowTests
 {
     private static List<IGlykonError> Check(string src, string file)
     {
-        var (tokens, _) = new Lexer(src, file).Execute();
+        SourceText source = new(file, src);
+        var (tokens, _) = new Lexer(source, file).Execute();
         var (syntaxTree, parseErr) = new Parser(tokens, file).Execute();
 
         Assert.Empty(parseErr);

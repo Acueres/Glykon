@@ -5,6 +5,7 @@ using Glykon.Compiler.Semantics.Analysis;
 using Glykon.Compiler.Syntax;
 using Glykon.Compiler.Diagnostics.Errors;
 using Glykon.Compiler.Semantics.Binding;
+using Glykon.Compiler.Core;
 
 namespace Glykon.Cli;
 
@@ -36,7 +37,8 @@ internal class Program
 ";
         List<IGlykonError> errors = [];
         
-        Lexer lexer = new(src, filename);
+        SourceText source = new(filename, src);
+        Lexer lexer = new(source, filename);
         var (tokens, lexerErrors) = lexer.Execute();
 
         errors.AddRange(lexerErrors);

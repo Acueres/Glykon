@@ -1,4 +1,5 @@
-﻿using Glykon.Compiler.Semantics.Symbols;
+﻿using Glykon.Compiler.Core;
+using Glykon.Compiler.Semantics.Symbols;
 using Glykon.Compiler.Syntax;
 
 namespace Glykon.Compiler.Semantics.Binding;
@@ -52,7 +53,7 @@ public class SymbolTable
         return current.GetFunctionOverloads(id).Count > 0;
     }
 
-    public ConstantSymbol RegisterConstant(string name, in Token value, TokenKind type)
+    public ConstantSymbol RegisterConstant(string name, in ConstantValue value, TokenKind type)
     {
         int symbolIndex = interner.Intern(name);
         ConstantSymbol constant = current.RegisterConstant(symbolIndex, value, type);

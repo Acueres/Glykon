@@ -1,6 +1,6 @@
 ﻿using System.Reflection;
 using System.Reflection.Emit;
-
+using Glykon.Compiler.Core;
 using Glykon.Compiler.Diagnostics.Errors;
 using Glykon.Compiler.Semantics.Binding;
 using Glykon.Compiler.Semantics.Binding.BoundExpressions;
@@ -12,7 +12,7 @@ using Glykon.Compiler.Syntax.Statements;
 
 namespace Glykon.Compiler.Emitter;
 
-internal class MethodEmitter
+internal class FunctionEmitter
 {
     readonly MethodBuilder mb;
     readonly ILGenerator il;
@@ -22,7 +22,7 @@ internal class MethodEmitter
 
     Dictionary<FunctionSymbol, MethodInfo> combinedMethods = [];
     readonly Dictionary<FunctionSymbol, MethodInfo> localFunctions = [];
-    readonly List<MethodEmitter> methodGenerators = [];
+    readonly List<FunctionEmitter> methodGenerators = [];
 
     readonly Label? returnLabel;
     readonly LocalBuilder? returnLocal;
@@ -30,7 +30,7 @@ internal class MethodEmitter
     readonly Stack<Label> loopStart = [];
     readonly Stack<Label> loopEnd = [];
 
-    public MethodEmitter(BoundFunctionDeclaration stmt, IdentifierInterner interner, TypeBuilder typeBuilder, string appName)
+    public FunctionEmitter(BoundFunctionDeclaration stmt, IdentifierInterner interner, TypeBuilder typeBuilder, string appName)
     {
         fStmt = stmt;
         this.appName = appName;
@@ -68,7 +68,7 @@ internal class MethodEmitter
         var locals = stmt.Body.Statements.Where(s => s.Kind == StatementKind.Function).Select(s => (BoundFunctionDeclaration)s);
         foreach (var f in locals)
         {
-            MethodEmitter mg = new(f, interner, typeBuilder, appName);
+            FunctionEmitter mg = new(f, interner, typeBuilder, appName);
             methodGenerators.Add(mg);
             localFunctions.Add(f.Signature, mg.GetMethodBuilder());
         }
@@ -247,7 +247,7 @@ internal class MethodEmitter
             case ExpressionKind.Literal:
                 {
                     var expr = (BoundLiteralExpr)expression;
-                    return EmitPrimitive(expr.Token);
+                    return EmitPrimitive(expr.Value);
                 }
             case ExpressionKind.Variable:
                 {
@@ -463,15 +463,14 @@ internal class MethodEmitter
         return TokenKind.None;
     }
 
-    TokenKind EmitPrimitive(in Token token)
+    TokenKind EmitPrimitive(in ConstantValue value)
     {
-        switch (token.Kind)
+        switch (value.Kind)
         {
-            case TokenKind.LiteralString: il.Emit(OpCodes.Ldstr, token.StringValue ?? ""); return TokenKind.String;
-            case TokenKind.LiteralInt: il.Emit(OpCodes.Ldc_I4, (int)token.IntValue); return TokenKind.Int;
-            case TokenKind.LiteralReal: il.Emit(OpCodes.Ldc_R8, token.RealValue); return TokenKind.Real;
-            case TokenKind.LiteralTrue: il.Emit(OpCodes.Ldc_I4, 1); return TokenKind.Bool;
-            case TokenKind.LiteralFalse: il.Emit(OpCodes.Ldc_I4, 0); return TokenKind.Bool;
+            case ConstantKind.String: il.Emit(OpCodes.Ldstr, value.String); return TokenKind.String;
+            case ConstantKind.Int: il.Emit(OpCodes.Ldc_I4, (int)value.Int); return TokenKind.Int;
+            case ConstantKind.Real: il.Emit(OpCodes.Ldc_R8, value.Real); return TokenKind.Real;
+            case ConstantKind.Bool: il.Emit(OpCodes.Ldc_I4, value.Bool ? 1 : 0); return TokenKind.Bool;
             default: il.Emit(OpCodes.Ldnull); return TokenKind.None;
         }
     }

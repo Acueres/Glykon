@@ -1,8 +1,10 @@
+using Glykon.Compiler.Core;
 using Glykon.Compiler.Semantics.Binding;
-using Glykon.Compiler.Semantics.Rewriting;
 using Glykon.Compiler.Semantics.Binding.BoundExpressions;
 using Glykon.Compiler.Semantics.Binding.BoundStatements;
+using Glykon.Compiler.Semantics.Rewriting;
 using Glykon.Compiler.Syntax;
+using Glykon.Compiler.Syntax.Expressions;
 
 namespace Glykon.Compiler.Semantics.Optimization;
 
@@ -50,13 +52,13 @@ public class ConstantFolder: BoundTreeRewriter
         switch (logicalExpr.Operator.Kind)
         {
             // Short-circuit boolean ops
-            case TokenKind.And when left is BoundLiteralExpr { Token.Kind: TokenKind.LiteralTrue or TokenKind.LiteralFalse } l:
-                return l.Token.Kind == TokenKind.LiteralTrue
+            case TokenKind.And when left is BoundLiteralExpr { Value.Kind: ConstantKind.Bool } l:
+                return l.Value.Bool
                     ? right
-                    : new BoundLiteralExpr(new Token(TokenKind.LiteralFalse, l.Token.Line));
-            case TokenKind.Or when left is BoundLiteralExpr { Token.Kind: TokenKind.LiteralTrue or TokenKind.LiteralFalse } l:
-                return l.Token.Kind == TokenKind.LiteralTrue
-                    ? new BoundLiteralExpr(new Token(TokenKind.LiteralTrue, l.Token.Line))
+                    : new BoundLiteralExpr(l.Value);
+            case TokenKind.Or when left is BoundLiteralExpr { Value.Kind: ConstantKind.Bool } l:
+                return l.Value.Bool
+                    ? new BoundLiteralExpr(l.Value)
                     : right;
         }
         
@@ -71,9 +73,9 @@ public class ConstantFolder: BoundTreeRewriter
         var cond = VisitExpr(ifStmt.Condition);
         var thenS = VisitStmt(ifStmt.ThenStatement);
         var elseS = ifStmt.ElseStatement is null ? null : VisitStmt(ifStmt.ElseStatement);
-        if (cond is BoundLiteralExpr { Token.Kind: TokenKind.LiteralTrue or TokenKind.LiteralFalse } literal)
+        if (cond is BoundLiteralExpr { Value.Kind: ConstantKind.Bool } literal)
         {
-            return literal.Token.Kind == TokenKind.LiteralTrue ? thenS : elseS ?? new BoundBlockStmt([], new Scope());
+            return literal.Value.Bool ? thenS : elseS ?? new BoundBlockStmt([], new Scope());
         }
 
         if (ReferenceEquals(cond, ifStmt.Condition) && ReferenceEquals(thenS, ifStmt.ThenStatement) &&
@@ -87,7 +89,7 @@ public class ConstantFolder: BoundTreeRewriter
     {
         var cond = VisitExpr(whileStmt.Condition);
         var body = VisitStmt(whileStmt.Body);
-        if (cond is BoundLiteralExpr { Token.Kind: TokenKind.LiteralFalse })
+        if (cond is BoundLiteralExpr { Value.Kind: ConstantKind.Bool, Value.Bool: false })
         {
             return new BoundBlockStmt([], new Scope());
         }
@@ -102,11 +104,11 @@ public class ConstantFolder: BoundTreeRewriter
         result = null!;
         switch (op)
         {
-            case TokenKind.Minus when literalExpr.Token.Kind == TokenKind.LiteralInt:
-                result = new BoundLiteralExpr(new Token(TokenKind.Int, literalExpr.Token.Line, checked(-literalExpr.Token.IntValue)));
+            case TokenKind.Minus when literalExpr.Value.Kind == ConstantKind.Int:
+                result = new BoundLiteralExpr(ConstantValue.FromInt(checked(-literalExpr.Value.Int)));
                 return true;
-            case TokenKind.Not when literalExpr.Token.Kind is TokenKind.LiteralTrue or TokenKind.LiteralFalse:
-                result = new BoundLiteralExpr(new Token(literalExpr.Token.Kind == TokenKind.LiteralTrue ? TokenKind.LiteralFalse : TokenKind.LiteralTrue, literalExpr.Token.Line));
+            case TokenKind.Not when literalExpr.Value.Kind is ConstantKind.Bool:
+                result = new BoundLiteralExpr(ConstantValue.FromBool(!literalExpr.Value.Bool));
                 return true;
         }
 
@@ -118,119 +120,119 @@ public class ConstantFolder: BoundTreeRewriter
     {
         result = null!;
         // Int arithmetic/compare
-        if (left.Token.Kind == TokenKind.LiteralInt && right.Token.Kind == TokenKind.LiteralInt)
+        if (left.Value.Kind == ConstantKind.Int && right.Value.Kind == ConstantKind.Int)
         {
-            var a =  left.Token.IntValue;
-            var b = right.Token.IntValue;
+            var a =  left.Value.Int;
+            var b = right.Value.Int;
             
             switch (op)
             {
                 case TokenKind.Plus:
-                    result = new BoundLiteralExpr(new Token(TokenKind.LiteralInt, left.Token.Line, checked(a + b)));
+                    result = new BoundLiteralExpr(ConstantValue.FromInt(checked(a + b)));
                     return true;
                 case TokenKind.Minus:
-                    result = new BoundLiteralExpr(new Token(TokenKind.LiteralInt, left.Token.Line, checked(a - b)));
+                    result = new BoundLiteralExpr(ConstantValue.FromInt(checked(a - b)));
                     return true;
                 case TokenKind.Star:
-                    result = new BoundLiteralExpr(new Token(TokenKind.LiteralInt, left.Token.Line, checked(a * b)));
+                    result = new BoundLiteralExpr(ConstantValue.FromInt(checked(a * b)));
                     return true;
                 case TokenKind.Slash when b != 0:
-                    result = new BoundLiteralExpr(new Token(TokenKind.LiteralInt, left.Token.Line, checked(a / b)));
+                    result = new BoundLiteralExpr(ConstantValue.FromInt(checked(a / b)));
                     return true;
                 case TokenKind.Equal:
-                    result = new BoundLiteralExpr(new Token(a == b ? TokenKind.LiteralTrue : TokenKind.LiteralFalse, left.Token.Line));
+                    result = new BoundLiteralExpr(ConstantValue.FromBool(checked(a == b)));
                     return true;
                 case TokenKind.NotEqual:
-                    result = new BoundLiteralExpr(new Token(a != b ? TokenKind.LiteralTrue : TokenKind.LiteralFalse, left.Token.Line));
+                    result = new BoundLiteralExpr(ConstantValue.FromBool(checked(a != b)));
                     return true;
                 case TokenKind.Less:
-                    result = new BoundLiteralExpr(new Token(a < b ? TokenKind.LiteralTrue : TokenKind.LiteralFalse, left.Token.Line));
+                    result = new BoundLiteralExpr(ConstantValue.FromBool(checked(a < b)));
                     return true;
                 case TokenKind.LessEqual:
-                    result = new BoundLiteralExpr(new Token(a <= b ? TokenKind.LiteralTrue : TokenKind.LiteralFalse, left.Token.Line));
+                    result = new BoundLiteralExpr(ConstantValue.FromBool(checked(a <= b)));
                     return true;
                 case TokenKind.Greater:
-                    result = new BoundLiteralExpr(new Token(a > b ? TokenKind.LiteralTrue : TokenKind.LiteralFalse, left.Token.Line));
+                    result = new BoundLiteralExpr(ConstantValue.FromBool(checked(a > b)));
                     return true;
                 case TokenKind.GreaterEqual:
-                    result = new BoundLiteralExpr(new Token(a >= b ? TokenKind.LiteralTrue : TokenKind.LiteralFalse, left.Token.Line));
+                    result = new BoundLiteralExpr(ConstantValue.FromBool(checked(a >= b)));
                     return true;
             }
         }
         
         // Real arithmetic/compare
-        if (left.Token.Kind == TokenKind.LiteralReal && right.Token.Kind == TokenKind.LiteralReal)
+        if (left.Value.Kind == ConstantKind.Real && right.Value.Kind == ConstantKind.Real)
         {
-            var a =  left.Token.RealValue;
-            var b = right.Token.RealValue;
+            var a = left.Value.Real;
+            var b = right.Value.Real;
             
             switch (op)
             {
                 case TokenKind.Plus:
-                    result = new BoundLiteralExpr(new Token(TokenKind.LiteralReal, left.Token.Line, checked(a + b)));
+                    result = new BoundLiteralExpr(ConstantValue.FromReal(checked(a + b)));
                     return true;
                 case TokenKind.Minus:
-                    result = new BoundLiteralExpr(new Token(TokenKind.LiteralReal, left.Token.Line, checked(a - b)));;
+                    result = new BoundLiteralExpr(ConstantValue.FromReal(checked(a - b)));
                     return true;
                 case TokenKind.Star:
-                    result = new BoundLiteralExpr(new Token(TokenKind.LiteralReal, left.Token.Line, checked(a * b)));;
+                    result = new BoundLiteralExpr(ConstantValue.FromReal(checked(a * b)));
                     return true;
                 case TokenKind.Slash when b != 0:
-                    result = new BoundLiteralExpr(new Token(TokenKind.LiteralReal, left.Token.Line, checked(a / b)));;
+                    result = new BoundLiteralExpr(ConstantValue.FromReal(checked(a / b)));
                     return true;
                 case TokenKind.Equal:
-                    result = new BoundLiteralExpr(new Token(a == b ? TokenKind.LiteralTrue : TokenKind.LiteralFalse, left.Token.Line));
+                    result = new BoundLiteralExpr(ConstantValue.FromBool(checked(a == b)));
                     return true;
                 case TokenKind.NotEqual:
-                    result = new BoundLiteralExpr(new Token(a != b ? TokenKind.LiteralTrue : TokenKind.LiteralFalse, left.Token.Line));
+                    result = new BoundLiteralExpr(ConstantValue.FromBool(checked(a != b)));
                     return true;
                 case TokenKind.Less:
-                    result = new BoundLiteralExpr(new Token(a < b ? TokenKind.LiteralTrue : TokenKind.LiteralFalse, left.Token.Line));
+                    result = new BoundLiteralExpr(ConstantValue.FromBool(checked(a < b)));
                     return true;
                 case TokenKind.LessEqual:
-                    result = new BoundLiteralExpr(new Token(a <= b ? TokenKind.LiteralTrue : TokenKind.LiteralFalse, left.Token.Line));
+                    result = new BoundLiteralExpr(ConstantValue.FromBool(checked(a <= b)));
                     return true;
                 case TokenKind.Greater:
-                    result = new BoundLiteralExpr(new Token(a > b ? TokenKind.LiteralTrue : TokenKind.LiteralFalse, left.Token.Line));
+                    result = new BoundLiteralExpr(ConstantValue.FromBool(checked(a > b)));
                     return true;
                 case TokenKind.GreaterEqual:
-                    result = new BoundLiteralExpr(new Token(a >= b ? TokenKind.LiteralTrue : TokenKind.LiteralFalse, left.Token.Line));
+                    result = new BoundLiteralExpr(ConstantValue.FromBool(checked(a >= b)));
                     return true;
             }
         }
 
         // Bool compare
-        if (left.Token.Kind is TokenKind.LiteralTrue or TokenKind.LiteralFalse && right.Token.Kind is TokenKind.LiteralTrue or TokenKind.LiteralFalse)
+        if (left.Value.Kind == ConstantKind.Bool && right.Value.Kind == ConstantKind.Bool)
         {
-            var p = left.Token.Kind == TokenKind.LiteralTrue;
-            var q =  right.Token.Kind == TokenKind.LiteralTrue;
+            var p = left.Value.Bool;
+            var q =  right.Value.Bool;
             switch (op)
             {
                 case TokenKind.Equal:
-                    result = new BoundLiteralExpr(new Token(p == q ? TokenKind.LiteralTrue : TokenKind.LiteralFalse, left.Token.Line));
+                    result = new BoundLiteralExpr(ConstantValue.FromBool(p == q));
                     return true;
                 case TokenKind.NotEqual:
-                    result = new BoundLiteralExpr(new Token(p != q ? TokenKind.LiteralTrue : TokenKind.LiteralFalse, left.Token.Line));
+                    result = new BoundLiteralExpr(ConstantValue.FromBool(p != q));
                     return true;
             }
         }
 
         // String concatenation/compare
-        if (left.Token.Kind == TokenKind.LiteralString && right.Token.Kind == TokenKind.LiteralString)
+        if (left.Value.Kind == ConstantKind.String && right.Value.Kind == ConstantKind.String)
         {
-            var s1 = left.Token.StringValue;
-            var s2 = right.Token.StringValue;
+            var s1 = left.Value.String;
+            var s2 = right.Value.String;
             
             switch (op)
             {
                 case TokenKind.Equal:
-                    result = new BoundLiteralExpr(new Token(s1 == s2 ? TokenKind.LiteralTrue : TokenKind.LiteralFalse, left.Token.Line));
+                    result = new BoundLiteralExpr(ConstantValue.FromBool(s1 == s2));
                     return true;
                 case TokenKind.NotEqual:
-                    result = new BoundLiteralExpr(new Token(s1 != s2 ? TokenKind.LiteralTrue : TokenKind.LiteralFalse, left.Token.Line));
+                    result = new BoundLiteralExpr(ConstantValue.FromBool(s1 != s2));
                     return true;
                 case TokenKind.Plus:
-                    result = new BoundLiteralExpr(new Token(TokenKind.LiteralString, left.Token.Line, s1 + s2));
+                    result = new BoundLiteralExpr(ConstantValue.FromString(s1 + s2));
                     return true;
             }
         }
@@ -243,18 +245,18 @@ public class ConstantFolder: BoundTreeRewriter
     {
         result = null!;
 
-        if (left.Token.Kind is not (TokenKind.LiteralTrue or TokenKind.LiteralFalse) ||
-            right.Token.Kind is not (TokenKind.LiteralTrue or TokenKind.LiteralFalse)) return false;
+        if (left.Value.Kind != ConstantKind.Bool ||
+            right.Value.Kind != ConstantKind.Bool) return false;
         
-        var p = left.Token.Kind == TokenKind.LiteralTrue;
-        var q =  right.Token.Kind == TokenKind.LiteralTrue;
+        var p = left.Value.Bool;
+        var q =  right.Value.Bool;
         switch (op)
         {
             case TokenKind.And:
-                result = new BoundLiteralExpr(new Token(p && q ? TokenKind.LiteralTrue : TokenKind.LiteralFalse, left.Token.Line));
+                result = new BoundLiteralExpr(ConstantValue.FromBool(p && q));
                 return true;
             case TokenKind.Or:
-                result = new BoundLiteralExpr(new Token(p || q ? TokenKind.LiteralTrue : TokenKind.LiteralFalse, left.Token.Line));
+                result = new BoundLiteralExpr(ConstantValue.FromBool(p || q));
                 return true;
         }
 

@@ -4,6 +4,7 @@ using Glykon.Compiler.Semantics.Binding.BoundStatements;
 using Glykon.Compiler.Semantics.Binding.BoundExpressions;
 using Glykon.Compiler.Semantics.Optimization;
 using Glykon.Compiler.Syntax;
+using Glykon.Compiler.Core;
 
 namespace Tests;
 
@@ -13,7 +14,8 @@ public class ConstantFoldingTests
     private static (BoundTree bound, BoundStatement[] folded, IdentifierInterner interner) BuildAndFold(string src,
         string file)
     {
-        var (tokens, errors) = new Lexer(src, file).Execute();
+        SourceText source = new(file, src);
+        var (tokens, errors) = new Lexer(source, file).Execute();
         var (syntaxTree, parseErr) = new Parser(tokens, file).Execute();
         Assert.Empty(parseErr);
 
@@ -44,7 +46,7 @@ public class ConstantFoldingTests
 
         var lit = GetLit(decl.Expression);
         // Expect 2 + 3*4 = 14
-        Assert.Equal(14, lit.Token.IntValue);
+        Assert.Equal(14, lit.Value.Int);
     }
 
     [Fact]
@@ -56,7 +58,7 @@ public class ConstantFoldingTests
         
         var decl = GetVar(folded.Single());
         var lit = GetLit(decl.Expression);
-        Assert.Equal(TokenKind.LiteralFalse, lit.Token.Kind);
+        Assert.False(lit.Value.Bool);
     }
 
     [Fact]
@@ -67,7 +69,7 @@ public class ConstantFoldingTests
 
         var decl = GetVar(folded.Single());
         var lit = GetLit(decl.Expression);
-        Assert.Equal(TokenKind.LiteralTrue, lit.Token.Kind);
+        Assert.True(lit.Value.Bool);
     }
 
     [Fact]
@@ -81,13 +83,13 @@ public class ConstantFoldingTests
         var (_, folded, _) = BuildAndFold(code, nameof(Comparisons));
 
         var a = GetVar(folded[0]);
-        Assert.Equal(TokenKind.LiteralTrue, GetLit(a.Expression).Token.Kind);
+        Assert.True(GetLit(a.Expression).Value.Bool);
 
         var b = GetVar(folded[1]);
-        Assert.Equal(TokenKind.LiteralTrue, GetLit(b.Expression).Token.Kind);
+        Assert.True(GetLit(b.Expression).Value.Bool);
 
         var c = GetVar(folded[2]);
-        Assert.Equal(TokenKind.LiteralFalse, GetLit(c.Expression).Token.Kind);
+        Assert.False(GetLit(c.Expression).Value.Bool);
     }
 
     [Fact]
@@ -102,14 +104,14 @@ public class ConstantFoldingTests
 
         var s = GetVar(folded[0]);
         var sLit = GetLit(s.Expression);
-        Assert.Equal(TokenKind.LiteralString, sLit.Token.Kind);
-        Assert.Equal("abcd", sLit.Token.StringValue);
+        Assert.Equal(ConstantKind.String, sLit.Value.Kind);
+        Assert.Equal("abcd", sLit.Value.String);
 
         var ok = GetVar(folded[1]);
-        Assert.Equal(TokenKind.LiteralTrue, GetLit(ok.Expression).Token.Kind);
+        Assert.True(GetLit(ok.Expression).Value.Bool);
 
         var no = GetVar(folded[2]);
-        Assert.Equal(TokenKind.LiteralFalse, GetLit(no.Expression).Token.Kind);
+        Assert.False(GetLit(no.Expression).Value.Bool);
     }
 
     [Fact]
@@ -128,7 +130,7 @@ public class ConstantFoldingTests
         var block = Assert.IsType<BoundBlockStmt>(folded.Single());
         var decl = GetVar(block.Statements.Single());
         Assert.Equal("then_only", interner[decl.Symbol.NameId]);
-        Assert.Equal(1, GetLit(decl.Expression).Token.IntValue);
+        Assert.Equal(1, GetLit(decl.Expression).Value.Int);
     }
 
     [Fact]
@@ -146,7 +148,7 @@ public class ConstantFoldingTests
         var block = Assert.IsType<BoundBlockStmt>(folded.Single());
         var decl = GetVar(block.Statements.Single());
         Assert.Equal("elseOnly", interner[decl.Symbol.NameId]);
-        Assert.Equal(2, GetLit(decl.Expression).Token.IntValue);
+        Assert.Equal(2, GetLit(decl.Expression).Value.Int);
     }
 
     [Fact]
@@ -166,7 +168,7 @@ public class ConstantFoldingTests
 
         var y = GetVar(folded[1]);
         Assert.Equal("y", interner[y.Symbol.NameId]);
-        Assert.Equal(2, GetLit(y.Expression).Token.IntValue);
+        Assert.Equal(2, GetLit(y.Expression).Value.Int);
     }
 
     [Fact]
@@ -178,8 +180,8 @@ public class ConstantFoldingTests
         var decl = GetVar(folded.Single());
         var lit = GetLit(decl.Expression);
 
-        Assert.Equal(TokenKind.LiteralReal, lit.Token.Kind);
-        Assert.Equal(4.0, lit.Token.RealValue, precision: 5);
+        Assert.Equal(ConstantKind.Real, lit.Value.Kind);
+        Assert.Equal(4.0, lit.Value.Real, precision: 5);
     }
     
     // TODO: Add implicit conversion int -> real

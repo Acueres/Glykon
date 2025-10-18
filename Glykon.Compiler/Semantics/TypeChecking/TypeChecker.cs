@@ -1,4 +1,5 @@
-﻿using Glykon.Compiler.Diagnostics.Errors;
+﻿using Glykon.Compiler.Core;
+using Glykon.Compiler.Diagnostics.Errors;
 using Glykon.Compiler.Semantics.Binding;
 using Glykon.Compiler.Semantics.Binding.BoundExpressions;
 using Glykon.Compiler.Semantics.Symbols;
@@ -70,14 +71,13 @@ public class TypeChecker(string fileName, IdentifierInterner interner)
         {
             case ExpressionKind.Literal:
                 {
-                    var literalType = ((BoundLiteralExpr)expression).Token.Kind;
+                    var literalType = ((BoundLiteralExpr)expression).Value.Kind;
                     return literalType switch
                     {
-                        TokenKind.LiteralInt => TokenKind.Int,
-                        TokenKind.LiteralReal => TokenKind.Real,
-                        TokenKind.LiteralString => TokenKind.String,
-                        TokenKind.LiteralTrue => TokenKind.Bool,
-                        TokenKind.LiteralFalse => TokenKind.Bool,
+                        ConstantKind.Int => TokenKind.Int,
+                        ConstantKind.Real => TokenKind.Real,
+                        ConstantKind.String => TokenKind.String,
+                        ConstantKind.Bool => TokenKind.Bool,
                         _ => TokenKind.None,
                     };
                 }
