@@ -1,8 +1,7 @@
-﻿namespace Glykon.Compiler.Syntax.Statements
+﻿namespace Glykon.Compiler.Syntax.Statements;
+
+public class JumpStmt(Token token): Statement
 {
-    public class JumpStmt(Token token): Statement
-    {
-        public override StatementKind Kind => StatementKind.Jump;
-        public Token Token { get; } = token;
-    }
+    public override StatementKind Kind => StatementKind.Jump;
+    public Token Token { get; } = token;
 }

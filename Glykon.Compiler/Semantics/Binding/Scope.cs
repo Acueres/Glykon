@@ -1,6 +1,6 @@
 ﻿using Glykon.Compiler.Core;
 using Glykon.Compiler.Semantics.Symbols;
-using Glykon.Compiler.Syntax;
+using Glykon.Compiler.Semantics.Types;
 
 namespace Glykon.Compiler.Semantics.Binding;
 
@@ -22,6 +22,7 @@ public class Scope
 
     readonly Dictionary<int, Symbol> symbols = [];
     readonly Dictionary<int, List<FunctionSymbol>> functions = [];
+    readonly Dictionary<int, TypeSymbol> types = [];
 
     int parameterCount = 0;
 
@@ -43,7 +44,7 @@ public class Scope
 
     public Scope() { Kind = ScopeKind.Top; }
 
-    public FunctionSymbol? GetLocalFunction(int id, TokenKind[] parameters)
+    public FunctionSymbol? GetLocalFunction(int id, TypeSymbol[] parameters)
     {
         if (functions.TryGetValue(id, out var localOverloads))
         {
@@ -59,7 +60,7 @@ public class Scope
         return null;
     }
 
-    public FunctionSymbol? AddFunction(int symbolId, int serialId, int qualifiedId, TokenKind returnType, TokenKind[] parameters)
+    public FunctionSymbol? AddFunction(int symbolId, int serialId, int qualifiedId, TypeSymbol returnType, TypeSymbol[] parameters)
     {
         FunctionSymbol symbol;
 
@@ -88,7 +89,7 @@ public class Scope
         return symbol;
     }
 
-    public FunctionSymbol? GetFunction(int id, TokenKind[] parameters)
+    public FunctionSymbol? GetFunction(int id, TypeSymbol[] parameters)
     {
         List<FunctionSymbol> allOverloads = GetFunctionOverloads(id);
 
@@ -120,7 +121,7 @@ public class Scope
         return allOverloads;
     }
 
-    public ConstantSymbol RegisterConstant(int id, in ConstantValue value, TokenKind type)
+    public ConstantSymbol RegisterConstant(int id, in ConstantValue value, TypeSymbol type)
     {
         ConstantSymbol symbol = new(id, type, value);
         symbols.Remove(id);
@@ -128,17 +129,37 @@ public class Scope
         return symbol;
     }
 
-    public ParameterSymbol AddParameter(int id, TokenKind type)
+    public ParameterSymbol AddParameter(int id, TypeSymbol type)
     {
         ParameterSymbol symbol = new(id, type, parameterCount++);
         symbols.Add(id, symbol);
         return symbol;
     }
 
-    public VariableSymbol AddVariable(int id, TokenKind type)
+    public VariableSymbol AddVariable(int id, TypeSymbol type)
     {
         VariableSymbol symbol = new(id, type);
         symbols.Add(id, symbol);
+        return symbol;
+    }
+
+    public void AddType(int id, TypeSymbol type)
+    {
+        types.Add(id, type);
+    }
+
+    public TypeSymbol? GetType(int id)
+    {
+        if (!types.TryGetValue(id, out TypeSymbol? symbol))
+        {
+            if (Parent is null)
+            {
+                return null;
+            }
+
+            return Parent.GetType(id);
+        }
+
         return symbol;
     }
 

@@ -1,11 +1,11 @@
-using Glykon.Compiler.Syntax;
+using Glykon.Compiler.Semantics.Types;
 
 namespace Glykon.Compiler.Semantics.Symbols;
 
-public abstract class Symbol(int nameId, TokenKind type)
+public abstract class Symbol(int nameId, TypeSymbol type)
 {
     public int NameId { get; } = nameId;
-    public TokenKind Type { get; set; } = type;
+    public TypeSymbol Type { get; set; } = type;
 
     public override bool Equals(object? obj)
     {
@@ -15,6 +15,6 @@ public abstract class Symbol(int nameId, TokenKind type)
 
     public override int GetHashCode()
     {
-        return NameId.GetHashCode();
+        return HashCode.Combine(NameId, Type.NameId);
     }
 }

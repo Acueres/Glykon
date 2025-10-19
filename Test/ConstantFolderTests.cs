@@ -21,7 +21,7 @@ public class ConstantFoldingTests
 
         IdentifierInterner interner = new();
         var analyzer = new SemanticAnalyzer(syntaxTree, interner, file);
-        var (boundTree, _, semErr) = analyzer.Analyze();
+        var (boundTree, _, _, semErr) = analyzer.Analyze();
         Assert.Empty(semErr);
 
         var folder = new ConstantFolder();

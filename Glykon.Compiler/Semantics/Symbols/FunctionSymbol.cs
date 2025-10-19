@@ -1,13 +1,13 @@
 ﻿using Glykon.Compiler.Semantics.Binding;
-using Glykon.Compiler.Syntax;
+using Glykon.Compiler.Semantics.Types;
 
 namespace Glykon.Compiler.Semantics.Symbols;
 
-public class FunctionSymbol(int nameId, int serialId, int qualifiedId, TokenKind returnType, TokenKind[] parameters) : Symbol(nameId, returnType)
+public class FunctionSymbol(int nameId, int serialId, int qualifiedId, TypeSymbol returnType, TypeSymbol[] parameters) : Symbol(nameId, returnType)
 {
     public int SerialId { get; } = serialId;
     public int QualifiedNameId { get; } = qualifiedId;
-    public TokenKind[] Parameters { get; } = parameters;
+    public TypeSymbol[] Parameters { get; } = parameters;
 
     public Scope? Scope { get; set; }
 

@@ -10,9 +10,6 @@ public enum TokenKind : byte
     // Literals
     None, LiteralInt, LiteralReal, LiteralString, LiteralTrue, LiteralFalse,
 
-    // Literal types
-    Int, Real, String, Bool,
-
     // Symbols
     BracketLeft, BracketRight, //[]
     ParenthesisLeft, ParenthesisRight, //()

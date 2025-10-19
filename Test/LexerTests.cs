@@ -95,7 +95,7 @@ public class LexerTests
     public void ScanKeywords()
     {
         string filename = nameof(ScanKeywords);
-        const string src = "if class struct else def int while false";
+        const string src = "if class struct else def while false";
 
         SourceText source = new(filename, src);
         Lexer lexer = new(source, filename);
@@ -110,7 +110,6 @@ public class LexerTests
             TokenKind.Struct,
             TokenKind.Else,
             TokenKind.Def,
-            TokenKind.Int,
             TokenKind.While,
             TokenKind.LiteralFalse
         ];

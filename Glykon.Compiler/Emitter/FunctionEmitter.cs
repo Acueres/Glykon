@@ -6,6 +6,7 @@ using Glykon.Compiler.Semantics.Binding;
 using Glykon.Compiler.Semantics.Binding.BoundExpressions;
 using Glykon.Compiler.Semantics.Binding.BoundStatements;
 using Glykon.Compiler.Semantics.Symbols;
+using Glykon.Compiler.Semantics.Types;
 using Glykon.Compiler.Syntax;
 using Glykon.Compiler.Syntax.Expressions;
 using Glykon.Compiler.Syntax.Statements;
@@ -16,6 +17,7 @@ internal class FunctionEmitter
 {
     readonly MethodBuilder mb;
     readonly ILGenerator il;
+    readonly TypeSystem typeSystem;
 
     readonly BoundFunctionDeclaration fStmt;
     readonly string appName;
@@ -30,10 +32,11 @@ internal class FunctionEmitter
     readonly Stack<Label> loopStart = [];
     readonly Stack<Label> loopEnd = [];
 
-    public FunctionEmitter(BoundFunctionDeclaration stmt, IdentifierInterner interner, TypeBuilder typeBuilder, string appName)
+    public FunctionEmitter(BoundFunctionDeclaration stmt, TypeSystem typeSystem, IdentifierInterner interner, TypeBuilder typeBuilder, string appName)
     {
         fStmt = stmt;
         this.appName = appName;
+        this.typeSystem = typeSystem;
 
         var parameterTypes = TranslateTypes([.. stmt.Parameters.Select(p => p.Type)]);
         var returnType = TranslateType(stmt.ReturnType);
@@ -55,12 +58,12 @@ internal class FunctionEmitter
         int n = CountReturnStatements(stmt);
         bool multipleReturns = n > 1;
 
-        if (multipleReturns || (stmt.ReturnType == TokenKind.None && n > 0))
+        if (multipleReturns || (stmt.ReturnType.Kind == TypeKind.None && n > 0))
         {
             returnLabel = il.DefineLabel();
         }
 
-        if (stmt.ReturnType != TokenKind.None && multipleReturns)
+        if (stmt.ReturnType.Kind != TypeKind.None && multipleReturns)
         {
             returnLocal = il.DeclareLocal(TranslateType(stmt.ReturnType));
         }
@@ -68,7 +71,7 @@ internal class FunctionEmitter
         var locals = stmt.Body.Statements.Where(s => s.Kind == StatementKind.Function).Select(s => (BoundFunctionDeclaration)s);
         foreach (var f in locals)
         {
-            FunctionEmitter mg = new(f, interner, typeBuilder, appName);
+            FunctionEmitter mg = new(f, typeSystem, interner, typeBuilder, appName);
             methodGenerators.Add(mg);
             localFunctions.Add(f.Signature, mg.GetMethodBuilder());
         }
@@ -240,7 +243,7 @@ internal class FunctionEmitter
         }
     }
 
-    TokenKind EmitExpression(BoundExpression expression)
+    TypeSymbol EmitExpression(BoundExpression expression)
     {
         switch (expression.Kind)
         {
@@ -273,7 +276,7 @@ internal class FunctionEmitter
                         return EmitPrimitive(constant.Value);
                     }
 
-                    return TokenKind.None;
+                    return typeSystem[TypeKind.None];
                 }
             case ExpressionKind.Assignment:
                 {
@@ -281,7 +284,7 @@ internal class FunctionEmitter
                     
                     if (expr.Symbol is not VariableSymbol variableSymbol)
                     {
-                        return TokenKind.None;
+                        return typeSystem[TypeKind.None];
                     }
 
                     EmitExpression(expr.Right);
@@ -293,11 +296,11 @@ internal class FunctionEmitter
                 {
                     var expr = (BoundCallExpr)expression;
 
-                    TokenKind[] parameters = new TokenKind[expr.Args.Length];
+                    TypeSymbol[] parameters = new TypeSymbol[expr.Args.Length];
                     int i = 0;
                     foreach (var arg in expr.Args)
                     {
-                        TokenKind type = EmitExpression(arg);
+                        var type = EmitExpression(arg);
                         parameters[i++] = type;
                     }
                     
@@ -314,11 +317,11 @@ internal class FunctionEmitter
 
                     switch (expr.Operator.Kind)
                     {
-                        case TokenKind.Not when type == TokenKind.Bool:
+                        case TokenKind.Not when type.Kind == TypeKind.Bool:
                             il.Emit(OpCodes.Ldc_I4, 0);
                             il.Emit(OpCodes.Ceq);
-                            return TokenKind.Bool;
-                        case TokenKind.Minus when type == TokenKind.Int || type == TokenKind.Real:
+                            return typeSystem[TypeKind.Bool];
+                        case TokenKind.Minus when type.Kind == TypeKind.Int64 || type.Kind == TypeKind.Float64:
                             il.Emit(OpCodes.Neg);
                             return type;
                     }
@@ -342,41 +345,41 @@ internal class FunctionEmitter
                     {
                         case TokenKind.Equal:
                             il.Emit(OpCodes.Ceq);
-                            return TokenKind.Bool;
+                            return typeSystem[TypeKind.Bool];
                         case TokenKind.NotEqual:
                             il.Emit(OpCodes.Ceq);
                             il.Emit(OpCodes.Ldc_I4, 0);
                             il.Emit(OpCodes.Ceq);
-                            return TokenKind.Bool;
-                        case TokenKind.Greater when typeLeft == TokenKind.Int || typeLeft == TokenKind.Real:
+                            return typeSystem[TypeKind.Bool];
+                        case TokenKind.Greater when typeLeft.Kind == TypeKind.Int64 || typeLeft.Kind == TypeKind.Float64:
                             il.Emit(OpCodes.Cgt);
-                            return TokenKind.Bool;
-                        case TokenKind.GreaterEqual when typeLeft == TokenKind.Int || typeLeft == TokenKind.Real:
+                            return typeSystem[TypeKind.Bool];
+                        case TokenKind.GreaterEqual when typeLeft.Kind == TypeKind.Int64 || typeLeft.Kind == TypeKind.Float64:
                             il.Emit(OpCodes.Clt);
                             il.Emit(OpCodes.Ldc_I4, 0);
                             il.Emit(OpCodes.Ceq);
-                            return TokenKind.Bool;
-                        case TokenKind.Less when typeLeft == TokenKind.Int || typeLeft == TokenKind.Real:
+                            return typeSystem[TypeKind.Bool];
+                        case TokenKind.Less when typeLeft.Kind == TypeKind.Int64 || typeLeft.Kind == TypeKind.Float64:
                             il.Emit(OpCodes.Clt);
-                            return TokenKind.Bool;
-                        case TokenKind.LessEqual when typeLeft == TokenKind.Int || typeLeft == TokenKind.Real:
+                            return typeSystem[TypeKind.Bool];
+                        case TokenKind.LessEqual when typeLeft.Kind == TypeKind.Int64 || typeLeft.Kind == TypeKind.Float64:
                             il.Emit(OpCodes.Cgt);
                             il.Emit(OpCodes.Ldc_I4, 0);
                             il.Emit(OpCodes.Ceq);
-                            return TokenKind.Bool;
-                        case TokenKind.Plus when typeLeft == TokenKind.String && typeRight == TokenKind.String:
+                            return typeSystem[TypeKind.Bool];
+                        case TokenKind.Plus when typeLeft.Kind == TypeKind.String && typeRight.Kind == TypeKind.String:
                             il.EmitCall(OpCodes.Call, typeof(string).GetMethod("Concat", [typeof(string), typeof(string)]), []);
-                            return TokenKind.String;
-                        case TokenKind.Plus when typeLeft == TokenKind.Int || typeLeft == TokenKind.Real:
+                            return typeSystem[TypeKind.String];
+                        case TokenKind.Plus when typeLeft.Kind == TypeKind.Int64 || typeLeft.Kind == TypeKind.Float64:
                             il.Emit(OpCodes.Add);
                             return typeLeft;
-                        case TokenKind.Minus when typeLeft == TokenKind.Int || typeLeft == TokenKind.Real:
+                        case TokenKind.Minus when typeLeft.Kind == TypeKind.Int64 || typeLeft.Kind == TypeKind.Float64:
                             il.Emit(OpCodes.Sub);
                             return typeLeft;
-                        case TokenKind.Slash when typeLeft == TokenKind.Int || typeLeft == TokenKind.Real:
+                        case TokenKind.Slash when typeLeft.Kind == TypeKind.Int64 || typeLeft.Kind == TypeKind.Float64:
                             il.Emit(OpCodes.Div);
                             return typeLeft;
-                        case TokenKind.Star when typeLeft == TokenKind.Int || typeLeft == TokenKind.Real:
+                        case TokenKind.Star when typeLeft.Kind == TypeKind.Int64 || typeLeft.Kind == TypeKind.Float64:
                             il.Emit(OpCodes.Mul);
                             return typeLeft;
                     }
@@ -391,10 +394,10 @@ internal class FunctionEmitter
                     if ((expr.Left.Kind == ExpressionKind.Literal || expr.Left.Kind == ExpressionKind.Variable)
                         && (expr.Right.Kind == ExpressionKind.Literal || expr.Right.Kind == ExpressionKind.Variable))
                     {
-                        TokenKind typeLeft = EmitExpression(expr.Left);
-                        TokenKind typeRight = EmitExpression(expr.Right);
+                        var typeLeft = EmitExpression(expr.Left);
+                        var typeRight = EmitExpression(expr.Right);
 
-                        if (typeLeft != TokenKind.Bool && typeLeft != typeRight)
+                        if (typeLeft.Kind != TypeKind.Bool && typeLeft != typeRight)
                         {
                             ParseError error = new(expr.Operator, appName,
                                 $"Operator {expr.Operator.Kind} cannot be applied between types '{typeLeft}' and '{typeRight}'");
@@ -412,7 +415,7 @@ internal class FunctionEmitter
                     }
                     else
                     {
-                        TokenKind typeLeft = EmitExpression(expr.Left);
+                        var typeLeft = EmitExpression(expr.Left);
 
                         if (expr.Operator.Kind == TokenKind.And)
                         {
@@ -423,9 +426,9 @@ internal class FunctionEmitter
                             il.Emit(OpCodes.Br_S, endLabel);
 
                             il.MarkLabel(leftTrue);
-                            TokenKind typeRight = EmitExpression(expr.Right);
+                            var typeRight = EmitExpression(expr.Right);
 
-                            if (typeLeft != TokenKind.Bool && typeLeft != typeRight)
+                            if (typeLeft.Kind != TypeKind.Bool && typeLeft != typeRight)
                             {
                                 ParseError error = new(expr.Operator, appName,
                                     $"Operator {expr.Operator.Kind} cannot be applied between types '{typeLeft}' and '{typeRight}'");
@@ -438,9 +441,9 @@ internal class FunctionEmitter
                         {
                             Label leftTrue = il.DefineLabel();
                             il.Emit(OpCodes.Brtrue_S, leftTrue);
-                            TokenKind typeRight = EmitExpression(expr.Right);
+                            var typeRight = EmitExpression(expr.Right);
 
-                            if (typeLeft != TokenKind.Bool && typeLeft != typeRight)
+                            if (typeLeft.Kind != TypeKind.Bool && typeLeft != typeRight)
                             {
                                 ParseError error = new(expr.Operator, appName,
                                     $"Operator {expr.Operator.Kind} cannot be applied between types '{typeLeft}' and '{typeRight}'");
@@ -456,40 +459,38 @@ internal class FunctionEmitter
                         }
                     }
 
-                    return TokenKind.Bool;
+                    return typeSystem[TypeKind.Bool];
                 }
         }
 
-        return TokenKind.None;
+        return typeSystem[TypeKind.None];
     }
 
-    TokenKind EmitPrimitive(in ConstantValue value)
+    TypeSymbol EmitPrimitive(in ConstantValue value)
     {
         switch (value.Kind)
         {
-            case ConstantKind.String: il.Emit(OpCodes.Ldstr, value.String); return TokenKind.String;
-            case ConstantKind.Int: il.Emit(OpCodes.Ldc_I4, (int)value.Int); return TokenKind.Int;
-            case ConstantKind.Real: il.Emit(OpCodes.Ldc_R8, value.Real); return TokenKind.Real;
-            case ConstantKind.Bool: il.Emit(OpCodes.Ldc_I4, value.Bool ? 1 : 0); return TokenKind.Bool;
-            default: il.Emit(OpCodes.Ldnull); return TokenKind.None;
+            case ConstantKind.String: il.Emit(OpCodes.Ldstr, value.String); return typeSystem[TypeKind.String];
+            case ConstantKind.Int: il.Emit(OpCodes.Ldc_I8, value.Int); return typeSystem[TypeKind.Int64];
+            case ConstantKind.Real: il.Emit(OpCodes.Ldc_R8, value.Real); return typeSystem[TypeKind.Float64];
+            case ConstantKind.Bool: il.Emit(OpCodes.Ldc_I4, value.Bool ? 1 : 0); return typeSystem[TypeKind.Bool];
+            default: il.Emit(OpCodes.Ldnull); return typeSystem[TypeKind.None];
         }
     }
 
-    static Type TranslateType(TokenKind type)
+    static Type TranslateType(TypeSymbol type)
     {
-        return type switch
+        return type.Kind switch
         {
-            TokenKind.Bool => typeof(bool),
-            TokenKind.LiteralTrue => typeof(bool),
-            TokenKind.LiteralFalse => typeof(bool),
-            TokenKind.Int => typeof(int),
-            TokenKind.Real => typeof(double),
-            TokenKind.String => typeof(string),
+            TypeKind.Bool => typeof(bool),
+            TypeKind.Int64 => typeof(long),
+            TypeKind.Float64 => typeof(double),
+            TypeKind.String => typeof(string),
             _ => typeof(void),
         };
     }
 
-    static Type[] TranslateTypes(TokenKind[] types)
+    static Type[] TranslateTypes(TypeSymbol[] types)
     {
         List<Type> result = new(types.Length);
 

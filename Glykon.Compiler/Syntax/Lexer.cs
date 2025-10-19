@@ -1,5 +1,4 @@
-﻿using System.Globalization;
-using Glykon.Compiler.Core;
+﻿using Glykon.Compiler.Core;
 using Glykon.Compiler.Diagnostics.Errors;
 
 namespace Glykon.Compiler.Syntax;
@@ -201,7 +200,7 @@ public class Lexer(SourceText source, string fileName)
             {
                 if (!multiline)
                 {
-                    errors.Add(new SyntaxError(line, fileName, "SyntaxError: unterminated string literal"));
+                    errors.Add(new SyntaxError(line, fileName, "Unterminated string literal"));
                     return Token.Empty;
                 }
 
@@ -213,7 +212,7 @@ public class Lexer(SourceText source, string fileName)
 
         if (AtEnd)
         {
-            errors.Add(new SyntaxError(line, fileName, "SyntaxError: unterminated string literal"));
+            errors.Add(new SyntaxError(line, fileName, "Unterminated string literal"));
             return Token.Empty;
         }
 
@@ -364,10 +363,6 @@ public class Lexer(SourceText source, string fileName)
                 { "def", TokenKind.Def },
                 { "let", TokenKind.Let },
                 { "const", TokenKind.Const },
-                { "int", TokenKind.Int },
-                { "real", TokenKind.Real },
-                { "str", TokenKind.String },
-                { "bool",  TokenKind.Bool },
                 { "true",  TokenKind.LiteralTrue },
                 { "false",  TokenKind.LiteralFalse },
                 { "none", TokenKind.None },

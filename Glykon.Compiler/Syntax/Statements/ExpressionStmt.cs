@@ -1,10 +1,9 @@
 ﻿using Glykon.Compiler.Syntax.Expressions;
 
-namespace Glykon.Compiler.Syntax.Statements
+namespace Glykon.Compiler.Syntax.Statements;
+
+public class ExpressionStmt(Expression expr) : Statement
 {
-    public class ExpressionStmt(Expression expr) : Statement
-    {
-        public override StatementKind Kind => StatementKind.Expression;
-        public Expression Expression { get; } = expr;
-    }
+    public override StatementKind Kind => StatementKind.Expression;
+    public Expression Expression { get; } = expr;
 }

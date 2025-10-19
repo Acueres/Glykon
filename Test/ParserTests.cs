@@ -1,6 +1,7 @@
 ﻿using Glykon.Compiler.Core;
 using Glykon.Compiler.Semantics.Binding;
 using Glykon.Compiler.Semantics.Symbols;
+using Glykon.Compiler.Semantics.Types;
 using Glykon.Compiler.Syntax;
 using Glykon.Compiler.Syntax.Expressions;
 using Glykon.Compiler.Syntax.Statements;
@@ -131,7 +132,7 @@ namespace Tests
 
             FunctionDeclaration function = (FunctionDeclaration)syntaxTree.First();
             Assert.Equal("f", function.Name);
-            Assert.Equal(TokenKind.Int, function.ReturnType);
+            Assert.Equal("int", function.ReturnType.Name);
             Assert.Equal(2, function.Parameters.Count);
             Assert.NotNull(function.Body);
             Assert.Single(function.Body.Statements);
@@ -156,7 +157,11 @@ namespace Tests
             Assert.Single(syntaxTree);
             Assert.Equal(StatementKind.Constant, syntaxTree.First().Kind);
 
-            SemanticBinder binder = new(syntaxTree, new(), fileName);
+            IdentifierInterner interner = new();
+            TypeSystem typeSystem = new(interner);
+            typeSystem.BuildPrimitives();
+
+            SemanticBinder binder = new(syntaxTree, typeSystem, interner, fileName);
             var (_, st) = binder.Bind();
 
             var symbol = st.GetSymbol("pi");
@@ -187,7 +192,7 @@ namespace Tests
             VariableDeclaration stmt = (VariableDeclaration)syntaxTree.First();
             Assert.Equal("value", stmt.Name);
             Assert.NotNull(stmt.Expression);
-            Assert.Equal(TokenKind.None, stmt.DeclaredType);
+            Assert.Equal("none", stmt.DeclaredType.Name);
             Assert.Equal(42, ((LiteralExpr)stmt.Expression).Value.Int);
         }
 
@@ -211,7 +216,7 @@ namespace Tests
             VariableDeclaration stmt = (VariableDeclaration)syntaxTree.First();
             Assert.Equal("value", stmt.Name);
             Assert.NotNull(stmt.Expression);
-            Assert.Equal(TokenKind.Int, stmt.DeclaredType);
+            Assert.Equal("int", stmt.DeclaredType.Name);
             Assert.Equal(42, (stmt.Expression as LiteralExpr).Value.Int);
         }
 

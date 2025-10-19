@@ -1,8 +1,8 @@
-﻿using Glykon.Compiler.Syntax;
+﻿using Glykon.Compiler.Semantics.Types;
 
 namespace Glykon.Compiler.Semantics.Symbols;
 
-public class VariableSymbol(int nameId, TokenKind type) : Symbol(nameId, type)
+public class VariableSymbol(int nameId, TypeSymbol type) : Symbol(nameId, type)
 {
     public int LocalIndex { get; set; }
 }

@@ -50,7 +50,7 @@ internal class Program
         
         IdentifierInterner interner = new();
         SemanticAnalyzer semanticAnalyzer = new(syntaxTree, interner, filename);
-        var (boundTree, symbolTable, semanticErrors) = semanticAnalyzer.Analyze();
+        var (boundTree, typeSystem, symbolTable, semanticErrors) = semanticAnalyzer.Analyze();
 
         errors.AddRange(semanticErrors);
 
@@ -61,7 +61,7 @@ internal class Program
 
         if (errors.Count != 0) return;
 
-        var emitter = new TypeEmitter(boundTree, symbolTable, interner, filename);
+        var emitter = new TypeEmitter(boundTree, symbolTable, typeSystem, interner, filename);
         emitter.EmitAssembly();
 
         Assembly assembly = emitter.GetAssembly();

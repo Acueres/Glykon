@@ -3,6 +3,7 @@ using Glykon.Compiler.Diagnostics.Errors;
 using Glykon.Compiler.Semantics.Analysis;
 using Glykon.Compiler.Semantics.Binding;
 using Glykon.Compiler.Semantics.Binding.BoundStatements;
+using Glykon.Compiler.Semantics.Types;
 using Glykon.Compiler.Syntax;
 using Glykon.Compiler.Syntax.Statements;
 
@@ -21,7 +22,11 @@ public class SemanticTests
     private static List<IGlykonError> Check(string src, string file)
     {
         var (syntaxTree, parseErr) = Parse(src, file);
-        SemanticBinder binder = new(syntaxTree, new(), file);
+        IdentifierInterner interner = new();
+        TypeSystem typeSystem = new(interner);
+        typeSystem.BuildPrimitives();
+
+        SemanticBinder binder = new(syntaxTree, typeSystem, interner, file);
         binder.Bind();
 
         Assert.Empty(parseErr);
@@ -47,7 +52,7 @@ public class SemanticTests
         IdentifierInterner interner = new();
 
         var semanticAnalyzer = new SemanticAnalyzer(syntaxTree, interner, fileName);
-        var (boundTree, _, semanticErrors) = semanticAnalyzer.Analyze();
+        var (boundTree, _, _, semanticErrors) = semanticAnalyzer.Analyze();
 
         Assert.Empty(semanticErrors);
         Assert.NotEmpty(boundTree);
@@ -58,7 +63,7 @@ public class SemanticTests
         string name = interner[stmt.Symbol.NameId];
         Assert.Equal("res", name);
         Assert.NotNull(stmt.Expression);
-        Assert.Equal(TokenKind.Int, stmt.VariableType);
+        Assert.Equal(TypeKind.Int64, stmt.VariableType.Kind);
     }
 
     [Fact]
@@ -78,7 +83,7 @@ public class SemanticTests
         IdentifierInterner interner = new();
 
         var semanticAnalyzer = new SemanticAnalyzer(syntaxTree, interner, fileName);
-        var (_, _, semanticErrors) = semanticAnalyzer.Analyze();
+        var (_, _, _, semanticErrors) = semanticAnalyzer.Analyze();
 
         Assert.Single(syntaxTree);
         Assert.Single(semanticErrors);
@@ -103,7 +108,7 @@ public class SemanticTests
         IdentifierInterner interner = new();
 
         var semanticAnalyzer = new SemanticAnalyzer(syntaxTree, interner, fileName);
-        var (_, _, semanticErrors) = semanticAnalyzer.Analyze();
+        var (_, _, _, semanticErrors) = semanticAnalyzer.Analyze();
         Assert.Single(semanticErrors);
     }
 
@@ -169,7 +174,7 @@ public class SemanticTests
 
         var interner = new IdentifierInterner();
         var analyzer = new SemanticAnalyzer(syntax, interner, fileName);
-        var (_, _, semanticErrors) = analyzer.Analyze();
+        var (_, _, _, semanticErrors) = analyzer.Analyze();
 
         Assert.Single(semanticErrors);
     }
@@ -192,7 +197,7 @@ public class SemanticTests
 
         var interner = new IdentifierInterner();
         var analyzer = new SemanticAnalyzer(syntax, interner, fileName);
-        var (_, _, semanticErrors) = analyzer.Analyze();
+        var (_, _, _, semanticErrors) = analyzer.Analyze();
 
         Assert.Single(semanticErrors);
     }
@@ -215,7 +220,7 @@ public class SemanticTests
 
         var interner = new IdentifierInterner();
         var analyzer = new SemanticAnalyzer(syntax, interner, fileName);
-        var (_, _, semanticErrors) = analyzer.Analyze();
+        var (_, _, _, semanticErrors) = analyzer.Analyze();
 
         Assert.Empty(semanticErrors);
     }
@@ -239,7 +244,7 @@ public class SemanticTests
 
         var interner = new IdentifierInterner();
         var analyzer = new SemanticAnalyzer(syntax, interner, fileName);
-        var (_, _, semanticErrors) = analyzer.Analyze();
+        var (_, _, _, semanticErrors) = analyzer.Analyze();
 
         Assert.Single(semanticErrors);
     }
@@ -264,7 +269,7 @@ public class SemanticTests
 
         var interner = new IdentifierInterner();
         var analyzer = new SemanticAnalyzer(syntax, interner, fileName);
-        var (_, _, semanticErrors) = analyzer.Analyze();
+        var (_, _, _, semanticErrors) = analyzer.Analyze();
 
         Assert.Empty(semanticErrors);
     }
@@ -275,13 +280,18 @@ public class SemanticTests
     public void QualifiedNameLocalFunction()
     {
         var interner = new IdentifierInterner();
+
+        var typeSystem = new TypeSystem(interner);
+        typeSystem.BuildPrimitives();
+        var int64 = typeSystem[TypeKind.Int64];
+
         var table = new SymbolTable(interner);
 
-        var main = table.RegisterFunction("main", TokenKind.Int, []);
+        var main = table.RegisterFunction("main", int64, []);
         Assert.NotNull(main);
 
         table.BeginScope(main!);
-        var add = table.RegisterFunction("add", TokenKind.Int, [TokenKind.Int, TokenKind.Int]);
+        var add = table.RegisterFunction("add", int64, [int64, int64]);
         Assert.NotNull(add);
 
         // Qualified name should be "main.add"
@@ -296,17 +306,22 @@ public class SemanticTests
     public void QualifiedNameDeeplyNested()
     {
         var interner = new IdentifierInterner();
+
+        var typeSystem = new TypeSystem(interner);
+        typeSystem.BuildPrimitives();
+        var int64 = typeSystem[TypeKind.Int64];
+
         var table = new SymbolTable(interner);
 
-        var main = table.RegisterFunction("main", TokenKind.Int, []);
+        var main = table.RegisterFunction("main", int64, []);
         Assert.NotNull(main);
 
         table.BeginScope(main!);
-        var inner = table.RegisterFunction("inner", TokenKind.Int, []);
+        var inner = table.RegisterFunction("inner", int64, []);
         Assert.NotNull(inner);
 
         table.BeginScope(inner!);
-        var add = table.RegisterFunction("add", TokenKind.Int, [TokenKind.Int, TokenKind.Int]);
+        var add = table.RegisterFunction("add", int64, [int64, int64]);
         Assert.NotNull(add);
 
         var qualified = interner[add!.QualifiedNameId];
@@ -317,9 +332,14 @@ public class SemanticTests
     public void QualifiedNameTopLevelFunction()
     {
         var interner = new IdentifierInterner();
+
+        var typeSystem = new TypeSystem(interner);
+        typeSystem.BuildPrimitives();
+        var int64 = typeSystem[TypeKind.Int64];
+
         var table = new SymbolTable(interner);
 
-        var top = table.RegisterFunction("util", TokenKind.Int, []);
+        var top = table.RegisterFunction("util", int64, []);
         Assert.NotNull(top);
 
         var simple = interner[top!.NameId];

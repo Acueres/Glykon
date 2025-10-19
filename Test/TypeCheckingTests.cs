@@ -1,6 +1,7 @@
 using Glykon.Compiler.Core;
 using Glykon.Compiler.Diagnostics.Errors;
 using Glykon.Compiler.Semantics.Binding;
+using Glykon.Compiler.Semantics.Types;
 using Glykon.Compiler.Syntax;
 
 namespace Tests;
@@ -18,7 +19,11 @@ public class TypeCheckingTests
     private static List<IGlykonError> Check(string src, string file)
     {
         var (syntaxTree, parseErr) = Parse(src, file);
-        SemanticBinder binder = new(syntaxTree, new(), file);
+        IdentifierInterner interner = new();
+        TypeSystem typeSystem = new(interner);
+        typeSystem.BuildPrimitives();
+
+        SemanticBinder binder = new(syntaxTree, typeSystem, interner, file);
         binder.Bind();
 
         Assert.Empty(parseErr); 

@@ -1,9 +1,8 @@
-﻿using Glykon.Compiler.Syntax;
+﻿using Glykon.Compiler.Semantics.Types;
 
-namespace Glykon.Compiler.Semantics.Symbols
+namespace Glykon.Compiler.Semantics.Symbols;
+
+public class ParameterSymbol(int nameId, TypeSymbol type, int index) : Symbol(nameId, type)
 {
-    public class ParameterSymbol(int nameId, TokenKind type, int index) : Symbol(nameId, type)
-    {
-        public int Index { get; } = index;
-    }
+    public int Index { get; } = index;
 }

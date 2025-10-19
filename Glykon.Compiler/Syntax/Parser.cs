@@ -165,7 +165,7 @@ public class Parser(Token[] tokens, string filename)
     {
         Token functionName = Consume(TokenKind.Identifier, "Expect function name");
         Consume(TokenKind.ParenthesisLeft, "Expect '(' after function name");
-        List<(string Name, TokenKind Type)> parameters = [];
+        List<(string Name, TypeAnnotation Type)> parameters = [];
 
         if (Current.Kind != TokenKind.ParenthesisRight)
         {
@@ -174,11 +174,12 @@ public class Parser(Token[] tokens, string filename)
 
         Consume(TokenKind.ParenthesisRight, "Expect ')' after parameters");
 
-        TokenKind returnType = TokenKind.None;
+        TypeAnnotation returnType = TypeAnnotation.None;
         if (Match(TokenKind.Arrow))
         {
             returnType = ParseTypeDeclaration();
         }
+
 
         BlockStmt body;
         if (Match(TokenKind.BraceLeft))
@@ -214,7 +215,7 @@ public class Parser(Token[] tokens, string filename)
     {
         Token token = Consume(TokenKind.Identifier, "Expect variable name");
 
-        TokenKind declaredType = TokenKind.None;
+        TypeAnnotation declaredType = TypeAnnotation.None;
         if (Match(TokenKind.Colon))
         {
             declaredType = ParseTypeDeclaration();
@@ -246,7 +247,8 @@ public class Parser(Token[] tokens, string filename)
         Token token = Consume(TokenKind.Identifier, "Expect constant name");
 
         Consume(TokenKind.Colon, "Expect type declaration");
-        TokenKind declaredType = ParseTypeDeclaration();
+
+        TypeAnnotation declaredType = ParseTypeDeclaration();
 
         Consume(TokenKind.Assignment, "Expect constant value");
         Expression initializer = ParseExpression();
@@ -257,15 +259,9 @@ public class Parser(Token[] tokens, string filename)
         return new(initializer, name, declaredType);
     }
 
-    TokenKind ParseTypeDeclaration()
+    List<(string Name, TypeAnnotation Type)> ParseParameters()
     {
-        Token next = Advance();
-        return next.Kind;
-    }
-
-    List<(string Name, TokenKind Type)> ParseParameters()
-    {
-        List<(string Name, TokenKind Type)> parameters = [];
+        List<(string Name, TypeAnnotation Type)> parameters = [];
         do
         {
             if (parameters.Count > ushort.MaxValue)
@@ -275,9 +271,9 @@ public class Parser(Token[] tokens, string filename)
 
             Token name = Consume(TokenKind.Identifier, "Expect parameter name");
             Consume(TokenKind.Colon, "Expect colon before type declaration");
-            Token type = Advance();
+            var type = ParseTypeDeclaration();
 
-            var parameter = (name.Text, type.Kind);
+            var parameter = (name.Text, type);
             parameters.Add(parameter);
         }
         while (Match(TokenKind.Comma));
@@ -496,6 +492,21 @@ public class Parser(Token[] tokens, string filename)
                 ParseError error = new(Current, fileName, $"{Previous.Kind} not a valid literal kind");
                 errors.Add(error);
                 throw error.Exception();
+        }
+    }
+
+    TypeAnnotation ParseTypeDeclaration()
+    {
+        var returnTypeToken = Advance();
+        CheckTypeDeclaration(returnTypeToken);
+        return new TypeAnnotation(returnTypeToken.Text);
+    }
+
+    void CheckTypeDeclaration(in Token declaredTypeToken)
+    {
+        if (declaredTypeToken.Kind != TokenKind.Identifier)
+        {
+            errors.Add(new ParseError(declaredTypeToken, fileName, "Type declaration must be an identifier"));
         }
     }
 

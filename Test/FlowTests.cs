@@ -16,7 +16,7 @@ public class FlowTests
         Assert.Empty(parseErr);
 
         SemanticAnalyzer semanticAnalyzer = new(syntaxTree, new(), file);
-        var (_, _, errors) = semanticAnalyzer.Analyze();
+        var (_, _, _, errors) = semanticAnalyzer.Analyze();
 
         return errors;
     }

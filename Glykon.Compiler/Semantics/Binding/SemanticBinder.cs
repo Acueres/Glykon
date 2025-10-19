@@ -1,21 +1,21 @@
 ﻿using Glykon.Compiler.Diagnostics.Errors;
-using Glykon.Compiler.Semantics.Analysis;
 using Glykon.Compiler.Semantics.Binding.BoundExpressions;
 using Glykon.Compiler.Semantics.Binding.BoundStatements;
 using Glykon.Compiler.Semantics.Optimization;
 using Glykon.Compiler.Semantics.Symbols;
-using Glykon.Compiler.Semantics.TypeChecking;
+using Glykon.Compiler.Semantics.Types;
 using Glykon.Compiler.Syntax;
 using Glykon.Compiler.Syntax.Expressions;
 using Glykon.Compiler.Syntax.Statements;
 
 namespace Glykon.Compiler.Semantics.Binding;
 
-public class SemanticBinder(SyntaxTree syntaxTree, IdentifierInterner interner, string fileName)
+public class SemanticBinder(SyntaxTree syntaxTree, TypeSystem typeSystem, IdentifierInterner interner, string fileName)
 {
     readonly SyntaxTree syntaxTree = syntaxTree;
+    readonly TypeSystem typeSystem = typeSystem;
     readonly SymbolTable symbolTable = new(interner);
-    readonly TypeChecker typeChecker = new(syntaxTree.FileName, interner);
+    readonly TypeChecker typeChecker = new(syntaxTree.FileName, typeSystem, interner);
     readonly ConstantFolder folder = new();
     
     readonly List<IGlykonError> errors = [];
@@ -29,6 +29,7 @@ public class SemanticBinder(SyntaxTree syntaxTree, IdentifierInterner interner, 
 
     public (BoundTree, SymbolTable) Bind()
     {
+        RegisterPrimitives();
         RegisterStd();
 
         List<BoundStatement> boundStatements = new(syntaxTree.Length);
@@ -90,7 +91,7 @@ public class SemanticBinder(SyntaxTree syntaxTree, IdentifierInterner interner, 
                 {
                     var variableStmt = (VariableDeclaration)stmt;
                     BoundExpression boundExpression = BindExpression(variableStmt.Expression);
-                    var variableType = typeChecker.CheckDeclaredType(boundExpression, variableStmt.DeclaredType);
+                    var variableType = typeChecker.CheckDeclaredType(boundExpression, BindTypeAnnotation(variableStmt.DeclaredType));
 
                     var symbol = symbolTable.RegisterVariable(variableStmt.Name, variableType);
 
@@ -108,9 +109,9 @@ public class SemanticBinder(SyntaxTree syntaxTree, IdentifierInterner interner, 
                         return new BoundConstantDeclaration(null);
                     }
 
-                    var symbol = symbolTable.RegisterConstant(constantStmt.Name, foldedLiteralExpr.Value, constantStmt.DeclaredType);
+                    var symbol = symbolTable.RegisterConstant(constantStmt.Name, foldedLiteralExpr.Value, BindTypeAnnotation(constantStmt.DeclaredType));
 
-                    typeChecker.CheckDeclaredType(boundExpression, constantStmt.DeclaredType);
+                    typeChecker.CheckDeclaredType(boundExpression, BindTypeAnnotation(constantStmt.DeclaredType));
 
                     return new BoundConstantDeclaration(symbol);
                 }
@@ -119,22 +120,23 @@ public class SemanticBinder(SyntaxTree syntaxTree, IdentifierInterner interner, 
                 {
                     var functionStmt = (FunctionDeclaration)stmt;
 
-                    TokenKind[] paramTypes = [.. functionStmt.Parameters.Select(p => p.Type)];
+                    TypeSymbol[] paramTypes = [.. functionStmt.Parameters.Select(p => BindTypeAnnotation(p.Type))];
+                    var returnType = BindTypeAnnotation(functionStmt.ReturnType);
 
                     FunctionSymbol? signature = symbolTable.GetLocalFunction(functionStmt.Name, paramTypes);
-                    signature ??= symbolTable.RegisterFunction(functionStmt.Name, functionStmt.ReturnType, paramTypes);
+                    signature ??= symbolTable.RegisterFunction(functionStmt.Name, returnType, paramTypes);
 
                     var scope = symbolTable.BeginScope(signature!);
                     signature!.Scope = scope;
 
-                    var parameterSymbols = functionStmt.Parameters.Select(p => symbolTable.RegisterParameter(p.Name, p.Type)).ToList();
+                    var parameterSymbols = functionStmt.Parameters.Select(p => symbolTable.RegisterParameter(p.Name, BindTypeAnnotation(p.Type))).ToList();
 
                     var boundStatements = BindBlockStatements(functionStmt.Body.Statements);
                     BoundBlockStmt boundBody = new([.. boundStatements], scope);
 
                     symbolTable.ExitScope();
 
-                    return new BoundFunctionDeclaration(signature, [.. parameterSymbols], functionStmt.ReturnType, boundBody);
+                    return new BoundFunctionDeclaration(signature, [.. parameterSymbols], returnType, boundBody);
                 }
             case StatementKind.Return:
                 {
@@ -280,7 +282,9 @@ public class SemanticBinder(SyntaxTree syntaxTree, IdentifierInterner interner, 
         // Predeclaring function definitions
         foreach (var f in declarations)
         {
-            symbolTable.RegisterFunction(f.Name, f.ReturnType, [.. f.Parameters.Select(p => p.Type)]);
+            var returnType = BindTypeAnnotation(f.ReturnType);
+            TypeSymbol[] parameters = [.. f.Parameters.Select(p => BindTypeAnnotation(p.Type))];
+            symbolTable.RegisterFunction(f.Name, returnType, parameters);
         }
 
         boundStatements.AddRange(nonDeclarations.Select(BindStatement));
@@ -289,14 +293,30 @@ public class SemanticBinder(SyntaxTree syntaxTree, IdentifierInterner interner, 
         return boundStatements;
     }
 
+    TypeSymbol? BindTypeAnnotation(TypeAnnotation annotation)
+    {
+        var symbol = symbolTable.GetType(annotation.Name);
+        return symbol;
+    }
+
+    void RegisterPrimitives()
+    {
+        foreach (var symbol in typeSystem.GetPrimitives())
+        {
+            symbolTable.RegisterType(symbol);
+        }
+    }
+
     void RegisterStd()
     {
-        symbolTable.RegisterFunction("println", TokenKind.None, [TokenKind.String]);
+        symbolTable.RegisterFunction("println", typeSystem[TypeKind.None], [typeSystem[TypeKind.String]]);
 
-        symbolTable.RegisterFunction("println", TokenKind.None, [TokenKind.Int]);
+        symbolTable.RegisterFunction("println", typeSystem[TypeKind.None], [typeSystem[TypeKind.Int64]]);
 
-        symbolTable.RegisterFunction("println", TokenKind.None, [TokenKind.Real]);
+        symbolTable.RegisterFunction("println", typeSystem[TypeKind.None], [typeSystem[TypeKind.Float64]]);
 
-        symbolTable.RegisterFunction("println", TokenKind.None, [TokenKind.Bool]);
+        symbolTable.RegisterFunction("println", typeSystem[TypeKind.None], [typeSystem[TypeKind.Bool]]);
+
+        symbolTable.RegisterFunction("println", typeSystem[TypeKind.None], [typeSystem[TypeKind.None]]);
     }
 }

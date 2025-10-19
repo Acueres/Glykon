@@ -1,6 +1,6 @@
 ﻿using Glykon.Compiler.Core;
 using Glykon.Compiler.Semantics.Symbols;
-using Glykon.Compiler.Syntax;
+using Glykon.Compiler.Semantics.Types;
 
 namespace Glykon.Compiler.Semantics.Binding;
 
@@ -26,7 +26,7 @@ public class SymbolTable
         return current.ContainingFunction;
     }
 
-    public FunctionSymbol? RegisterFunction(string name, TokenKind returnType, TokenKind[] parameterTypes)
+    public FunctionSymbol? RegisterFunction(string name, TypeSymbol returnType, TypeSymbol[] parameterTypes)
     {
         int symbolIndex = interner.Intern(name);
         string qualifiedName = ComputeQualifiedName(name);
@@ -35,16 +35,22 @@ public class SymbolTable
         return signature;
     }
 
-    public FunctionSymbol? GetFunction(string name, TokenKind[] parameters)
+    public FunctionSymbol? GetFunction(string name, TypeSymbol[] parameters)
     {
         if (!interner.TryGetId(name, out var id)) return null;
         return current.GetFunction(id, parameters);
     }
 
-    public FunctionSymbol? GetLocalFunction(string name, TokenKind[] parameters)
+    public FunctionSymbol? GetLocalFunction(string name, TypeSymbol[] parameters)
     {
         if (!interner.TryGetId(name, out var nameId)) return null;
         return current.GetLocalFunction(nameId, parameters);
+    }
+
+    public TypeSymbol? GetType(string name)
+    {
+        if (!interner.TryGetId(name, out var nameId)) return null;
+        return current.GetType(nameId);
     }
 
     public bool IsFunction(string name)
@@ -53,25 +59,30 @@ public class SymbolTable
         return current.GetFunctionOverloads(id).Count > 0;
     }
 
-    public ConstantSymbol RegisterConstant(string name, in ConstantValue value, TokenKind type)
+    public ConstantSymbol RegisterConstant(string name, in ConstantValue value, TypeSymbol type)
     {
         int symbolIndex = interner.Intern(name);
         ConstantSymbol constant = current.RegisterConstant(symbolIndex, value, type);
         return constant;
     }
 
-    public ParameterSymbol RegisterParameter(string name, TokenKind type)
+    public ParameterSymbol RegisterParameter(string name, TypeSymbol type)
     {
         int symbolIndex = interner.Intern(name);
         ParameterSymbol parameter = current.AddParameter(symbolIndex, type);
         return parameter;
     }
 
-    public VariableSymbol RegisterVariable(string name, TokenKind type)
+    public VariableSymbol RegisterVariable(string name, TypeSymbol type)
     {
         int symbolIndex = interner.Intern(name);
         VariableSymbol variable = current.AddVariable(symbolIndex, type);
         return variable;
+    }
+
+    public void RegisterType(TypeSymbol type)
+    {
+        current.AddType(type.NameId, type);
     }
 
     public Symbol? GetSymbol(string name)
