@@ -8,14 +8,12 @@ public enum ScopeKind
 {
     Top,
     Function,
-    Block,
-    Loop
+    Block
 }
 
 public class Scope
 {
     public Scope Parent { get; }
-    public int Index { get; }
     public ScopeKind Kind { get; }
 
     public FunctionSymbol? ContainingFunction { get; }
@@ -26,18 +24,16 @@ public class Scope
 
     int parameterCount = 0;
 
-    public Scope(Scope parent, int scopeIndex, ScopeKind scopeKind)
+    public Scope(Scope parent, ScopeKind scopeKind)
     {
         Parent = parent;
-        Index = scopeIndex;
         Kind = scopeKind;
         ContainingFunction = parent?.ContainingFunction;
     }
 
-    public Scope(Scope parent, int scopeIndex, FunctionSymbol function)
+    public Scope(Scope parent, FunctionSymbol function)
     {
         Parent = parent;
-        Index = scopeIndex;
         Kind = ScopeKind.Function;
         ContainingFunction = function;
     }
@@ -141,6 +137,17 @@ public class Scope
         VariableSymbol symbol = new(id, type);
         symbols.Add(id, symbol);
         return symbol;
+    }
+
+    public VariableSymbol? GetVariable(int id)
+    {
+        if (!symbols.TryGetValue(id, out Symbol? symbol) || symbol is not VariableSymbol variable)
+        {
+            if (Kind == ScopeKind.Function) return null;
+            return Parent is null ? null : Parent.GetVariable(id);
+        }
+        
+        return variable;
     }
 
     public void AddType(int id, TypeSymbol type)

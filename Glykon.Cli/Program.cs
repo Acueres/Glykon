@@ -16,23 +16,16 @@ internal class Program
         const string filename = "Test";
         const string src = @"
             def main() {
-                const pi: real = 2.0 * 3.14
-                println(pi)
-                let i = 0
-
-                while i < 20
-                {
-                    println(fib(i))
-                    i = i + 1
-                }
-
-                def fib(n: int) -> int {
-                    if n <= 1 {
-                        return n
+                def inner() {
+                    let i = 1
+                    if true {
+                        let k = 2
+                        {
+                            println(i + k)
+                        }
                     }
-
-                    return fib(n - 2) + fib(n - 1)
                 }
+                inner() # Should print 3
             }
 ";
         List<IGlykonError> errors = [];

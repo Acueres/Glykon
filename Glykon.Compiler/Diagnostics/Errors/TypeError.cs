@@ -7,7 +7,7 @@
 
         public void Report()
         {
-            Console.WriteLine($"{message} ({filename}");
+            Console.WriteLine($"{message} ({filename})");
         }
     }
 }

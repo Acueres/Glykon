@@ -197,7 +197,7 @@ public class TypeChecker(string fileName, TypeSystem typeSystem, IdentifierInter
                         return typeSystem[TypeKind.None];
                     }
 
-                    return symbol.Type;
+                    return symbol?.Type ?? typeSystem[TypeKind.None];
                 }
             case ExpressionKind.Grouping: return InferType(((BoundGroupingExpr)expression).Expression);
             case ExpressionKind.Call:

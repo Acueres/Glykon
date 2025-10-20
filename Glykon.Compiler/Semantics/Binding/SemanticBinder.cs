@@ -202,7 +202,7 @@ public class SemanticBinder(SyntaxTree syntaxTree, TypeSystem typeSystem, Identi
                     AssignmentExpr assignmentExpr = (AssignmentExpr)expression;
                     BoundExpression right = BindExpression(assignmentExpr.Right);
 
-                    var symbol = symbolTable.GetSymbol(assignmentExpr.Name);
+                    var symbol = symbolTable.GetLocalVariableSymbol(assignmentExpr.Name);
 
                     return new BoundAssignmentExpr(right, symbol);
                 }
@@ -216,7 +216,18 @@ public class SemanticBinder(SyntaxTree syntaxTree, TypeSystem typeSystem, Identi
                         return new BoundVariableExpr(null);
                     }
 
+                    var localVariable = symbolTable.GetLocalVariableSymbol(variableExpr.Name);
+                    if (localVariable != null)
+                    {
+                        return new BoundVariableExpr(localVariable);
+                    }
+                    
                     var symbol = symbolTable.GetSymbol(variableExpr.Name);
+                    if (symbol is VariableSymbol)
+                    {
+                        errors.Add(new TypeError(fileName, $"Cannot reference {variableExpr.Name}"));
+                        return new BoundVariableExpr(null);
+                    }
 
                     return new BoundVariableExpr(symbol!);
                 }

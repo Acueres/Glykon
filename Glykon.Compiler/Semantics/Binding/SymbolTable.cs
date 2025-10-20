@@ -25,14 +25,17 @@ public class SymbolTable
     {
         return current.ContainingFunction;
     }
-
-    public FunctionSymbol? RegisterFunction(string name, TypeSymbol returnType, TypeSymbol[] parameterTypes)
+    
+    public Symbol? GetSymbol(string name)
     {
-        int symbolIndex = interner.Intern(name);
-        string qualifiedName = ComputeQualifiedName(name);
-        int qualifiedId = interner.Intern(qualifiedName);
-        FunctionSymbol? signature = current.AddFunction(symbolIndex, functionSerial++, qualifiedId, returnType, parameterTypes);
-        return signature;
+        if (!interner.TryGetId(name, out var id)) return null;
+        return current.GetSymbol(id);
+    }
+
+    public VariableSymbol? GetLocalVariableSymbol(string name)
+    {
+        if (!interner.TryGetId(name, out var id)) return null;
+        return current.GetVariable(id);
     }
 
     public FunctionSymbol? GetFunction(string name, TypeSymbol[] parameters)
@@ -57,6 +60,15 @@ public class SymbolTable
     {
         if (!interner.TryGetId(name, out var id)) return false;
         return current.GetFunctionOverloads(id).Count > 0;
+    }
+    
+    public FunctionSymbol? RegisterFunction(string name, TypeSymbol returnType, TypeSymbol[] parameterTypes)
+    {
+        int symbolIndex = interner.Intern(name);
+        string qualifiedName = ComputeQualifiedName(name);
+        int qualifiedId = interner.Intern(qualifiedName);
+        FunctionSymbol? signature = current.AddFunction(symbolIndex, functionSerial++, qualifiedId, returnType, parameterTypes);
+        return signature;
     }
 
     public ConstantSymbol RegisterConstant(string name, in ConstantValue value, TypeSymbol type)
@@ -85,24 +97,16 @@ public class SymbolTable
         current.AddType(type.NameId, type);
     }
 
-    public Symbol? GetSymbol(string name)
-    {
-        if (!interner.TryGetId(name, out var id)) return null;
-        return current.GetSymbol(id);
-    }
-
     public Scope BeginScope(ScopeKind scopeKind)
     {
-        int index = scopes.Count;
-        current = new Scope(current, index, scopeKind);
+        current = new Scope(current, scopeKind);
         scopes.Add(current);
         return current;
     }
 
     public Scope BeginScope(FunctionSymbol containingFunction)
     {
-        int index = scopes.Count;
-        current = new Scope(current, index, containingFunction);
+        current = new Scope(current, containingFunction);
         scopes.Add(current);
         return current;
     }
