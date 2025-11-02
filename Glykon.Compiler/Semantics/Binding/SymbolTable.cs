@@ -44,6 +44,12 @@ public class SymbolTable
         return current.GetFunction(id, parameters);
     }
 
+    public FunctionSymbol[] GetFunctionOverloads(string name)
+    {
+        if (!interner.TryGetId(name, out var id)) return [];
+        return current.GetFunctionOverloads(id);
+    }
+
     public FunctionSymbol? GetLocalFunction(string name, TypeSymbol[] parameters)
     {
         if (!interner.TryGetId(name, out var nameId)) return null;
@@ -56,10 +62,9 @@ public class SymbolTable
         return current.GetType(nameId);
     }
 
-    public bool IsFunction(string name)
+    public bool IsFunction(Symbol symbol)
     {
-        if (!interner.TryGetId(name, out var id)) return false;
-        return current.GetFunctionOverloads(id).Count > 0;
+        return current.GetFunctionOverloads(symbol.NameId).Length > 0;
     }
     
     public FunctionSymbol? RegisterFunction(string name, TypeSymbol returnType, TypeSymbol[] parameterTypes)
@@ -71,10 +76,10 @@ public class SymbolTable
         return signature;
     }
 
-    public ConstantSymbol RegisterConstant(string name, in ConstantValue value, TypeSymbol type)
+    public ConstantSymbol RegisterConstant(string name, TypeSymbol type)
     {
         int symbolIndex = interner.Intern(name);
-        ConstantSymbol constant = current.RegisterConstant(symbolIndex, value, type);
+        ConstantSymbol constant = current.RegisterConstant(symbolIndex, type);
         return constant;
     }
 
@@ -103,6 +108,8 @@ public class SymbolTable
         scopes.Add(current);
         return current;
     }
+    
+    public Scope GetCurrentScope() => current;
 
     public Scope BeginScope(FunctionSymbol containingFunction)
     {
@@ -119,6 +126,11 @@ public class SymbolTable
     public void ResetScope()
     {
         current = global;
+    }
+
+    public void SetScope(Scope scope)
+    {
+        current = scope;
     }
 
     string ComputeQualifiedName(string localName)

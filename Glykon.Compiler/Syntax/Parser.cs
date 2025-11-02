@@ -9,8 +9,6 @@ namespace Glykon.Compiler.Syntax;
 
 public class Parser(Token[] tokens, string filename)
 {
-    readonly string fileName = filename;
-
     bool AtEnd => tokenIndex >= tokens.Length;
 
     readonly Token[] tokens = tokens;
@@ -33,7 +31,7 @@ public class Parser(Token[] tokens, string filename)
                 Synchronize();
             }
         }
-        var syntaxTree = new SyntaxTree([..statements], fileName);
+        var syntaxTree = new SyntaxTree([..statements], filename);
         return (syntaxTree, errors);
     }
 
@@ -229,7 +227,7 @@ public class Parser(Token[] tokens, string filename)
 
         if (initializer == null)
         {
-            ParseError error = new(token, fileName, "Variable must be initialized");
+            ParseError error = new(token, filename, "Variable must be initialized");
             errors.Add(error);
             throw error.Exception();
         }
@@ -266,7 +264,7 @@ public class Parser(Token[] tokens, string filename)
         {
             if (parameters.Count > ushort.MaxValue)
             {
-                errors.Add(new ParseError(Current, fileName, "Argument count exceeded"));
+                errors.Add(new ParseError(Current, filename, "Argument count exceeded"));
             }
 
             Token name = Consume(TokenKind.Identifier, "Expect parameter name");
@@ -302,7 +300,7 @@ public class Parser(Token[] tokens, string filename)
                 return new AssignmentExpr(name, value);
             }
 
-            ParseError error = new(token, fileName, "Invalid assignment target");
+            ParseError error = new(token, filename, "Invalid assignment target");
             errors.Add(error);
         }
 
@@ -426,7 +424,7 @@ public class Parser(Token[] tokens, string filename)
             {
                 if (args.Count > ushort.MaxValue)
                 {
-                    errors.Add(new ParseError(Current, fileName, "Argument count exceeded"));
+                    errors.Add(new ParseError(Current, filename, "Argument count exceeded"));
                 }
 
                 args.Add(ParseExpression());
@@ -456,7 +454,7 @@ public class Parser(Token[] tokens, string filename)
             return new GroupingExpr(expr);
         }
 
-        ParseError error = new(Current, fileName, "Expect expression");
+        ParseError error = new(Current, filename, "Expect expression");
         errors.Add(error);
         throw error.Exception();
     }
@@ -489,7 +487,7 @@ public class Parser(Token[] tokens, string filename)
             case TokenKind.LiteralString:
                 return new LiteralExpr(ConstantValue.FromString(span.Text));
             default:
-                ParseError error = new(Current, fileName, $"{Previous.Kind} not a valid literal kind");
+                ParseError error = new(Current, filename, $"{Previous.Kind} not a valid literal kind");
                 errors.Add(error);
                 throw error.Exception();
         }
@@ -506,7 +504,7 @@ public class Parser(Token[] tokens, string filename)
     {
         if (declaredTypeToken.Kind != TokenKind.Identifier)
         {
-            errors.Add(new ParseError(declaredTypeToken, fileName, "Type declaration must be an identifier"));
+            errors.Add(new ParseError(declaredTypeToken, filename, "Type declaration must be an identifier"));
         }
     }
 
@@ -551,7 +549,7 @@ public class Parser(Token[] tokens, string filename)
     Token Consume(TokenKind symbol, string message)
     {
         if (Current.Kind == symbol) return Advance();
-        ParseError error = new(Current, fileName, message);
+        ParseError error = new(Current, filename, message);
         errors.Add(error);
         throw error.Exception();
     }

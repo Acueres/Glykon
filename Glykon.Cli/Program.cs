@@ -19,13 +19,13 @@ internal class Program
                 def inner() {
                     let i = 1
                     if true {
-                        let k = 2
+                        let k = 2.5
                         {
                             println(i + k)
                         }
                     }
                 }
-                inner() # Should print 3
+                inner() # Should print 3.5
             }
 ";
         List<IGlykonError> errors = [];
@@ -43,7 +43,7 @@ internal class Program
         
         IdentifierInterner interner = new();
         SemanticAnalyzer semanticAnalyzer = new(syntaxTree, interner, filename);
-        var (boundTree, typeSystem, symbolTable, semanticErrors) = semanticAnalyzer.Analyze();
+        var (irTree, typeSystem, symbolTable, semanticErrors) = semanticAnalyzer.Analyze();
 
         errors.AddRange(semanticErrors);
 
@@ -54,7 +54,7 @@ internal class Program
 
         if (errors.Count != 0) return;
 
-        var emitter = new TypeEmitter(boundTree, symbolTable, typeSystem, interner, filename);
+        var emitter = new TypeEmitter(irTree, symbolTable, typeSystem, interner, filename);
         emitter.EmitAssembly();
 
         Assembly assembly = emitter.GetAssembly();

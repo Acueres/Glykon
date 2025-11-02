@@ -1,122 +1,179 @@
 using Glykon.Compiler.Core;
+using Glykon.Compiler.Diagnostics.Errors;
 using Glykon.Compiler.Semantics.Binding;
-using Glykon.Compiler.Semantics.Binding.BoundExpressions;
-using Glykon.Compiler.Semantics.Binding.BoundStatements;
+using Glykon.Compiler.Semantics.IR;
+using Glykon.Compiler.Semantics.IR.Expressions;
+using Glykon.Compiler.Semantics.IR.Statements;
 using Glykon.Compiler.Semantics.Rewriting;
+using Glykon.Compiler.Semantics.Symbols;
+using Glykon.Compiler.Semantics.Types;
 using Glykon.Compiler.Syntax;
-using Glykon.Compiler.Syntax.Expressions;
 
 namespace Glykon.Compiler.Semantics.Optimization;
 
-public class ConstantFolder: BoundTreeRewriter
+public class ConstantFolder(IRTree irTree, TypeSystem typeSystem, IdentifierInterner interner, string filename): IRTreeRewriter
 {
-    public BoundTree Fold(BoundTree boundTree)
-    {
-        List<BoundStatement> rewritten = new(boundTree.Length);
-        rewritten.AddRange(boundTree.Select(VisitStmt));
-        return new BoundTree([..rewritten], boundTree.FileName);
-    }
-
-    public BoundExpression FoldExpression(BoundExpression expr) => VisitExpr(expr);
+    private readonly List<ConstantFoldingError> errors = [];
     
-    protected override BoundExpression RewriteUnary(BoundUnaryExpr unaryExpr)
+    public (IRTree, IGlykonError[]) Fold()
+    {
+        List<IRStatement> rewritten = new(irTree.Length);
+        rewritten.AddRange(irTree.Select(VisitStmt));
+        return (new IRTree([..rewritten], irTree.FileName), [..errors]);
+    }
+    
+    protected override IRExpression RewriteUnary(IRUnaryExpr unaryExpr)
     {
         var opnd = VisitExpr(unaryExpr.Operand);
-        if (!ReferenceEquals(opnd, unaryExpr.Operand)) unaryExpr = new BoundUnaryExpr(unaryExpr.Operator, opnd);
-        if (opnd is not BoundLiteralExpr lit) return unaryExpr;
+        if (!ReferenceEquals(opnd, unaryExpr.Operand)) unaryExpr = new IRUnaryExpr(unaryExpr.Operator, opnd, unaryExpr.Type);
+        if (opnd is not IRLiteralExpr lit) return unaryExpr;
         if (TryFoldUnary(unaryExpr.Operator.Kind, lit, out var folded)) return folded;
 
         return unaryExpr;
     }
     
-    protected override BoundExpression RewriteBinary(BoundBinaryExpr binaryExpr)
+    protected override IRExpression RewriteBinary(IRBinaryExpr binaryExpr)
     {
         var left = VisitExpr(binaryExpr.Left);
         var right = VisitExpr(binaryExpr.Right);
         if (!ReferenceEquals(left, binaryExpr.Left) || !ReferenceEquals(right, binaryExpr.Right))
-            binaryExpr = new BoundBinaryExpr(binaryExpr.Operator, left, right);
+            binaryExpr = new IRBinaryExpr(binaryExpr.Operator, left, right, binaryExpr.Type);
         
-        if (left is not BoundLiteralExpr l1 || right is not BoundLiteralExpr l2) return binaryExpr;
+        if (left is not IRLiteralExpr l1 || right is not IRLiteralExpr l2) return binaryExpr;
         if (TryFoldBinary(binaryExpr.Operator.Kind, l1, l2, out var folded)) return folded;
 
         return binaryExpr;
     }
     
-    protected override BoundExpression RewriteLogical(BoundLogicalExpr logicalExpr)
+    protected override IRExpression RewriteLogical(IRLogicalExpr logicalExpr)
     {
         var left = VisitExpr(logicalExpr.Left);
         var right = VisitExpr(logicalExpr.Right);
         if (!ReferenceEquals(left, logicalExpr.Left) || !ReferenceEquals(right, logicalExpr.Right))
-            logicalExpr = new BoundLogicalExpr(logicalExpr.Operator, left, right);
+            logicalExpr = new IRLogicalExpr(logicalExpr.Operator, left, right, logicalExpr.Type);
 
         switch (logicalExpr.Operator.Kind)
         {
             // Short-circuit boolean ops
-            case TokenKind.And when left is BoundLiteralExpr { Value.Kind: ConstantKind.Bool } l:
+            case TokenKind.And when left is IRLiteralExpr { Value.Kind: ConstantKind.Bool } l:
                 return l.Value.Bool
                     ? right
-                    : new BoundLiteralExpr(l.Value);
-            case TokenKind.Or when left is BoundLiteralExpr { Value.Kind: ConstantKind.Bool } l:
+                    : new IRLiteralExpr(l.Value, typeSystem[TypeKind.Bool]);
+            case TokenKind.Or when left is IRLiteralExpr { Value.Kind: ConstantKind.Bool } l:
                 return l.Value.Bool
-                    ? new BoundLiteralExpr(l.Value)
+                    ? new IRLiteralExpr(l.Value, typeSystem[TypeKind.Bool])
                     : right;
         }
         
-        if (left is not BoundLiteralExpr l1 || right is not BoundLiteralExpr l2) return logicalExpr;
+        if (left is not IRLiteralExpr l1 || right is not IRLiteralExpr l2) return logicalExpr;
         if (TryFoldLogical(logicalExpr.Operator.Kind, l1, l2, out var folded)) return folded;
         
         return logicalExpr;
     }
-    
-    protected override BoundStatement RewriteIf(BoundIfStmt ifStmt)
+
+    protected override IRStatement RewriteConstantDeclaration(IRConstantDeclaration c)
+    {
+        var foldedInitializer = VisitExpr(c.Initializer);
+
+        if (foldedInitializer is IRLiteralExpr literal)
+        {
+            c.Symbol.Value = literal.Value;
+        }
+        else
+        {
+            var error = new ConstantFoldingError(filename,
+                $"Initializer of constant {interner[c.Symbol.NameId]} is not a constant expression");
+            errors.Add(error);
+        }
+
+        return ReferenceEquals(foldedInitializer, c.Initializer)
+            ? c
+            : new IRConstantDeclaration(foldedInitializer, c.Symbol);
+    }
+
+    protected override IRExpression RewriteVariable(IRVariableExpr v)
+    {
+        if (v.Symbol is ConstantSymbol c && !c.Value.IsNone)
+        {
+            return new IRLiteralExpr(c.Value, v.Type);
+        }
+        
+        return v;
+    }
+
+    protected override IRStatement RewriteIf(IRIfStmt ifStmt)
     {
         var cond = VisitExpr(ifStmt.Condition);
         var thenS = VisitStmt(ifStmt.ThenStatement);
         var elseS = ifStmt.ElseStatement is null ? null : VisitStmt(ifStmt.ElseStatement);
-        if (cond is BoundLiteralExpr { Value.Kind: ConstantKind.Bool } literal)
+        if (cond is IRLiteralExpr { Value.Kind: ConstantKind.Bool } literal)
         {
-            return literal.Value.Bool ? thenS : elseS ?? new BoundBlockStmt([], new Scope());
+            return literal.Value.Bool ? thenS : elseS ?? new IRBlockStmt([], new Scope());
         }
 
         if (ReferenceEquals(cond, ifStmt.Condition) && ReferenceEquals(thenS, ifStmt.ThenStatement) &&
             ReferenceEquals(elseS, ifStmt.ElseStatement))
             return ifStmt;
         
-        return new BoundIfStmt(cond, thenS, elseS);
+        return new IRIfStmt(cond, thenS, elseS);
     }
 
-    protected override BoundStatement RewriteWhile(BoundWhileStmt whileStmt)
+    protected override IRStatement RewriteWhile(IRWhileStmt whileStmt)
     {
         var cond = VisitExpr(whileStmt.Condition);
         var body = VisitStmt(whileStmt.Body);
-        if (cond is BoundLiteralExpr { Value.Kind: ConstantKind.Bool, Value.Bool: false })
+        if (cond is IRLiteralExpr { Value.Kind: ConstantKind.Bool, Value.Bool: false })
         {
-            return new BoundBlockStmt([], new Scope());
+            return new IRBlockStmt([], new Scope());
         }
 
         if (ReferenceEquals(cond, whileStmt.Condition) && ReferenceEquals(body, whileStmt.Body)) return whileStmt;
-        return new BoundWhileStmt(cond, body);
+        return new IRWhileStmt(cond, body);
+    }
+    
+    protected override IRExpression RewriteConversion(IRConversionExpr cnv)
+    {
+        var inner = VisitExpr(cnv.Expression);
+        if (inner is IRLiteralExpr lit)
+        {
+            //identity
+            if (cnv.Type == lit.Type)
+            {
+                return lit;
+            }
+            // int to float
+            if (cnv.Type.Kind == TypeKind.Float64 && lit.Value.Kind == ConstantKind.Int)
+            {
+                return new IRLiteralExpr(ConstantValue.FromReal(lit.Value.Int), typeSystem[TypeKind.Float64]);
+            }
+            
+            var error = new ConstantFoldingError(filename,
+                $"Cannot convert constant from {interner[lit.Type.NameId]} to {cnv.Type.NameId}");
+            errors.Add(error);
+        }
+
+        return ReferenceEquals(inner, cnv.Expression) ? cnv : new IRConversionExpr(inner, cnv.Type);
     }
 
     // Literal evaluation helpers
-    private static bool TryFoldUnary(TokenKind op, BoundLiteralExpr literalExpr, out BoundLiteralExpr result)
+    private bool TryFoldUnary(TokenKind op, IRLiteralExpr literalExpr, out IRLiteralExpr result)
     {
         result = null!;
         switch (op)
         {
             case TokenKind.Minus when literalExpr.Value.Kind == ConstantKind.Int:
-                result = new BoundLiteralExpr(ConstantValue.FromInt(checked(-literalExpr.Value.Int)));
+                result = new IRLiteralExpr(ConstantValue.FromInt(checked(-literalExpr.Value.Int)), typeSystem[TypeKind.Int64]);
                 return true;
             case TokenKind.Not when literalExpr.Value.Kind is ConstantKind.Bool:
-                result = new BoundLiteralExpr(ConstantValue.FromBool(!literalExpr.Value.Bool));
+                result = new IRLiteralExpr(ConstantValue.FromBool(!literalExpr.Value.Bool), typeSystem[TypeKind.Bool]);
                 return true;
         }
 
         return false;
     }
 
-    private static bool TryFoldBinary(TokenKind op, BoundLiteralExpr left, BoundLiteralExpr right,
-        out BoundLiteralExpr result)
+    private bool TryFoldBinary(TokenKind op, IRLiteralExpr left, IRLiteralExpr right,
+        out IRLiteralExpr result)
     {
         result = null!;
         // Int arithmetic/compare
@@ -124,38 +181,74 @@ public class ConstantFolder: BoundTreeRewriter
         {
             var a =  left.Value.Int;
             var b = right.Value.Int;
-            
+
             switch (op)
             {
                 case TokenKind.Plus:
-                    result = new BoundLiteralExpr(ConstantValue.FromInt(checked(a + b)));
+                    try
+                    {
+                        result = new IRLiteralExpr(ConstantValue.FromInt(checked(a + b)), typeSystem[TypeKind.Int64]);
+                    }
+                    catch (OverflowException)
+                    {
+                        var error = new ConstantFoldingError(filename,
+                            "Integer overflow in constant expression");
+                        errors.Add(error);
+                        return false;
+                    }
+
                     return true;
                 case TokenKind.Minus:
-                    result = new BoundLiteralExpr(ConstantValue.FromInt(checked(a - b)));
+                    try
+                    {
+                        result = new IRLiteralExpr(ConstantValue.FromInt(checked(a - b)), typeSystem[TypeKind.Int64]);
+                    }
+                    catch (OverflowException)
+                    {
+                        var error = new ConstantFoldingError(filename,
+                            "Integer overflow in constant expression");
+                        errors.Add(error);
+                        return false;
+                    }
                     return true;
                 case TokenKind.Star:
-                    result = new BoundLiteralExpr(ConstantValue.FromInt(checked(a * b)));
+                    try
+                    {
+                        result = new IRLiteralExpr(ConstantValue.FromInt(checked(a * b)), typeSystem[TypeKind.Int64]);
+                    }
+                    catch (OverflowException)
+                    {
+                        var error = new ConstantFoldingError(filename,
+                            "Integer overflow in constant expression");
+                        errors.Add(error);
+                        return false;
+                    }
                     return true;
                 case TokenKind.Slash when b != 0:
-                    result = new BoundLiteralExpr(ConstantValue.FromInt(checked(a / b)));
+                    result = new IRLiteralExpr(ConstantValue.FromInt(a / b), typeSystem[TypeKind.Int64]);
                     return true;
+                case TokenKind.Slash:
+                    var zeroDivisionError = new ConstantFoldingError(filename,
+                        "Division by zero in constant expression");
+                    errors.Add(zeroDivisionError);
+                    return false;
                 case TokenKind.Equal:
-                    result = new BoundLiteralExpr(ConstantValue.FromBool(checked(a == b)));
+                    result = new IRLiteralExpr(ConstantValue.FromBool(a == b), typeSystem[TypeKind.Bool]);
                     return true;
                 case TokenKind.NotEqual:
-                    result = new BoundLiteralExpr(ConstantValue.FromBool(checked(a != b)));
+                    result = new IRLiteralExpr(ConstantValue.FromBool(a != b), typeSystem[TypeKind.Bool]);
                     return true;
                 case TokenKind.Less:
-                    result = new BoundLiteralExpr(ConstantValue.FromBool(checked(a < b)));
+                    result = new IRLiteralExpr(ConstantValue.FromBool(a < b), typeSystem[TypeKind.Bool]);
                     return true;
                 case TokenKind.LessEqual:
-                    result = new BoundLiteralExpr(ConstantValue.FromBool(checked(a <= b)));
+                    result = new IRLiteralExpr(ConstantValue.FromBool(a <= b), typeSystem[TypeKind.Bool]);
                     return true;
                 case TokenKind.Greater:
-                    result = new BoundLiteralExpr(ConstantValue.FromBool(checked(a > b)));
+                    result = new IRLiteralExpr(ConstantValue.FromBool(a > b), typeSystem[TypeKind.Bool]);
                     return true;
                 case TokenKind.GreaterEqual:
-                    result = new BoundLiteralExpr(ConstantValue.FromBool(checked(a >= b)));
+                    result = new IRLiteralExpr(ConstantValue.FromBool(a >= b), typeSystem[TypeKind.Bool]);
                     return true;
             }
         }
@@ -169,34 +262,39 @@ public class ConstantFolder: BoundTreeRewriter
             switch (op)
             {
                 case TokenKind.Plus:
-                    result = new BoundLiteralExpr(ConstantValue.FromReal(checked(a + b)));
+                    result = new IRLiteralExpr(ConstantValue.FromReal(a + b), typeSystem[TypeKind.Float64]);
                     return true;
                 case TokenKind.Minus:
-                    result = new BoundLiteralExpr(ConstantValue.FromReal(checked(a - b)));
+                    result = new IRLiteralExpr(ConstantValue.FromReal(a - b), typeSystem[TypeKind.Float64]);
                     return true;
                 case TokenKind.Star:
-                    result = new BoundLiteralExpr(ConstantValue.FromReal(checked(a * b)));
+                    result = new IRLiteralExpr(ConstantValue.FromReal(a * b), typeSystem[TypeKind.Float64]);
                     return true;
                 case TokenKind.Slash when b != 0:
-                    result = new BoundLiteralExpr(ConstantValue.FromReal(checked(a / b)));
+                    result = new IRLiteralExpr(ConstantValue.FromReal(a / b), typeSystem[TypeKind.Float64]);
                     return true;
+                case TokenKind.Slash:
+                    var zeroDivisionError = new ConstantFoldingError(filename,
+                        "Division by zero in constant expression");
+                    errors.Add(zeroDivisionError);
+                    return false;
                 case TokenKind.Equal:
-                    result = new BoundLiteralExpr(ConstantValue.FromBool(checked(a == b)));
+                    result = new IRLiteralExpr(ConstantValue.FromBool(a == b), typeSystem[TypeKind.Bool]);
                     return true;
                 case TokenKind.NotEqual:
-                    result = new BoundLiteralExpr(ConstantValue.FromBool(checked(a != b)));
+                    result = new IRLiteralExpr(ConstantValue.FromBool(a != b), typeSystem[TypeKind.Bool]);
                     return true;
                 case TokenKind.Less:
-                    result = new BoundLiteralExpr(ConstantValue.FromBool(checked(a < b)));
+                    result = new IRLiteralExpr(ConstantValue.FromBool(a < b), typeSystem[TypeKind.Bool]);
                     return true;
                 case TokenKind.LessEqual:
-                    result = new BoundLiteralExpr(ConstantValue.FromBool(checked(a <= b)));
+                    result = new IRLiteralExpr(ConstantValue.FromBool(a <= b), typeSystem[TypeKind.Bool]);
                     return true;
                 case TokenKind.Greater:
-                    result = new BoundLiteralExpr(ConstantValue.FromBool(checked(a > b)));
+                    result = new IRLiteralExpr(ConstantValue.FromBool(a > b), typeSystem[TypeKind.Bool]);
                     return true;
                 case TokenKind.GreaterEqual:
-                    result = new BoundLiteralExpr(ConstantValue.FromBool(checked(a >= b)));
+                    result = new IRLiteralExpr(ConstantValue.FromBool(a >= b), typeSystem[TypeKind.Bool]);
                     return true;
             }
         }
@@ -209,10 +307,10 @@ public class ConstantFolder: BoundTreeRewriter
             switch (op)
             {
                 case TokenKind.Equal:
-                    result = new BoundLiteralExpr(ConstantValue.FromBool(p == q));
+                    result = new IRLiteralExpr(ConstantValue.FromBool(p == q), typeSystem[TypeKind.Bool]);
                     return true;
                 case TokenKind.NotEqual:
-                    result = new BoundLiteralExpr(ConstantValue.FromBool(p != q));
+                    result = new IRLiteralExpr(ConstantValue.FromBool(p != q), typeSystem[TypeKind.Bool]);
                     return true;
             }
         }
@@ -226,13 +324,13 @@ public class ConstantFolder: BoundTreeRewriter
             switch (op)
             {
                 case TokenKind.Equal:
-                    result = new BoundLiteralExpr(ConstantValue.FromBool(s1 == s2));
+                    result = new IRLiteralExpr(ConstantValue.FromBool(s1 == s2), typeSystem[TypeKind.Bool]);
                     return true;
                 case TokenKind.NotEqual:
-                    result = new BoundLiteralExpr(ConstantValue.FromBool(s1 != s2));
+                    result = new IRLiteralExpr(ConstantValue.FromBool(s1 != s2), typeSystem[TypeKind.Bool]);
                     return true;
                 case TokenKind.Plus:
-                    result = new BoundLiteralExpr(ConstantValue.FromString(s1 + s2));
+                    result = new IRLiteralExpr(ConstantValue.FromString(s1 + s2),typeSystem[TypeKind.String]);
                     return true;
             }
         }
@@ -240,8 +338,8 @@ public class ConstantFolder: BoundTreeRewriter
         return false;
     }
 
-    private static bool TryFoldLogical(TokenKind op, BoundLiteralExpr left, BoundLiteralExpr right,
-        out BoundLiteralExpr result)
+    private bool TryFoldLogical(TokenKind op, IRLiteralExpr left, IRLiteralExpr right,
+        out IRLiteralExpr result)
     {
         result = null!;
 
@@ -253,10 +351,10 @@ public class ConstantFolder: BoundTreeRewriter
         switch (op)
         {
             case TokenKind.And:
-                result = new BoundLiteralExpr(ConstantValue.FromBool(p && q));
+                result = new IRLiteralExpr(ConstantValue.FromBool(p && q), typeSystem[TypeKind.Bool]);
                 return true;
             case TokenKind.Or:
-                result = new BoundLiteralExpr(ConstantValue.FromBool(p || q));
+                result = new IRLiteralExpr(ConstantValue.FromBool(p || q), typeSystem[TypeKind.Bool]);
                 return true;
         }
 

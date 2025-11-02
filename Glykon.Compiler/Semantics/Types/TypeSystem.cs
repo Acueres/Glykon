@@ -1,4 +1,5 @@
-﻿using Glykon.Compiler.Semantics.Binding;
+﻿using Glykon.Compiler.Core;
+using Glykon.Compiler.Semantics.Binding;
 
 namespace Glykon.Compiler.Semantics.Types;
 
@@ -25,7 +26,24 @@ public class TypeSystem(IdentifierInterner interner)
 
         int stringId = interner.Intern("str");
         types.Add(stringId, new TypeSymbol((int)TypeKind.String, stringId, TypeKind.String));
+        
+        int errorId = interner.Intern("_error");
+        types.Add(errorId, new TypeSymbol((int)TypeKind.Error, stringId, TypeKind.Error));
     }
+
+    // TODO: Add more numeric types
+    public TypeSymbol GetCommonNumericType(TypeSymbol from, TypeSymbol to)
+    {
+        if (from == to) return from;
+
+        return from.Kind switch
+        {
+            TypeKind.Int64 => this[TypeKind.Float64],
+            _ => this[TypeKind.Error]
+        };
+    }
+
+    public static bool CanImplicitlyConvert(TypeSymbol s1, TypeSymbol s2) => s1 != s2 && s1.IsNumeric && s2.IsNumeric;
 
     public IEnumerable<TypeSymbol> GetPrimitives()
     {
@@ -36,9 +54,24 @@ public class TypeSystem(IdentifierInterner interner)
         yield return this[TypeKind.String];
     }
 
-    public TypeSymbol this[TypeKind kind]
-    {
+    public TypeSymbol this[TypeKind kind] =>
         // Cast is guaranteed to always be correct when the primitives are registered first
-        get => types[(int)kind];
+        types[(int)kind];
+
+    public TypeSymbol this[ConstantKind kind]
+    {
+        get
+        {
+            var typeKind = kind switch
+            {
+                ConstantKind.Int => TypeKind.Int64,
+                ConstantKind.Real => TypeKind.Float64,
+                ConstantKind.String => TypeKind.String,
+                ConstantKind.Bool => TypeKind.Bool,
+                _ => TypeKind.None,
+            };
+
+            return this[typeKind];
+        }
     }
 }

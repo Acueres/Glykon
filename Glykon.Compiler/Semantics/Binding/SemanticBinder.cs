@@ -12,22 +12,10 @@ namespace Glykon.Compiler.Semantics.Binding;
 
 public class SemanticBinder(SyntaxTree syntaxTree, TypeSystem typeSystem, IdentifierInterner interner, string fileName)
 {
-    readonly SyntaxTree syntaxTree = syntaxTree;
-    readonly TypeSystem typeSystem = typeSystem;
     readonly SymbolTable symbolTable = new(interner);
-    readonly TypeChecker typeChecker = new(syntaxTree.FileName, typeSystem, interner);
-    readonly ConstantFolder folder = new();
-    
     readonly List<IGlykonError> errors = [];
-    readonly string fileName = fileName;
 
-    public List<IGlykonError> GetErrors()
-    {
-        var checkerErrors = typeChecker.GetErrors();
-        return [.. errors, .. checkerErrors];
-    }
-
-    public (BoundTree, SymbolTable) Bind()
+    public (BoundTree, SymbolTable, IGlykonError[]) Bind()
     {
         RegisterPrimitives();
         RegisterStd();
@@ -42,7 +30,7 @@ public class SemanticBinder(SyntaxTree syntaxTree, TypeSystem typeSystem, Identi
 
         BoundTree boundTree = new([..boundStatements], syntaxTree.FileName);
 
-        return (boundTree, symbolTable);
+        return (boundTree, symbolTable, [..errors]);
     }
 
     BoundStatement BindStatement(Statement stmt)
@@ -52,117 +40,105 @@ public class SemanticBinder(SyntaxTree syntaxTree, TypeSystem typeSystem, Identi
         switch (stmt.Kind)
         {
             case StatementKind.Block:
-                {
-                    Scope scope = symbolTable.BeginScope(ScopeKind.Block);
-                    var blockStmt = (BlockStmt)stmt;
+            {
+                Scope scope = symbolTable.BeginScope(ScopeKind.Block);
+                var blockStmt = (BlockStmt)stmt;
 
-                    var boundStatements = BindBlockStatements(blockStmt.Statements);
+                var boundStatements = BindBlockStatements(blockStmt.Statements);
 
-                    BoundBlockStmt boundBlockStmt = new([.. boundStatements], scope);
+                BoundBlockStmt boundBlockStmt = new([.. boundStatements], scope);
 
-                    symbolTable.ExitScope();
-                    return boundBlockStmt;
-                }
+                symbolTable.ExitScope();
+                return boundBlockStmt;
+            }
             case StatementKind.If:
-                {
-                    var ifStmt = (IfStmt)stmt;
-                    var boundThenStmt = BindStatement(ifStmt.ThenStatement);
-                    var boundElseStmt = BindStatement(ifStmt.ElseStatement);
+            {
+                var ifStmt = (IfStmt)stmt;
+                var boundThenStmt = BindStatement(ifStmt.ThenStatement);
+                var boundElseStmt = BindStatement(ifStmt.ElseStatement);
 
-                    BoundExpression boundCondition = BindExpression(ifStmt.Condition);
-                    typeChecker.ValidateCondition(boundCondition);
+                BoundExpression boundCondition = BindExpression(ifStmt.Condition);
 
-                    BoundIfStmt boundIfStmt = new(boundCondition, boundThenStmt, boundElseStmt);
-                    return boundIfStmt;
-                }
+                BoundIfStmt boundIfStmt = new(boundCondition, boundThenStmt, boundElseStmt);
+                return boundIfStmt;
+            }
             case StatementKind.While:
-                {
-                    var whileStmt = (WhileStmt)stmt;
-                    var boundStatement = BindStatement(whileStmt.Statement);
+            {
+                var whileStmt = (WhileStmt)stmt;
+                var boundStatement = BindStatement(whileStmt.Body);
 
-                    BoundExpression boundCondition = BindExpression(whileStmt.Condition);
-                    typeChecker.ValidateCondition(boundCondition);
+                BoundExpression boundCondition = BindExpression(whileStmt.Condition);
+                BoundWhileStmt boundWhileStmt = new(boundCondition, boundStatement);
 
-                    BoundWhileStmt boundWhileStmt = new(boundCondition, boundStatement);
-
-                    return boundWhileStmt;
-                }
+                return boundWhileStmt;
+            }
             case StatementKind.Variable:
-                {
-                    var variableStmt = (VariableDeclaration)stmt;
-                    BoundExpression boundExpression = BindExpression(variableStmt.Expression);
-                    var variableType = typeChecker.CheckDeclaredType(boundExpression, BindTypeAnnotation(variableStmt.DeclaredType));
+            {
+                var variableStmt = (VariableDeclaration)stmt;
+                var declaredType = BindTypeAnnotation(variableStmt.DeclaredType);
 
-                    var symbol = symbolTable.RegisterVariable(variableStmt.Name, variableType);
+                var boundExpression = BindExpression(variableStmt.Expression);
 
-                    return new BoundVariableDeclaration(boundExpression, symbol, variableType);
-                }
+                var symbol = symbolTable.RegisterVariable(variableStmt.Name, declaredType);
+
+                return new BoundVariableDeclaration(boundExpression, symbol, declaredType);
+            }
             case StatementKind.Constant:
-                {
-                    var constantStmt = (ConstantDeclaration)stmt;
-
-                    BoundExpression boundExpression = BindExpression(constantStmt.Expression);
-                    BoundExpression foldedExpression = folder.FoldExpression(boundExpression);
-                    if (foldedExpression is not BoundLiteralExpr foldedLiteralExpr)
-                    {
-                        errors.Add(new TypeError(fileName, "Initializer of 'const' must be a constant expression"));
-                        return new BoundConstantDeclaration(null);
-                    }
-
-                    var symbol = symbolTable.RegisterConstant(constantStmt.Name, foldedLiteralExpr.Value, BindTypeAnnotation(constantStmt.DeclaredType));
-
-                    typeChecker.CheckDeclaredType(boundExpression, BindTypeAnnotation(constantStmt.DeclaredType));
-
-                    return new BoundConstantDeclaration(symbol);
-                }
+            {
+                var constantStmt = (ConstantDeclaration)stmt;
+                var declaredType = BindTypeAnnotation(constantStmt.DeclaredType);
+                
+                var initializer = BindExpression(constantStmt.Initializer);
+                
+                var symbol = symbolTable.RegisterConstant(constantStmt.Name, declaredType);
+                
+                return new BoundConstantDeclaration(initializer, symbol);
+            }
 
             case StatementKind.Function:
-                {
-                    var functionStmt = (FunctionDeclaration)stmt;
+            {
+                var functionStmt = (FunctionDeclaration)stmt;
 
-                    TypeSymbol[] paramTypes = [.. functionStmt.Parameters.Select(p => BindTypeAnnotation(p.Type))];
-                    var returnType = BindTypeAnnotation(functionStmt.ReturnType);
+                TypeSymbol[] paramTypes = [.. functionStmt.Parameters.Select(p => BindTypeAnnotation(p.Type))];
+                var returnType = BindTypeAnnotation(functionStmt.ReturnType);
 
-                    FunctionSymbol? signature = symbolTable.GetLocalFunction(functionStmt.Name, paramTypes);
-                    signature ??= symbolTable.RegisterFunction(functionStmt.Name, returnType, paramTypes);
+                FunctionSymbol? signature = symbolTable.GetLocalFunction(functionStmt.Name, paramTypes);
+                signature ??= symbolTable.RegisterFunction(functionStmt.Name, returnType, paramTypes);
 
-                    var scope = symbolTable.BeginScope(signature!);
-                    signature!.Scope = scope;
+                var scope = symbolTable.BeginScope(signature!);
+                signature!.Scope = scope;
 
-                    var parameterSymbols = functionStmt.Parameters.Select(p => symbolTable.RegisterParameter(p.Name, BindTypeAnnotation(p.Type))).ToList();
+                var parameterSymbols = functionStmt.Parameters
+                    .Select(p => symbolTable.RegisterParameter(p.Name, BindTypeAnnotation(p.Type))).ToList();
 
-                    var boundStatements = BindBlockStatements(functionStmt.Body.Statements);
-                    BoundBlockStmt boundBody = new([.. boundStatements], scope);
+                var boundStatements = BindBlockStatements(functionStmt.Body.Statements);
+                BoundBlockStmt boundBody = new([.. boundStatements], scope);
 
-                    symbolTable.ExitScope();
+                symbolTable.ExitScope();
 
-                    return new BoundFunctionDeclaration(signature, [.. parameterSymbols], returnType, boundBody);
-                }
+                return new BoundFunctionDeclaration(signature, [.. parameterSymbols], returnType, boundBody);
+            }
             case StatementKind.Return:
-                {
-                    var returnStmt = (ReturnStmt)stmt;
-
-                    var currentFunctionSymbol = symbolTable.GetCurrentFunction();
-
-                    var boundExpression = BindExpression(returnStmt.Expression);
-
-                    if (currentFunctionSymbol is not null)
-                        typeChecker.ValidateReturnStatementType(boundExpression, currentFunctionSymbol.Type);
-
-                    return new BoundReturnStmt(boundExpression, returnStmt.Token);
-                }
+            {
+                var returnStmt = (ReturnStmt)stmt;
+                var currentFunctionSymbol = symbolTable.GetCurrentFunction();
+                
+                var boundExpression = BindExpression(returnStmt.Expression);
+                
+                return new BoundReturnStmt(boundExpression, currentFunctionSymbol, returnStmt.Token);
+            }
             case StatementKind.Expression:
-                {
-                    var expression = (ExpressionStmt)stmt;
-                    var boundExpression = BindExpression(expression.Expression);
-                    return new BoundExpressionStmt(boundExpression);
-                }
+            {
+                var expression = (ExpressionStmt)stmt;
+                var boundExpression = BindExpression(expression.Expression);
+                return new BoundExpressionStmt(boundExpression);
+            }
             case StatementKind.Jump:
-                {
-                    var jumpStmt = (JumpStmt)stmt;
-                    return new BoundJumpStmt(jumpStmt.Token);
-                }
-            default: return null;
+            {
+                var jumpStmt = (JumpStmt)stmt;
+                return new BoundJumpStmt(jumpStmt.Token);
+            }
+            default: return new BoundInvalidStmt();
         }
     }
 
@@ -173,110 +149,107 @@ public class SemanticBinder(SyntaxTree syntaxTree, TypeSystem typeSystem, Identi
         switch (expression.Kind)
         {
             case ExpressionKind.Literal:
-                {
-                    LiteralExpr literalExpr = (LiteralExpr)expression;
-                    return new BoundLiteralExpr(literalExpr.Value);
-                }
+            {
+                LiteralExpr literalExpr = (LiteralExpr)expression;
+                return new BoundLiteralExpr(literalExpr.Value);
+            }
             case ExpressionKind.Unary:
-                {
-                    UnaryExpr unaryExpr = (UnaryExpr)expression;
-                    BoundExpression operand = BindExpression(unaryExpr.Operand);
-                    return new BoundUnaryExpr(unaryExpr.Operator, operand);
-                }
+            {
+                UnaryExpr unaryExpr = (UnaryExpr)expression;
+                BoundExpression operand = BindExpression(unaryExpr.Operand);
+                return new BoundUnaryExpr(unaryExpr.Operator, operand);
+            }
             case ExpressionKind.Binary:
-                {
-                    BinaryExpr binaryExpr = (BinaryExpr)expression;
-                    BoundExpression left = BindExpression(binaryExpr.Left);
-                    BoundExpression right = BindExpression(binaryExpr.Right);
-                    return new BoundBinaryExpr(binaryExpr.Operator, left, right);
-                }
+            {
+                BinaryExpr binaryExpr = (BinaryExpr)expression;
+                BoundExpression left = BindExpression(binaryExpr.Left);
+                BoundExpression right = BindExpression(binaryExpr.Right);
+
+                return new BoundBinaryExpr(binaryExpr.Operator, left, right);
+            }
             case ExpressionKind.Logical:
-                {
-                    LogicalExpr logicalExpr = (LogicalExpr)expression;
-                    BoundExpression left = BindExpression(logicalExpr.Left);
-                    BoundExpression right = BindExpression(logicalExpr.Right);
-                    return new BoundLogicalExpr(logicalExpr.Operator, left, right);
-                }
+            {
+                LogicalExpr logicalExpr = (LogicalExpr)expression;
+                BoundExpression left = BindExpression(logicalExpr.Left);
+                BoundExpression right = BindExpression(logicalExpr.Right);
+
+                return new BoundLogicalExpr(logicalExpr.Operator, left, right);
+            }
             case ExpressionKind.Assignment:
-                {
-                    AssignmentExpr assignmentExpr = (AssignmentExpr)expression;
-                    BoundExpression right = BindExpression(assignmentExpr.Right);
+            {
+                AssignmentExpr assignmentExpr = (AssignmentExpr)expression;
 
-                    var symbol = symbolTable.GetLocalVariableSymbol(assignmentExpr.Name);
+                var symbol = symbolTable.GetLocalVariableSymbol(assignmentExpr.Name);
 
-                    return new BoundAssignmentExpr(right, symbol);
-                }
+                BoundExpression right = BindExpression(assignmentExpr.Right);
+                
+                return new BoundAssignmentExpr(right, symbol);
+            }
             case ExpressionKind.Variable:
+            {
+                var variableExpr = (VariableExpr)expression;
+
+                if (!interner.TryGetId(variableExpr.Name, out var id))
                 {
-                    var variableExpr = (VariableExpr)expression;
-
-                    if (!interner.TryGetId(variableExpr.Name, out var id))
-                    {
-                        errors.Add(new TypeError(fileName, $"Unknown identifier: {variableExpr.Name}"));
-                        return new BoundVariableExpr(null);
-                    }
-
-                    var localVariable = symbolTable.GetLocalVariableSymbol(variableExpr.Name);
-                    if (localVariable != null)
-                    {
-                        return new BoundVariableExpr(localVariable);
-                    }
-                    
-                    var symbol = symbolTable.GetSymbol(variableExpr.Name);
-                    if (symbol is VariableSymbol)
-                    {
-                        errors.Add(new TypeError(fileName, $"Cannot reference {variableExpr.Name}"));
-                        return new BoundVariableExpr(null);
-                    }
-
-                    return new BoundVariableExpr(symbol!);
+                    errors.Add(new BindingError(fileName, $"Unknown identifier: {variableExpr.Name}"));
+                    return new BoundInvalidExpr();
                 }
+
+                var localVariable = symbolTable.GetLocalVariableSymbol(variableExpr.Name);
+                if (localVariable != null)
+                {
+                    return new BoundVariableExpr(localVariable);
+                }
+
+                var symbol = symbolTable.GetSymbol(variableExpr.Name);
+                // Captured variables are not allowed
+                if (symbol is VariableSymbol)
+                {
+                    errors.Add(new BindingError(fileName, $"Cannot reference {variableExpr.Name}"));
+                    return new BoundInvalidExpr();
+                }
+
+                return new BoundVariableExpr(symbol!);
+            }
             case ExpressionKind.Grouping:
-                {
-                    var groupExpr = (GroupingExpr)expression;
-                    BoundExpression boundExpression = BindExpression(groupExpr.Expression);
-                    return new BoundGroupingExpr(boundExpression);
-                }
+            {
+                var groupExpr = (GroupingExpr)expression;
+                var boundExpression = BindExpression(groupExpr.Expression);
+                return new BoundGroupingExpr(boundExpression);
+            }
             case ExpressionKind.Call:
+            {
+                var callExpr = (CallExpr)expression;
+                var boundArgs = callExpr.Args.Select(BindExpression).ToArray();
+
+                var callee = callExpr.Callee;
+                while (callee is GroupingExpr p) callee = p.Expression;
+
+                if (callee is not VariableExpr variableExpr)
                 {
-                    var callExpr = (CallExpr)expression;
-
-                    var boundArgs = callExpr.Args.Select(BindExpression).ToArray();
-                    var argTypes = boundArgs.Select(typeChecker.InferType).ToArray();
-
-                    var callee = callExpr.Callee;
-                    while (callee is GroupingExpr p) callee = p.Expression;
-
-                    if (callee is not VariableExpr id)
-                    {
-                        errors.Add(new TypeError(fileName, $"Expression {callee.Kind} is not callable"));
-                        return null;
-                    }
-
-                    if (symbolTable.IsFunction(id.Name))
-                    {
-                        var fn = symbolTable.GetFunction(id.Name, argTypes);
-                        if (fn != null)
-                        {
-                            return new BoundCallExpr(fn, boundArgs);
-                        }
-                        else
-                        {
-                            errors.Add(new TypeError(fileName, $"{id.Name} is not a function"));
-                            return null;
-                        }
-                    }
-
-                    if (symbolTable.GetSymbol(id.Name) != null)
-                    {
-                        errors.Add(new TypeError(fileName, $"{id.Name} is not callable"));
-                        return null;
-                    }
-
-                    errors.Add(new TypeError(fileName, $"Unknown identifier: {id.Name}"));
-                    return null;
+                    errors.Add(new BindingError(fileName, $"Expression {callee.Kind} is not callable"));
+                    return new BoundInvalidExpr();
                 }
-            default: return null;
+
+                int nameId = interner.Intern(variableExpr.Name);
+                var overloads = symbolTable.GetFunctionOverloads(variableExpr.Name);
+                
+                var symbol = symbolTable.GetSymbol(variableExpr.Name);
+                if (symbol is not null)
+                {
+                    errors.Add(new BindingError(fileName, $"{interner[symbol.NameId]} is not callable"));
+                    return new BoundInvalidExpr();
+                }
+                
+                if (overloads.Length == 0)
+                {
+                    errors.Add(new BindingError(fileName, $"{variableExpr.Name} is not a function"));
+                    return new BoundInvalidExpr();
+                }
+                
+                return new BoundCallExpr(nameId, overloads, boundArgs);
+            }
+            default: return new BoundInvalidExpr();
         }
     }
 
@@ -285,10 +258,10 @@ public class SemanticBinder(SyntaxTree syntaxTree, TypeSystem typeSystem, Identi
         List<BoundStatement> boundStatements = new(statements.Count);
 
         var declarations = statements.Where(s => s.Kind == StatementKind.Function)
-                                .Cast<FunctionDeclaration>()
-                                .ToList();
+            .Cast<FunctionDeclaration>()
+            .ToList();
         var nonDeclarations = statements.Where(s => s.Kind != StatementKind.Function)
-                                           .ToList();
+            .ToList();
 
         // Predeclaring function definitions
         foreach (var f in declarations)
@@ -304,10 +277,12 @@ public class SemanticBinder(SyntaxTree syntaxTree, TypeSystem typeSystem, Identi
         return boundStatements;
     }
 
-    TypeSymbol? BindTypeAnnotation(TypeAnnotation annotation)
+    TypeSymbol BindTypeAnnotation(TypeAnnotation annotation)
     {
         var symbol = symbolTable.GetType(annotation.Name);
-        return symbol;
+        if (symbol is not null) return symbol;
+        errors.Add(new BindingError(fileName, $"Unknown type: {annotation.Name}"));
+        return typeSystem[TypeKind.Error];
     }
 
     void RegisterPrimitives()

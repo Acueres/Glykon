@@ -8,6 +8,8 @@ using System.Runtime.Loader;
 using Glykon.Compiler.Semantics.Binding;
 using Glykon.Compiler.Semantics.Symbols;
 using Glykon.Compiler.Semantics.Binding.BoundStatements;
+using Glykon.Compiler.Semantics.IR;
+using Glykon.Compiler.Semantics.IR.Statements;
 using Glykon.Compiler.Semantics.Types;
 
 namespace Glykon.Compiler.Emitter;
@@ -15,7 +17,7 @@ namespace Glykon.Compiler.Emitter;
 public class TypeEmitter
 {
     readonly string appName;
-    readonly BoundTree boundTree;
+    readonly IRTree irTree;
     readonly SymbolTable symbolTable;
     readonly TypeSystem typeSystem;
     readonly IdentifierInterner interner;
@@ -23,10 +25,10 @@ public class TypeEmitter
     readonly PersistedAssemblyBuilder ab;
     MethodBuilder main;
 
-    public TypeEmitter(BoundTree boundTree, SymbolTable symbolTable, TypeSystem typeSystem, IdentifierInterner interner, string appname)
+    public TypeEmitter(IRTree irTree, SymbolTable symbolTable, TypeSystem typeSystem, IdentifierInterner interner, string appname)
     {
         appName = appname;
-        this.boundTree = boundTree;
+        this.irTree = irTree;
         this.symbolTable = symbolTable;
         this.typeSystem = typeSystem;
         this.interner = interner;
@@ -44,9 +46,9 @@ public class TypeEmitter
         List<FunctionEmitter> methodGenerators = [];
         Dictionary<FunctionSymbol, MethodInfo> methods = LoadStdLibrary();
 
-        foreach (var stmt in boundTree)
+        foreach (var stmt in irTree)
         {
-            if (stmt is BoundFunctionDeclaration f)
+            if (stmt is IRFunctionDeclaration f)
             {
                 FunctionEmitter mg = new(f, typeSystem, interner, tb, appName);
                 methodGenerators.Add(mg);

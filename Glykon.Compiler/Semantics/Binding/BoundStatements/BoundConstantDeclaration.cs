@@ -1,10 +1,11 @@
-﻿using Glykon.Compiler.Syntax.Statements;
+﻿using Glykon.Compiler.Semantics.Binding.BoundExpressions;
 using Glykon.Compiler.Semantics.Symbols;
 
 namespace Glykon.Compiler.Semantics.Binding.BoundStatements;
 
-public class BoundConstantDeclaration(ConstantSymbol symbol) : BoundStatement
+public class BoundConstantDeclaration(BoundExpression initializer, ConstantSymbol symbol) : BoundStatement
 {
-    public override StatementKind Kind => StatementKind.Constant;
+    public override BoundStatementKind Kind => BoundStatementKind.Constant;
+    public BoundExpression Initializer { get; } = initializer;
     public ConstantSymbol Symbol { get; } = symbol;
 }

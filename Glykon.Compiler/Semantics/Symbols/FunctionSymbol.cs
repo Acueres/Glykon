@@ -5,7 +5,7 @@ namespace Glykon.Compiler.Semantics.Symbols;
 
 public class FunctionSymbol(int nameId, int serialId, int qualifiedId, TypeSymbol returnType, TypeSymbol[] parameters) : Symbol(nameId, returnType)
 {
-    public int SerialId { get; } = serialId;
+    private int SerialId { get; } = serialId;
     public int QualifiedNameId { get; } = qualifiedId;
     public TypeSymbol[] Parameters { get; } = parameters;
 

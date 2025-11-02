@@ -87,7 +87,7 @@ public class Scope
 
     public FunctionSymbol? GetFunction(int id, TypeSymbol[] parameters)
     {
-        List<FunctionSymbol> allOverloads = GetFunctionOverloads(id);
+        var allOverloads = GetFunctionOverloads(id);
 
         foreach (var overload in allOverloads)
         {
@@ -100,7 +100,7 @@ public class Scope
         return null;
     }
 
-    public List<FunctionSymbol> GetFunctionOverloads(int id)
+    public FunctionSymbol[] GetFunctionOverloads(int id)
     {
         List<FunctionSymbol> allOverloads = [];
 
@@ -114,13 +114,12 @@ public class Scope
             allOverloads.AddRange(Parent.GetFunctionOverloads(id));
         }
 
-        return allOverloads;
+        return [..allOverloads];
     }
 
-    public ConstantSymbol RegisterConstant(int id, in ConstantValue value, TypeSymbol type)
+    public ConstantSymbol RegisterConstant(int id, TypeSymbol type)
     {
-        ConstantSymbol symbol = new(id, type, value);
-        symbols.Remove(id);
+        ConstantSymbol symbol = new(id, type);
         symbols.Add(id, symbol);
         return symbol;
     }

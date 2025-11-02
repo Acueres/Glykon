@@ -1,8 +1,20 @@
-﻿using Glykon.Compiler.Syntax.Expressions;
+﻿namespace Glykon.Compiler.Semantics.Binding.BoundExpressions;
 
-namespace Glykon.Compiler.Semantics.Binding.BoundExpressions;
+public enum BoundExpressionKind : byte
+{
+    Invalid,
+    Unary,
+    Binary,
+    Call,
+    Grouping,
+    Literal,
+    Variable,
+    Assignment,
+    Logical,
+    Conversion
+}
 
 public abstract class BoundExpression
 {
-    public abstract ExpressionKind Kind { get; }
+    public abstract BoundExpressionKind Kind { get; }
 }

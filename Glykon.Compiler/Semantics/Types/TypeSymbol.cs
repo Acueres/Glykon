@@ -7,6 +7,7 @@ public enum TypeKind
     Float64,
     Bool,
     String,
+    Error,
     Defined,
     SerialStart
 }
@@ -16,6 +17,10 @@ public class TypeSymbol(int serialId, int nameId, TypeKind kind)
     public int SerialId { get; } = serialId;
     public int NameId { get; } = nameId;
     public TypeKind Kind { get; } = kind;
+    public bool IsPrimitive => Kind is TypeKind.Int64 or TypeKind.Float64 or TypeKind.Bool or TypeKind.String;
+    public bool IsNumeric => Kind is TypeKind.Int64 or TypeKind.Float64;
+    public bool IsNone => Kind == TypeKind.None;
+    public bool IsError => Kind == TypeKind.Error;
 
     public static bool operator ==(TypeSymbol a, TypeSymbol b)
     {

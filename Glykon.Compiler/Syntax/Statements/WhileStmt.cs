@@ -2,9 +2,9 @@
 
 namespace Glykon.Compiler.Syntax.Statements;
 
-public class WhileStmt(Expression condition, Statement statement) : Statement
+public class WhileStmt(Expression condition, Statement body) : Statement
 {
     public override StatementKind Kind => StatementKind.While;
     public Expression Condition { get; } = condition;
-    public Statement Statement { get; } = statement;
+    public Statement Body { get; } = body;
 }
