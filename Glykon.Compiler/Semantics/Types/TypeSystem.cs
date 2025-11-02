@@ -32,15 +32,20 @@ public class TypeSystem(IdentifierInterner interner)
     }
 
     // TODO: Add more numeric types
-    public TypeSymbol GetCommonNumericType(TypeSymbol from, TypeSymbol to)
+    public TypeSymbol GetCommonNumericType(TypeSymbol a, TypeSymbol b)
     {
-        if (from == to) return from;
+        if (a == b) return a;
+        
+        bool isNumA = a.Kind is TypeKind.Int64 or TypeKind.Float64;
+        bool isNumB = b.Kind is TypeKind.Int64 or TypeKind.Float64;
+        if (!(isNumA && isNumB))
+            return this[TypeKind.Error];
 
-        return from.Kind switch
-        {
-            TypeKind.Int64 => this[TypeKind.Float64],
-            _ => this[TypeKind.Error]
-        };
+        // Promotion lattice (widening)
+        if (a.Kind == TypeKind.Float64 || b.Kind == TypeKind.Float64)
+            return this[TypeKind.Float64];
+        
+        return this[TypeKind.Int64];
     }
 
     public static bool CanImplicitlyConvert(TypeSymbol s1, TypeSymbol s2) => s1 != s2 && s1.IsNumeric && s2.IsNumeric;

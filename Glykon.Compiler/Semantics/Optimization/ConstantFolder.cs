@@ -148,7 +148,7 @@ public class ConstantFolder(IRTree irTree, TypeSystem typeSystem, IdentifierInte
             }
             
             var error = new ConstantFoldingError(filename,
-                $"Cannot convert constant from {interner[lit.Type.NameId]} to {cnv.Type.NameId}");
+                $"Cannot convert constant from {interner[lit.Type.NameId]} to {interner[cnv.Type.NameId]}");
             errors.Add(error);
         }
 
