@@ -4,6 +4,7 @@ using Glykon.Compiler.Semantics.Binding.BoundExpressions;
 using Glykon.Compiler.Semantics.Binding.BoundStatements;
 using Glykon.Compiler.Semantics.IR.Expressions;
 using Glykon.Compiler.Semantics.IR.Statements;
+using Glykon.Compiler.Semantics.Operators;
 using Glykon.Compiler.Semantics.Types;
 using Glykon.Compiler.Syntax;
 
@@ -172,15 +173,16 @@ public class IRTypeBuilder(
                 }
 
                 var type = unaryExpr.Operator.Kind == TokenKind.Not ? typeSystem[TypeKind.Bool] : operand.Type;
-
-                var irUnary = new IRUnaryExpr(unaryExpr.Operator, operand, type);
+                var op = TokenOpMap.ToUnaryOp(unaryExpr.Operator.Kind);
+                    
+                var irUnary = new IRUnaryExpr(op, operand, type);
                 CheckUnaryExpression(irUnary);
                 return irUnary;
             }
             case BoundExpressionKind.Binary:
             {
                 var binaryExpr = (BoundBinaryExpr)expression;
-                var op = binaryExpr.Operator.Kind;
+                var op = TokenOpMap.ToBinaryOp(binaryExpr.Operator.Kind);
                 var left = BuildExpression(binaryExpr.Left);
                 var right = BuildExpression(binaryExpr.Right);
 
@@ -190,22 +192,23 @@ public class IRTypeBuilder(
                 }
                 
                 // Handle string concatenation
-                if (op == TokenKind.Plus && left.Type.Kind == TypeKind.String && right.Type.Kind == TypeKind.String)
+                if (op == BinaryOp.Add && left.Type.Kind == TypeKind.String && right.Type.Kind == TypeKind.String)
                 {
-                    return new IRBinaryExpr(binaryExpr.Operator, left, right, typeSystem[TypeKind.String]);
+                    
+                    return new IRBinaryExpr(op, left, right, typeSystem[TypeKind.String]);
                 }
 
-                if (IsArithmeticOperator(op))
+                if (OpTraits.IsArithmetic(op))
                 {
                     if (!PromoteNumericPair(ref left, ref right, out var type))
                     {
                         return BinaryInvalid(op, left, right);
                     }
-
-                    return new IRBinaryExpr(binaryExpr.Operator, left, right, type!);
+                    
+                    return new IRBinaryExpr(op, left, right, type!);
                 }
 
-                if (IsComparisonOperator(op))
+                if (OpTraits.IsComparison(op))
                 {
                     // <, <=, >, >=
                     if (!PromoteNumericPair(ref left, ref right, out _))
@@ -213,10 +216,10 @@ public class IRTypeBuilder(
                         return BinaryInvalid(op, left, right);
                     }
 
-                    return new IRBinaryExpr(binaryExpr.Operator, left, right, typeSystem[TypeKind.Bool]);
+                    return new IRBinaryExpr(op, left, right, typeSystem[TypeKind.Bool]);
                 }
 
-                if (IsEqualityOperator(op))
+                if (OpTraits.IsEquality(op))
                 {
                     // ==, !=
                     if (!PromoteForEquality(ref left, ref right))
@@ -224,7 +227,7 @@ public class IRTypeBuilder(
                         return BinaryInvalid(op, left, right);
                     }
 
-                    return new IRBinaryExpr(binaryExpr.Operator, left, right, typeSystem[TypeKind.Bool]);
+                    return new IRBinaryExpr(op, left, right, typeSystem[TypeKind.Bool]);
                 }
 
                 return BinaryInvalid(op, left, right);
@@ -234,8 +237,10 @@ public class IRTypeBuilder(
                 var logicalExpr = (BoundLogicalExpr)expression;
                 var left = BuildExpression(logicalExpr.Left);
                 var right = BuildExpression(logicalExpr.Right);
+                
+                var op = TokenOpMap.ToBinaryOp(logicalExpr.Operator.Kind);
 
-                var irLogical = new IRLogicalExpr(logicalExpr.Operator, left, right, typeSystem[TypeKind.Bool]);
+                var irLogical = new IRLogicalExpr(op, left, right, typeSystem[TypeKind.Bool]);
 
                 CheckLogicalExpression(irLogical);
 
@@ -313,13 +318,13 @@ public class IRTypeBuilder(
     {
         var operandType = unaryExpr.Type;
 
-        switch (unaryExpr.Operator.Kind)
+        switch (unaryExpr.Operator)
         {
-            case TokenKind.Not when operandType.Kind != TypeKind.Bool:
-            case TokenKind.Minus when !operandType.IsNumeric:
+            case UnaryOp.LogicalNot when operandType.Kind != TypeKind.Bool:
+            case UnaryOp.Minus when !operandType.IsNumeric:
             {
                 TypeError error = new(fileName,
-                    $"Operator {unaryExpr.Operator.Kind} cannot be applied to operand type '{interner[operandType.NameId]}'");
+                    $"Operator {unaryExpr.Operator} cannot be applied to operand type '{interner[operandType.NameId]}'");
                 errors.Add(error);
                 break;
             }
@@ -334,7 +339,7 @@ public class IRTypeBuilder(
         if (leftType.Kind != TypeKind.Bool || rightType.Kind != TypeKind.Bool)
         {
             errors.Add(new TypeError(fileName,
-                $"Type mismatch; operator {logicalExpr.Operator.Kind} cannot be applied between types {interner[leftType.NameId]} and {interner[rightType.NameId]}"));
+                $"Type mismatch; operator {logicalExpr.Operator} cannot be applied between types {interner[leftType.NameId]} and {interner[rightType.NameId]}"));
         }
     }
 
@@ -419,7 +424,7 @@ public class IRTypeBuilder(
         return false;
     }
 
-    IRExpression BinaryInvalid(TokenKind op, IRExpression l, IRExpression r)
+    IRExpression BinaryInvalid(BinaryOp op, IRExpression l, IRExpression r)
     {
         errors.Add(new TypeError(fileName,
             $"Operator {op} cannot be applied between types '{interner[l.Type.NameId]}' and '{interner[r.Type.NameId]}'"));

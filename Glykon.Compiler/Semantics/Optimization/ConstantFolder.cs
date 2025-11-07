@@ -4,6 +4,7 @@ using Glykon.Compiler.Semantics.Binding;
 using Glykon.Compiler.Semantics.IR;
 using Glykon.Compiler.Semantics.IR.Expressions;
 using Glykon.Compiler.Semantics.IR.Statements;
+using Glykon.Compiler.Semantics.Operators;
 using Glykon.Compiler.Semantics.Rewriting;
 using Glykon.Compiler.Semantics.Symbols;
 using Glykon.Compiler.Semantics.Types;
@@ -27,7 +28,7 @@ public class ConstantFolder(IRTree irTree, TypeSystem typeSystem, IdentifierInte
         var opnd = VisitExpr(unaryExpr.Operand);
         if (!ReferenceEquals(opnd, unaryExpr.Operand)) unaryExpr = new IRUnaryExpr(unaryExpr.Operator, opnd, unaryExpr.Type);
         if (opnd is not IRLiteralExpr lit) return unaryExpr;
-        if (TryFoldUnary(unaryExpr.Operator.Kind, lit, out var folded)) return folded;
+        if (TryFoldUnary(unaryExpr.Operator, lit, out var folded)) return folded;
 
         return unaryExpr;
     }
@@ -40,7 +41,7 @@ public class ConstantFolder(IRTree irTree, TypeSystem typeSystem, IdentifierInte
             binaryExpr = new IRBinaryExpr(binaryExpr.Operator, left, right, binaryExpr.Type);
         
         if (left is not IRLiteralExpr l1 || right is not IRLiteralExpr l2) return binaryExpr;
-        if (TryFoldBinary(binaryExpr.Operator.Kind, l1, l2, out var folded)) return folded;
+        if (TryFoldBinary(binaryExpr.Operator, l1, l2, out var folded)) return folded;
 
         return binaryExpr;
     }
@@ -52,21 +53,21 @@ public class ConstantFolder(IRTree irTree, TypeSystem typeSystem, IdentifierInte
         if (!ReferenceEquals(left, logicalExpr.Left) || !ReferenceEquals(right, logicalExpr.Right))
             logicalExpr = new IRLogicalExpr(logicalExpr.Operator, left, right, logicalExpr.Type);
 
-        switch (logicalExpr.Operator.Kind)
+        switch (logicalExpr.Operator)
         {
             // Short-circuit boolean ops
-            case TokenKind.And when left is IRLiteralExpr { Value.Kind: ConstantKind.Bool } l:
+            case BinaryOp.LogicalAnd when left is IRLiteralExpr { Value.Kind: ConstantKind.Bool } l:
                 return l.Value.Bool
                     ? right
                     : new IRLiteralExpr(l.Value, typeSystem[TypeKind.Bool]);
-            case TokenKind.Or when left is IRLiteralExpr { Value.Kind: ConstantKind.Bool } l:
+            case BinaryOp.LogicalOr when left is IRLiteralExpr { Value.Kind: ConstantKind.Bool } l:
                 return l.Value.Bool
                     ? new IRLiteralExpr(l.Value, typeSystem[TypeKind.Bool])
                     : right;
         }
         
         if (left is not IRLiteralExpr l1 || right is not IRLiteralExpr l2) return logicalExpr;
-        if (TryFoldLogical(logicalExpr.Operator.Kind, l1, l2, out var folded)) return folded;
+        if (TryFoldLogical(logicalExpr.Operator, l1, l2, out var folded)) return folded;
         
         return logicalExpr;
     }
@@ -156,15 +157,15 @@ public class ConstantFolder(IRTree irTree, TypeSystem typeSystem, IdentifierInte
     }
 
     // Literal evaluation helpers
-    private bool TryFoldUnary(TokenKind op, IRLiteralExpr literalExpr, out IRLiteralExpr result)
+    private bool TryFoldUnary(UnaryOp op, IRLiteralExpr literalExpr, out IRLiteralExpr result)
     {
         result = null!;
         switch (op)
         {
-            case TokenKind.Minus when literalExpr.Value.Kind == ConstantKind.Int:
+            case UnaryOp.Minus when literalExpr.Value.Kind == ConstantKind.Int:
                 result = new IRLiteralExpr(ConstantValue.FromInt(checked(-literalExpr.Value.Int)), typeSystem[TypeKind.Int64]);
                 return true;
-            case TokenKind.Not when literalExpr.Value.Kind is ConstantKind.Bool:
+            case UnaryOp.LogicalNot when literalExpr.Value.Kind is ConstantKind.Bool:
                 result = new IRLiteralExpr(ConstantValue.FromBool(!literalExpr.Value.Bool), typeSystem[TypeKind.Bool]);
                 return true;
         }
@@ -172,7 +173,7 @@ public class ConstantFolder(IRTree irTree, TypeSystem typeSystem, IdentifierInte
         return false;
     }
 
-    private bool TryFoldBinary(TokenKind op, IRLiteralExpr left, IRLiteralExpr right,
+    private bool TryFoldBinary(BinaryOp op, IRLiteralExpr left, IRLiteralExpr right,
         out IRLiteralExpr result)
     {
         result = null!;
@@ -184,7 +185,7 @@ public class ConstantFolder(IRTree irTree, TypeSystem typeSystem, IdentifierInte
 
             switch (op)
             {
-                case TokenKind.Plus:
+                case BinaryOp.Add:
                     try
                     {
                         result = new IRLiteralExpr(ConstantValue.FromInt(checked(a + b)), typeSystem[TypeKind.Int64]);
@@ -198,7 +199,7 @@ public class ConstantFolder(IRTree irTree, TypeSystem typeSystem, IdentifierInte
                     }
 
                     return true;
-                case TokenKind.Minus:
+                case BinaryOp.Subtract:
                     try
                     {
                         result = new IRLiteralExpr(ConstantValue.FromInt(checked(a - b)), typeSystem[TypeKind.Int64]);
@@ -211,7 +212,7 @@ public class ConstantFolder(IRTree irTree, TypeSystem typeSystem, IdentifierInte
                         return false;
                     }
                     return true;
-                case TokenKind.Star:
+                case BinaryOp.Multiply:
                     try
                     {
                         result = new IRLiteralExpr(ConstantValue.FromInt(checked(a * b)), typeSystem[TypeKind.Int64]);
@@ -224,30 +225,30 @@ public class ConstantFolder(IRTree irTree, TypeSystem typeSystem, IdentifierInte
                         return false;
                     }
                     return true;
-                case TokenKind.Slash when b != 0:
+                case BinaryOp.Divide when b != 0:
                     result = new IRLiteralExpr(ConstantValue.FromInt(a / b), typeSystem[TypeKind.Int64]);
                     return true;
-                case TokenKind.Slash:
+                case BinaryOp.Divide:
                     var zeroDivisionError = new ConstantFoldingError(filename,
                         "Division by zero in constant expression");
                     errors.Add(zeroDivisionError);
                     return false;
-                case TokenKind.Equal:
+                case BinaryOp.Equal:
                     result = new IRLiteralExpr(ConstantValue.FromBool(a == b), typeSystem[TypeKind.Bool]);
                     return true;
-                case TokenKind.NotEqual:
+                case BinaryOp.NotEqual:
                     result = new IRLiteralExpr(ConstantValue.FromBool(a != b), typeSystem[TypeKind.Bool]);
                     return true;
-                case TokenKind.Less:
+                case BinaryOp.Less:
                     result = new IRLiteralExpr(ConstantValue.FromBool(a < b), typeSystem[TypeKind.Bool]);
                     return true;
-                case TokenKind.LessEqual:
+                case BinaryOp.LessOrEqual:
                     result = new IRLiteralExpr(ConstantValue.FromBool(a <= b), typeSystem[TypeKind.Bool]);
                     return true;
-                case TokenKind.Greater:
+                case BinaryOp.Greater:
                     result = new IRLiteralExpr(ConstantValue.FromBool(a > b), typeSystem[TypeKind.Bool]);
                     return true;
-                case TokenKind.GreaterEqual:
+                case BinaryOp.GreaterOrEqual:
                     result = new IRLiteralExpr(ConstantValue.FromBool(a >= b), typeSystem[TypeKind.Bool]);
                     return true;
             }
@@ -261,39 +262,39 @@ public class ConstantFolder(IRTree irTree, TypeSystem typeSystem, IdentifierInte
             
             switch (op)
             {
-                case TokenKind.Plus:
+                case BinaryOp.Add:
                     result = new IRLiteralExpr(ConstantValue.FromReal(a + b), typeSystem[TypeKind.Float64]);
                     return true;
-                case TokenKind.Minus:
+                case BinaryOp.Subtract:
                     result = new IRLiteralExpr(ConstantValue.FromReal(a - b), typeSystem[TypeKind.Float64]);
                     return true;
-                case TokenKind.Star:
+                case BinaryOp.Multiply:
                     result = new IRLiteralExpr(ConstantValue.FromReal(a * b), typeSystem[TypeKind.Float64]);
                     return true;
-                case TokenKind.Slash when b != 0:
+                case BinaryOp.Divide when b != 0:
                     result = new IRLiteralExpr(ConstantValue.FromReal(a / b), typeSystem[TypeKind.Float64]);
                     return true;
-                case TokenKind.Slash:
+                case BinaryOp.Divide:
                     var zeroDivisionError = new ConstantFoldingError(filename,
                         "Division by zero in constant expression");
                     errors.Add(zeroDivisionError);
                     return false;
-                case TokenKind.Equal:
+                case BinaryOp.Equal:
                     result = new IRLiteralExpr(ConstantValue.FromBool(a == b), typeSystem[TypeKind.Bool]);
                     return true;
-                case TokenKind.NotEqual:
+                case BinaryOp.NotEqual:
                     result = new IRLiteralExpr(ConstantValue.FromBool(a != b), typeSystem[TypeKind.Bool]);
                     return true;
-                case TokenKind.Less:
+                case BinaryOp.Less:
                     result = new IRLiteralExpr(ConstantValue.FromBool(a < b), typeSystem[TypeKind.Bool]);
                     return true;
-                case TokenKind.LessEqual:
+                case BinaryOp.LessOrEqual:
                     result = new IRLiteralExpr(ConstantValue.FromBool(a <= b), typeSystem[TypeKind.Bool]);
                     return true;
-                case TokenKind.Greater:
+                case BinaryOp.Greater:
                     result = new IRLiteralExpr(ConstantValue.FromBool(a > b), typeSystem[TypeKind.Bool]);
                     return true;
-                case TokenKind.GreaterEqual:
+                case BinaryOp.GreaterOrEqual:
                     result = new IRLiteralExpr(ConstantValue.FromBool(a >= b), typeSystem[TypeKind.Bool]);
                     return true;
             }
@@ -306,10 +307,10 @@ public class ConstantFolder(IRTree irTree, TypeSystem typeSystem, IdentifierInte
             var q =  right.Value.Bool;
             switch (op)
             {
-                case TokenKind.Equal:
+                case BinaryOp.Equal:
                     result = new IRLiteralExpr(ConstantValue.FromBool(p == q), typeSystem[TypeKind.Bool]);
                     return true;
-                case TokenKind.NotEqual:
+                case BinaryOp.NotEqual:
                     result = new IRLiteralExpr(ConstantValue.FromBool(p != q), typeSystem[TypeKind.Bool]);
                     return true;
             }
@@ -323,13 +324,13 @@ public class ConstantFolder(IRTree irTree, TypeSystem typeSystem, IdentifierInte
             
             switch (op)
             {
-                case TokenKind.Equal:
+                case BinaryOp.Equal:
                     result = new IRLiteralExpr(ConstantValue.FromBool(s1 == s2), typeSystem[TypeKind.Bool]);
                     return true;
-                case TokenKind.NotEqual:
+                case BinaryOp.NotEqual:
                     result = new IRLiteralExpr(ConstantValue.FromBool(s1 != s2), typeSystem[TypeKind.Bool]);
                     return true;
-                case TokenKind.Plus:
+                case BinaryOp.Add:
                     result = new IRLiteralExpr(ConstantValue.FromString(s1 + s2),typeSystem[TypeKind.String]);
                     return true;
             }
@@ -338,7 +339,7 @@ public class ConstantFolder(IRTree irTree, TypeSystem typeSystem, IdentifierInte
         return false;
     }
 
-    private bool TryFoldLogical(TokenKind op, IRLiteralExpr left, IRLiteralExpr right,
+    private bool TryFoldLogical(BinaryOp op, IRLiteralExpr left, IRLiteralExpr right,
         out IRLiteralExpr result)
     {
         result = null!;
@@ -350,10 +351,10 @@ public class ConstantFolder(IRTree irTree, TypeSystem typeSystem, IdentifierInte
         var q =  right.Value.Bool;
         switch (op)
         {
-            case TokenKind.And:
+            case BinaryOp.LogicalAnd:
                 result = new IRLiteralExpr(ConstantValue.FromBool(p && q), typeSystem[TypeKind.Bool]);
                 return true;
-            case TokenKind.Or:
+            case BinaryOp.LogicalOr:
                 result = new IRLiteralExpr(ConstantValue.FromBool(p || q), typeSystem[TypeKind.Bool]);
                 return true;
         }

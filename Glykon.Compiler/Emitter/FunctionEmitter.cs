@@ -7,6 +7,7 @@ using Glykon.Compiler.Semantics.Binding.BoundExpressions;
 using Glykon.Compiler.Semantics.Binding.BoundStatements;
 using Glykon.Compiler.Semantics.IR.Expressions;
 using Glykon.Compiler.Semantics.IR.Statements;
+using Glykon.Compiler.Semantics.Operators;
 using Glykon.Compiler.Semantics.Symbols;
 using Glykon.Compiler.Semantics.Types;
 using Glykon.Compiler.Syntax;
@@ -280,7 +281,7 @@ internal class FunctionEmitter
                     return EmitPrimitive(constant.Value);
                 }
 
-                return typeSystem[TypeKind.None];
+                break;
             }
             case IRExpressionKind.Assignment:
             {
@@ -316,13 +317,13 @@ internal class FunctionEmitter
                 var expr = (IRUnaryExpr)expression;
                 var type = EmitExpression(expr.Operand);
 
-                switch (expr.Operator.Kind)
+                switch (expr.Operator)
                 {
-                    case TokenKind.Not when type.Kind == TypeKind.Bool:
+                    case UnaryOp.LogicalNot when type.Kind == TypeKind.Bool:
                         il.Emit(OpCodes.Ldc_I4, 0);
                         il.Emit(OpCodes.Ceq);
                         return typeSystem[TypeKind.Bool];
-                    case TokenKind.Minus when type.Kind == TypeKind.Int64 || type.Kind == TypeKind.Float64:
+                    case UnaryOp.Minus when type.Kind is TypeKind.Int64 or TypeKind.Float64:
                         il.Emit(OpCodes.Neg);
                         return type;
                 }
@@ -335,54 +336,47 @@ internal class FunctionEmitter
                 var typeLeft = EmitExpression(expr.Left);
                 var typeRight = EmitExpression(expr.Right);
 
-                if (typeLeft != typeRight)
+                switch (expr.Operator)
                 {
-                    ParseError error = new(expr.Operator, appName,
-                        $"Operator {expr.Operator.Kind} cannot be applied between types '{typeLeft}' and '{typeRight}'");
-                    throw error.Exception();
-                }
-
-                switch (expr.Operator.Kind)
-                {
-                    case TokenKind.Equal:
+                    case BinaryOp.Equal:
                         il.Emit(OpCodes.Ceq);
                         return typeSystem[TypeKind.Bool];
-                    case TokenKind.NotEqual:
+                    case BinaryOp.NotEqual:
                         il.Emit(OpCodes.Ceq);
                         il.Emit(OpCodes.Ldc_I4, 0);
                         il.Emit(OpCodes.Ceq);
                         return typeSystem[TypeKind.Bool];
-                    case TokenKind.Greater when typeLeft.Kind == TypeKind.Int64 || typeLeft.Kind == TypeKind.Float64:
+                    case BinaryOp.Greater when typeLeft.Kind is TypeKind.Int64 or TypeKind.Float64:
                         il.Emit(OpCodes.Cgt);
                         return typeSystem[TypeKind.Bool];
-                    case TokenKind.GreaterEqual
-                        when typeLeft.Kind == TypeKind.Int64 || typeLeft.Kind == TypeKind.Float64:
+                    case BinaryOp.GreaterOrEqual
+                        when typeLeft.Kind is TypeKind.Int64 or TypeKind.Float64:
                         il.Emit(OpCodes.Clt);
                         il.Emit(OpCodes.Ldc_I4, 0);
                         il.Emit(OpCodes.Ceq);
                         return typeSystem[TypeKind.Bool];
-                    case TokenKind.Less when typeLeft.Kind == TypeKind.Int64 || typeLeft.Kind == TypeKind.Float64:
+                    case BinaryOp.Less when typeLeft.Kind is TypeKind.Int64 or TypeKind.Float64:
                         il.Emit(OpCodes.Clt);
                         return typeSystem[TypeKind.Bool];
-                    case TokenKind.LessEqual when typeLeft.Kind == TypeKind.Int64 || typeLeft.Kind == TypeKind.Float64:
+                    case BinaryOp.LessOrEqual when typeLeft.Kind is TypeKind.Int64 or TypeKind.Float64:
                         il.Emit(OpCodes.Cgt);
                         il.Emit(OpCodes.Ldc_I4, 0);
                         il.Emit(OpCodes.Ceq);
                         return typeSystem[TypeKind.Bool];
-                    case TokenKind.Plus when typeLeft.Kind == TypeKind.String && typeRight.Kind == TypeKind.String:
+                    case BinaryOp.Add when typeLeft.Kind == TypeKind.String && typeRight.Kind == TypeKind.String:
                         il.EmitCall(OpCodes.Call, typeof(string).GetMethod("Concat", [typeof(string), typeof(string)]),
                             []);
                         return typeSystem[TypeKind.String];
-                    case TokenKind.Plus when typeLeft.Kind == TypeKind.Int64 || typeLeft.Kind == TypeKind.Float64:
+                    case BinaryOp.Add when typeLeft.Kind is TypeKind.Int64 or TypeKind.Float64:
                         il.Emit(OpCodes.Add);
                         return typeLeft;
-                    case TokenKind.Minus when typeLeft.Kind == TypeKind.Int64 || typeLeft.Kind == TypeKind.Float64:
+                    case BinaryOp.Subtract when typeLeft.Kind is TypeKind.Int64 or TypeKind.Float64:
                         il.Emit(OpCodes.Sub);
                         return typeLeft;
-                    case TokenKind.Slash when typeLeft.Kind == TypeKind.Int64 || typeLeft.Kind == TypeKind.Float64:
+                    case BinaryOp.Divide when typeLeft.Kind is TypeKind.Int64 or TypeKind.Float64:
                         il.Emit(OpCodes.Div);
                         return typeLeft;
-                    case TokenKind.Star when typeLeft.Kind == TypeKind.Int64 || typeLeft.Kind == TypeKind.Float64:
+                    case BinaryOp.Multiply when typeLeft.Kind is TypeKind.Int64 or TypeKind.Float64:
                         il.Emit(OpCodes.Mul);
                         return typeLeft;
                 }
@@ -397,30 +391,24 @@ internal class FunctionEmitter
                 if (expr.Left.Kind is IRExpressionKind.Literal or IRExpressionKind.Variable
                     && expr.Right.Kind is IRExpressionKind.Literal or IRExpressionKind.Variable)
                 {
-                    var typeLeft = EmitExpression(expr.Left);
-                    var typeRight = EmitExpression(expr.Right);
+                    EmitExpression(expr.Left);
+                    EmitExpression(expr.Right);
 
-                    if (typeLeft.Kind != TypeKind.Bool && typeLeft != typeRight)
+                    switch (expr.Operator)
                     {
-                        ParseError error = new(expr.Operator, appName,
-                            $"Operator {expr.Operator.Kind} cannot be applied between types '{typeLeft}' and '{typeRight}'");
-                        throw error.Exception();
-                    }
-
-                    if (expr.Operator.Kind == TokenKind.And)
-                    {
-                        il.Emit(OpCodes.And);
-                    }
-                    else
-                    {
-                        il.Emit(OpCodes.Or);
+                        case BinaryOp.LogicalAnd:
+                            il.Emit(OpCodes.And);
+                            break;
+                        case BinaryOp.LogicalOr:
+                            il.Emit(OpCodes.Or);
+                            break;
                     }
                 }
                 else
                 {
-                    var typeLeft = EmitExpression(expr.Left);
+                    EmitExpression(expr.Left);
 
-                    if (expr.Operator.Kind == TokenKind.And)
+                    if (expr.Operator == BinaryOp.LogicalAnd)
                     {
                         Label leftTrue = il.DefineLabel();
                         il.Emit(OpCodes.Brtrue_S, leftTrue);
@@ -429,14 +417,7 @@ internal class FunctionEmitter
                         il.Emit(OpCodes.Br_S, endLabel);
 
                         il.MarkLabel(leftTrue);
-                        var typeRight = EmitExpression(expr.Right);
-
-                        if (typeLeft.Kind != TypeKind.Bool && typeLeft != typeRight)
-                        {
-                            ParseError error = new(expr.Operator, appName,
-                                $"Operator {expr.Operator.Kind} cannot be applied between types '{typeLeft}' and '{typeRight}'");
-                            throw error.Exception();
-                        }
+                        EmitExpression(expr.Right);
 
                         il.MarkLabel(endLabel);
                     }
@@ -444,14 +425,7 @@ internal class FunctionEmitter
                     {
                         Label leftTrue = il.DefineLabel();
                         il.Emit(OpCodes.Brtrue_S, leftTrue);
-                        var typeRight = EmitExpression(expr.Right);
-
-                        if (typeLeft.Kind != TypeKind.Bool && typeLeft != typeRight)
-                        {
-                            ParseError error = new(expr.Operator, appName,
-                                $"Operator {expr.Operator.Kind} cannot be applied between types '{typeLeft}' and '{typeRight}'");
-                            throw error.Exception();
-                        }
+                        EmitExpression(expr.Right);
 
                         Label endLabel = il.DefineLabel();
                         il.Emit(OpCodes.Br_S, endLabel);
