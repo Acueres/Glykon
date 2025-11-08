@@ -3,8 +3,8 @@ using Glykon.Compiler.Semantics.Types;
 
 namespace Glykon.Compiler.Semantics.Symbols;
 
-public class ConstantSymbol(int nameId, TypeSymbol type, ConstantValue value) : Symbol(nameId, type)
+public class ConstantSymbol(int nameId, TypeSymbol type) : Symbol(nameId, type)
 {
-    public ConstantValue Value { get; } = value;
+    public ConstantValue Value { get; set; }
 }
 

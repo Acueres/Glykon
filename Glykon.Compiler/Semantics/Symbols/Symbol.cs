@@ -5,11 +5,11 @@ namespace Glykon.Compiler.Semantics.Symbols;
 public abstract class Symbol(int nameId, TypeSymbol type)
 {
     public int NameId { get; } = nameId;
-    public TypeSymbol Type { get; set; } = type;
+    public TypeSymbol Type { get; internal set; } = type;
 
     public override bool Equals(object? obj)
     {
-        if (obj == null || obj is not Symbol other) return false;
+        if (obj is not Symbol other) return false;
         return other.NameId == NameId;
     }
 

@@ -25,20 +25,29 @@ public class SymbolTable
     {
         return current.ContainingFunction;
     }
-
-    public FunctionSymbol? RegisterFunction(string name, TypeSymbol returnType, TypeSymbol[] parameterTypes)
+    
+    public Symbol? GetSymbol(string name)
     {
-        int symbolIndex = interner.Intern(name);
-        string qualifiedName = ComputeQualifiedName(name);
-        int qualifiedId = interner.Intern(qualifiedName);
-        FunctionSymbol? signature = current.AddFunction(symbolIndex, functionSerial++, qualifiedId, returnType, parameterTypes);
-        return signature;
+        if (!interner.TryGetId(name, out var id)) return null;
+        return current.GetSymbol(id);
+    }
+
+    public VariableSymbol? GetLocalVariableSymbol(string name)
+    {
+        if (!interner.TryGetId(name, out var id)) return null;
+        return current.GetVariable(id);
     }
 
     public FunctionSymbol? GetFunction(string name, TypeSymbol[] parameters)
     {
         if (!interner.TryGetId(name, out var id)) return null;
         return current.GetFunction(id, parameters);
+    }
+
+    public FunctionSymbol[] GetFunctionOverloads(string name)
+    {
+        if (!interner.TryGetId(name, out var id)) return [];
+        return current.GetFunctionOverloads(id);
     }
 
     public FunctionSymbol? GetLocalFunction(string name, TypeSymbol[] parameters)
@@ -53,16 +62,24 @@ public class SymbolTable
         return current.GetType(nameId);
     }
 
-    public bool IsFunction(string name)
+    public bool IsFunction(Symbol symbol)
     {
-        if (!interner.TryGetId(name, out var id)) return false;
-        return current.GetFunctionOverloads(id).Count > 0;
+        return current.GetFunctionOverloads(symbol.NameId).Length > 0;
     }
-
-    public ConstantSymbol RegisterConstant(string name, in ConstantValue value, TypeSymbol type)
+    
+    public FunctionSymbol? RegisterFunction(string name, TypeSymbol returnType, TypeSymbol[] parameterTypes)
     {
         int symbolIndex = interner.Intern(name);
-        ConstantSymbol constant = current.RegisterConstant(symbolIndex, value, type);
+        string qualifiedName = ComputeQualifiedName(name);
+        int qualifiedId = interner.Intern(qualifiedName);
+        FunctionSymbol? signature = current.AddFunction(symbolIndex, functionSerial++, qualifiedId, returnType, parameterTypes);
+        return signature;
+    }
+
+    public ConstantSymbol RegisterConstant(string name, TypeSymbol type)
+    {
+        int symbolIndex = interner.Intern(name);
+        ConstantSymbol constant = current.RegisterConstant(symbolIndex, type);
         return constant;
     }
 
@@ -85,24 +102,18 @@ public class SymbolTable
         current.AddType(type.NameId, type);
     }
 
-    public Symbol? GetSymbol(string name)
-    {
-        if (!interner.TryGetId(name, out var id)) return null;
-        return current.GetSymbol(id);
-    }
-
     public Scope BeginScope(ScopeKind scopeKind)
     {
-        int index = scopes.Count;
-        current = new Scope(current, index, scopeKind);
+        current = new Scope(current, scopeKind);
         scopes.Add(current);
         return current;
     }
+    
+    public Scope GetCurrentScope() => current;
 
     public Scope BeginScope(FunctionSymbol containingFunction)
     {
-        int index = scopes.Count;
-        current = new Scope(current, index, containingFunction);
+        current = new Scope(current, containingFunction);
         scopes.Add(current);
         return current;
     }
@@ -115,6 +126,11 @@ public class SymbolTable
     public void ResetScope()
     {
         current = global;
+    }
+
+    public void SetScope(Scope scope)
+    {
+        current = scope;
     }
 
     string ComputeQualifiedName(string localName)

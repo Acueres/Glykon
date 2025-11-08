@@ -1,11 +1,11 @@
 ﻿using Glykon.Compiler.Semantics.Symbols;
-using Glykon.Compiler.Syntax.Expressions;
 
 namespace Glykon.Compiler.Semantics.Binding.BoundExpressions;
 
-public class BoundCallExpr(FunctionSymbol function, BoundExpression[] args) : BoundExpression
+public class BoundCallExpr(int nameId, FunctionSymbol[] overloads, BoundExpression[] parameters) : BoundExpression
 {
-    public override ExpressionKind Kind => ExpressionKind.Call;
-    public FunctionSymbol Function { get; } = function;
-    public BoundExpression[] Args { get; } = args;
+    public override BoundExpressionKind Kind => BoundExpressionKind.Call;
+    public int NameId { get; } = nameId;
+    public FunctionSymbol[] Overloads { get; } = overloads;
+    public BoundExpression[] Parameters { get; } = parameters;
 }

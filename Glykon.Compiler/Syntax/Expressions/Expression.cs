@@ -9,7 +9,8 @@ public enum ExpressionKind : byte
     Literal,
     Variable,
     Assignment,
-    Logical
+    Logical,
+    Conversion
 }
 
 public abstract class Expression

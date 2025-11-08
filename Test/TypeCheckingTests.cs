@@ -1,6 +1,8 @@
 using Glykon.Compiler.Core;
 using Glykon.Compiler.Diagnostics.Errors;
+using Glykon.Compiler.Semantics.Analysis;
 using Glykon.Compiler.Semantics.Binding;
+using Glykon.Compiler.Semantics.IR;
 using Glykon.Compiler.Semantics.Types;
 using Glykon.Compiler.Syntax;
 
@@ -16,19 +18,16 @@ public class TypeCheckingTests
         return new Parser(tokens, file).Execute();
     }
 
-    private static List<IGlykonError> Check(string src, string file)
+    private static IGlykonError[] Check(string src, string file)
     {
         var (syntaxTree, parseErr) = Parse(src, file);
+        Assert.Empty(parseErr);
+        
         IdentifierInterner interner = new();
-        TypeSystem typeSystem = new(interner);
-        typeSystem.BuildPrimitives();
-
-        SemanticBinder binder = new(syntaxTree, typeSystem, interner, file);
-        binder.Bind();
-
-        Assert.Empty(parseErr); 
-
-        return binder.GetErrors();
+        SemanticAnalyzer semanticAnalyzer = new(syntaxTree, interner, file);
+        var (_, _, _, errors) = semanticAnalyzer.Analyze();
+        
+        return errors;
     }
 
     // Literals, unary & binary
@@ -124,7 +123,7 @@ public class TypeCheckingTests
             if 0: let a = 1
             while 'text': break
         """;
-        Assert.Equal(2, Check(code, nameof(IfWhileConditionMustBeBool)).Count);
+        Assert.Equal(2, Check(code, nameof(IfWhileConditionMustBeBool)).Length);
     }
 
     // Function returns

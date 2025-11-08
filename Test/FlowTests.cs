@@ -7,16 +7,16 @@ namespace Tests;
 
 public class FlowTests
 {
-    private static List<IGlykonError> Check(string src, string file)
+    private static IGlykonError[] Check(string src, string file)
     {
         SourceText source = new(file, src);
         var (tokens, _) = new Lexer(source, file).Execute();
         var (syntaxTree, parseErr) = new Parser(tokens, file).Execute();
-
-        Assert.Empty(parseErr);
-
-        SemanticAnalyzer semanticAnalyzer = new(syntaxTree, new(), file);
+        
+        SemanticAnalyzer semanticAnalyzer = new(syntaxTree, new IdentifierInterner(), file);
         var (_, _, _, errors) = semanticAnalyzer.Analyze();
+        
+        Assert.Empty(parseErr);
 
         return errors;
     }
@@ -52,7 +52,7 @@ public class FlowTests
         """;
 
         var errors = Check(code, nameof(JumpStatementOutsideLoop_ShouldFail_WithFlowErrors));
-        Assert.Equal(2, errors.Count);
+        Assert.Equal(2, errors.Length);
         Assert.All(errors, e => Assert.IsType<FlowError>(e));
     }
 
@@ -63,7 +63,7 @@ public class FlowTests
         var errors = Check(code, nameof(ReturnStatementOutsideFunction_ShouldFail_WithFlowError));
         var flow = errors.OfType<FlowError>().ToList();
         Assert.Single(flow);
-        Assert.Equal(1, errors.Count);
+        Assert.Equal(1, errors.Length);
     }
 
     [Fact]

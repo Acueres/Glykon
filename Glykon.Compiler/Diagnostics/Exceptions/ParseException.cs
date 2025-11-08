@@ -1,9 +1,12 @@
-﻿namespace Glykon.Compiler.Diagnostics.Exceptions
+﻿namespace Glykon.Compiler.Diagnostics.Exceptions;
+
+public class ParseException : Exception
 {
-    public class ParseException : Exception
+    public ParseException(string message) : base(message)
     {
-        public ParseException() { }
-        public ParseException(string message) : base(message) { }
-        public ParseException(string message, Exception inner) : base(message, inner) { }
+    }
+
+    public ParseException(string message, Exception inner) : base(message, inner)
+    {
     }
 }

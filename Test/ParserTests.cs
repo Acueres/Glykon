@@ -105,7 +105,7 @@ namespace Tests
             Assert.Equal(2, syntaxTree.Length);
 
             WhileStmt whileStmt = (WhileStmt)syntaxTree[1];
-            Assert.NotNull(whileStmt.Statement);
+            Assert.NotNull(whileStmt.Body);
             Assert.NotNull(whileStmt.Condition);
         }
 
@@ -156,20 +156,6 @@ namespace Tests
             Assert.Empty(errors);
             Assert.Single(syntaxTree);
             Assert.Equal(StatementKind.Constant, syntaxTree.First().Kind);
-
-            IdentifierInterner interner = new();
-            TypeSystem typeSystem = new(interner);
-            typeSystem.BuildPrimitives();
-
-            SemanticBinder binder = new(syntaxTree, typeSystem, interner, fileName);
-            var (_, st) = binder.Bind();
-
-            var symbol = st.GetSymbol("pi");
-            Assert.NotNull(symbol);
-            Assert.True(symbol is ConstantSymbol);
-
-            var constant = (ConstantSymbol)symbol;
-            Assert.Equal(3.14, constant.Value.Real);
         }
 
         [Fact]

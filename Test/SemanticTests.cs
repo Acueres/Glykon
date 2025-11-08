@@ -3,6 +3,7 @@ using Glykon.Compiler.Diagnostics.Errors;
 using Glykon.Compiler.Semantics.Analysis;
 using Glykon.Compiler.Semantics.Binding;
 using Glykon.Compiler.Semantics.Binding.BoundStatements;
+using Glykon.Compiler.Semantics.IR.Statements;
 using Glykon.Compiler.Semantics.Types;
 using Glykon.Compiler.Syntax;
 using Glykon.Compiler.Syntax.Statements;
@@ -19,19 +20,17 @@ public class SemanticTests
         return new Parser(tokens, file).Execute();
     }
 
-    private static List<IGlykonError> Check(string src, string file)
+    private static IGlykonError[] Check(string src, string file)
     {
         var (syntaxTree, parseErr) = Parse(src, file);
         IdentifierInterner interner = new();
-        TypeSystem typeSystem = new(interner);
-        typeSystem.BuildPrimitives();
-
-        SemanticBinder binder = new(syntaxTree, typeSystem, interner, file);
-        binder.Bind();
-
+        
         Assert.Empty(parseErr);
+        
+        SemanticAnalyzer semanticAnalyzer = new(syntaxTree, interner, file);
+        var (_, _, _, errors) = semanticAnalyzer.Analyze();
 
-        return binder.GetErrors();
+        return errors;
     }
 
     [Fact]
@@ -52,18 +51,18 @@ public class SemanticTests
         IdentifierInterner interner = new();
 
         var semanticAnalyzer = new SemanticAnalyzer(syntaxTree, interner, fileName);
-        var (boundTree, _, _, semanticErrors) = semanticAnalyzer.Analyze();
+        var (irTree, _, _, semanticErrors) = semanticAnalyzer.Analyze();
 
         Assert.Empty(semanticErrors);
-        Assert.NotEmpty(boundTree);
-        Assert.Equal(2, boundTree.Length);
-        Assert.Equal(StatementKind.Variable, boundTree[1].Kind);
-        var stmt = (BoundVariableDeclaration)boundTree[1];
+        Assert.NotEmpty(irTree);
+        Assert.Equal(2, irTree.Length);
+        Assert.Equal(IRStatementKind.Variable, irTree[1].Kind);
+        var stmt = (IRVariableDeclaration)irTree[1];
 
         string name = interner[stmt.Symbol.NameId];
         Assert.Equal("res", name);
-        Assert.NotNull(stmt.Expression);
-        Assert.Equal(TypeKind.Int64, stmt.VariableType.Kind);
+        Assert.NotNull(stmt.Initializer);
+        Assert.Equal(TypeKind.Int64, stmt.Symbol.Type.Kind);
     }
 
     [Fact]

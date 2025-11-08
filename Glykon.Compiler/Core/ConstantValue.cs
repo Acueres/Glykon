@@ -16,6 +16,7 @@ public readonly struct ConstantValue
     public double Real { get; }
     public bool Bool { get; }
     public string String { get; }
+    public bool IsNone => Kind == ConstantKind.None;
 
     private ConstantValue(ConstantKind kind, long i = 0, double d = 0, bool b = false, string s = "")
     {

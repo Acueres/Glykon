@@ -1,6 +1,4 @@
-﻿using System.Reflection;
-
-using Glykon.Compiler.Emitter;
+﻿using Glykon.Compiler.Backend.CIL;
 using Glykon.Compiler.Semantics.Analysis;
 using Glykon.Compiler.Syntax;
 using Glykon.Compiler.Diagnostics.Errors;
@@ -15,24 +13,18 @@ internal class Program
     {
         const string filename = "Test";
         const string src = @"
-            def main() {
-                const pi: real = 2.0 * 3.14
-                println(pi)
-                let i = 0
-
-                while i < 20
-                {
-                    println(fib(i))
-                    i = i + 1
-                }
-
-                def fib(n: int) -> int {
-                    if n <= 1 {
-                        return n
+            def main(v: int) {
+                println(v)
+                def inner() {
+                    let i = 1
+                    if true {
+                        let k = 2.5
+                        {
+                            println(i + k)
+                        }
                     }
-
-                    return fib(n - 2) + fib(n - 1)
                 }
+                inner() # Should print 3.5
             }
 ";
         List<IGlykonError> errors = [];
@@ -50,7 +42,7 @@ internal class Program
         
         IdentifierInterner interner = new();
         SemanticAnalyzer semanticAnalyzer = new(syntaxTree, interner, filename);
-        var (boundTree, typeSystem, symbolTable, semanticErrors) = semanticAnalyzer.Analyze();
+        var (irTree, typeSystem, symbolTable, semanticErrors) = semanticAnalyzer.Analyze();
 
         errors.AddRange(semanticErrors);
 
@@ -61,17 +53,16 @@ internal class Program
 
         if (errors.Count != 0) return;
 
-        var emitter = new TypeEmitter(boundTree, symbolTable, typeSystem, interner, filename);
-        emitter.EmitAssembly();
+        var backend = new CilBackend(filename, interner);
 
-        Assembly assembly = emitter.GetAssembly();
+        var assembly = backend.Emit(irTree, symbolTable, typeSystem);
 
         Type? program = assembly.GetType("Program");
         if (program is null) return;
 
-        var main = program.GetMethod("main", []);
+        var main = program.GetMethod("main", [typeof(int)]);
         if (main is null) return;
 
-        main.Invoke(null, []);
+        main.Invoke(null, [42]);
     }
 }

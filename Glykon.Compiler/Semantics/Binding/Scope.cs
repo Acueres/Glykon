@@ -8,14 +8,12 @@ public enum ScopeKind
 {
     Top,
     Function,
-    Block,
-    Loop
+    Block
 }
 
 public class Scope
 {
     public Scope Parent { get; }
-    public int Index { get; }
     public ScopeKind Kind { get; }
 
     public FunctionSymbol? ContainingFunction { get; }
@@ -26,18 +24,16 @@ public class Scope
 
     int parameterCount = 0;
 
-    public Scope(Scope parent, int scopeIndex, ScopeKind scopeKind)
+    public Scope(Scope parent, ScopeKind scopeKind)
     {
         Parent = parent;
-        Index = scopeIndex;
         Kind = scopeKind;
         ContainingFunction = parent?.ContainingFunction;
     }
 
-    public Scope(Scope parent, int scopeIndex, FunctionSymbol function)
+    public Scope(Scope parent, FunctionSymbol function)
     {
         Parent = parent;
-        Index = scopeIndex;
         Kind = ScopeKind.Function;
         ContainingFunction = function;
     }
@@ -91,7 +87,7 @@ public class Scope
 
     public FunctionSymbol? GetFunction(int id, TypeSymbol[] parameters)
     {
-        List<FunctionSymbol> allOverloads = GetFunctionOverloads(id);
+        var allOverloads = GetFunctionOverloads(id);
 
         foreach (var overload in allOverloads)
         {
@@ -104,7 +100,7 @@ public class Scope
         return null;
     }
 
-    public List<FunctionSymbol> GetFunctionOverloads(int id)
+    public FunctionSymbol[] GetFunctionOverloads(int id)
     {
         List<FunctionSymbol> allOverloads = [];
 
@@ -118,13 +114,12 @@ public class Scope
             allOverloads.AddRange(Parent.GetFunctionOverloads(id));
         }
 
-        return allOverloads;
+        return [..allOverloads];
     }
 
-    public ConstantSymbol RegisterConstant(int id, in ConstantValue value, TypeSymbol type)
+    public ConstantSymbol RegisterConstant(int id, TypeSymbol type)
     {
-        ConstantSymbol symbol = new(id, type, value);
-        symbols.Remove(id);
+        ConstantSymbol symbol = new(id, type);
         symbols.Add(id, symbol);
         return symbol;
     }
@@ -141,6 +136,17 @@ public class Scope
         VariableSymbol symbol = new(id, type);
         symbols.Add(id, symbol);
         return symbol;
+    }
+
+    public VariableSymbol? GetVariable(int id)
+    {
+        if (!symbols.TryGetValue(id, out Symbol? symbol) || symbol is not VariableSymbol variable)
+        {
+            if (Kind == ScopeKind.Function) return null;
+            return Parent is null ? null : Parent.GetVariable(id);
+        }
+        
+        return variable;
     }
 
     public void AddType(int id, TypeSymbol type)

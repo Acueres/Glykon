@@ -1,11 +1,10 @@
 ﻿using Glykon.Compiler.Syntax;
-using Glykon.Compiler.Syntax.Expressions;
 
 namespace Glykon.Compiler.Semantics.Binding.BoundExpressions;
 
-public class BoundUnaryExpr(Token oper, BoundExpression expr) : BoundExpression
+public class BoundUnaryExpr(Token oper, BoundExpression operand) : BoundExpression
 {
-    public override ExpressionKind Kind => ExpressionKind.Unary;
+    public override BoundExpressionKind Kind => BoundExpressionKind.Unary;
     public Token Operator { get; } = oper;
-    public BoundExpression Operand { get; } = expr;
+    public BoundExpression Operand { get; } = operand;
 }
