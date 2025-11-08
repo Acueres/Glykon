@@ -1,6 +1,4 @@
-﻿using System.Reflection;
-
-using Glykon.Compiler.Emitter;
+﻿using Glykon.Compiler.Backend.CIL;
 using Glykon.Compiler.Semantics.Analysis;
 using Glykon.Compiler.Syntax;
 using Glykon.Compiler.Diagnostics.Errors;
@@ -15,7 +13,8 @@ internal class Program
     {
         const string filename = "Test";
         const string src = @"
-            def main() {
+            def main(v: int) {
+                println(v)
                 def inner() {
                     let i = 1
                     if true {
@@ -54,17 +53,16 @@ internal class Program
 
         if (errors.Count != 0) return;
 
-        var emitter = new TypeEmitter(irTree, symbolTable, typeSystem, interner, filename);
-        emitter.EmitAssembly();
+        var backend = new CilBackend(filename, interner);
 
-        Assembly assembly = emitter.GetAssembly();
+        var assembly = backend.Emit(irTree, symbolTable, typeSystem);
 
         Type? program = assembly.GetType("Program");
         if (program is null) return;
 
-        var main = program.GetMethod("main", []);
+        var main = program.GetMethod("main", [typeof(int)]);
         if (main is null) return;
 
-        main.Invoke(null, []);
+        main.Invoke(null, [42]);
     }
 }

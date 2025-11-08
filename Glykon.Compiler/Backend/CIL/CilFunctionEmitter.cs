@@ -1,33 +1,27 @@
-﻿using System.Reflection;
+using System.Reflection;
 using System.Reflection.Emit;
+
 using Glykon.Compiler.Core;
-using Glykon.Compiler.Diagnostics.Errors;
 using Glykon.Compiler.Semantics.Binding;
-using Glykon.Compiler.Semantics.Binding.BoundExpressions;
-using Glykon.Compiler.Semantics.Binding.BoundStatements;
 using Glykon.Compiler.Semantics.IR.Expressions;
 using Glykon.Compiler.Semantics.IR.Statements;
 using Glykon.Compiler.Semantics.Operators;
 using Glykon.Compiler.Semantics.Symbols;
 using Glykon.Compiler.Semantics.Types;
-using Glykon.Compiler.Syntax;
-using Glykon.Compiler.Syntax.Expressions;
-using Glykon.Compiler.Syntax.Statements;
 
-namespace Glykon.Compiler.Emitter;
+namespace Glykon.Compiler.Backend.CIL;
 
-internal class FunctionEmitter
+internal class CilFunctionEmitter
 {
     readonly MethodBuilder mb;
     readonly ILGenerator il;
     readonly TypeSystem typeSystem;
 
     readonly IRFunctionDeclaration fStmt;
-    readonly string appName;
 
     Dictionary<FunctionSymbol, MethodInfo> combinedMethods = [];
     readonly Dictionary<FunctionSymbol, MethodInfo> localFunctions = [];
-    readonly List<FunctionEmitter> methodGenerators = [];
+    readonly List<CilFunctionEmitter> methodGenerators = [];
 
     readonly Label? returnLabel;
     readonly LocalBuilder? returnLocal;
@@ -35,11 +29,10 @@ internal class FunctionEmitter
     readonly Stack<Label> loopStart = [];
     readonly Stack<Label> loopEnd = [];
 
-    public FunctionEmitter(IRFunctionDeclaration stmt, TypeSystem typeSystem, IdentifierInterner interner,
-        TypeBuilder typeBuilder, string appName)
+    public CilFunctionEmitter(IRFunctionDeclaration stmt, TypeSystem typeSystem, IdentifierInterner interner,
+        TypeBuilder typeBuilder)
     {
         fStmt = stmt;
-        this.appName = appName;
         this.typeSystem = typeSystem;
 
         var parameterTypes = TranslateTypes([.. stmt.Parameters.Select(p => p.Type)]);
@@ -76,7 +69,7 @@ internal class FunctionEmitter
             .Where(s => s.Kind == IRStatementKind.Function).Cast<IRFunctionDeclaration>();
         foreach (var f in locals)
         {
-            FunctionEmitter mg = new(f, typeSystem, interner, typeBuilder, appName);
+            CilFunctionEmitter mg = new(f, typeSystem, interner, typeBuilder);
             methodGenerators.Add(mg);
             localFunctions.Add(f.Signature, mg.GetMethodBuilder());
         }
