@@ -9,7 +9,7 @@ using Glykon.Compiler.Semantics.Types;
 
 namespace Glykon.Compiler.Backend.CIL;
 
-public class CilTypeEmitter
+public class CilCompilationUnitEmitter
 {
     readonly string appName;
     readonly IRTree irTree;
@@ -19,7 +19,7 @@ public class CilTypeEmitter
     
     MethodBuilder main;
 
-    public CilTypeEmitter(IRTree irTree, SymbolTable symbolTable, TypeSystem typeSystem, IdentifierInterner interner, string appname)
+    public CilCompilationUnitEmitter(IRTree irTree, SymbolTable symbolTable, TypeSystem typeSystem, IdentifierInterner interner, string appname)
     {
         appName = appname;
         this.irTree = irTree;
@@ -31,8 +31,9 @@ public class CilTypeEmitter
     public List<FunctionInfo> EmitAssembly(ModuleBuilder mob)
     {
         symbolTable.ResetScope();
-        
-        TypeBuilder tb = mob.DefineType("Program", TypeAttributes.Public | TypeAttributes.Class);
+
+        TypeBuilder tb = mob.DefineType(appName,
+            TypeAttributes.Class | TypeAttributes.NotPublic | TypeAttributes.Abstract | TypeAttributes.Sealed);
 
         List<CilFunctionEmitter> methodGenerators = [];
         Dictionary<FunctionSymbol, MethodInfo> methods = LoadStdLibrary();
@@ -71,7 +72,7 @@ public class CilTypeEmitter
             console.GetMethod("WriteLine", [typeof(string)]));
 
         stdFunctions.Add(symbolTable.GetFunction("println", [typeSystem[TypeKind.Int64]]),
-            console.GetMethod("WriteLine", [typeof(int)]));
+            console.GetMethod("WriteLine", [typeof(long)]));
 
         stdFunctions.Add(symbolTable.GetFunction("println", [typeSystem[TypeKind.Float64]]),
             console.GetMethod("WriteLine", [typeof(double)]));
@@ -80,7 +81,7 @@ public class CilTypeEmitter
             console.GetMethod("WriteLine", [typeof(bool)]));
 
         stdFunctions.Add(symbolTable.GetFunction("println", [typeSystem[TypeKind.None]]),
-            console.GetMethod("WriteLine", [typeof(void)]));
+            console.GetMethod("WriteLine", []));
 
         return stdFunctions;
     }

@@ -32,7 +32,7 @@ public sealed class CilBackend
     {
         var mob = ab.DefineDynamicModule(asmName.Name!);
         
-        var typeEmitter = new CilTypeEmitter(irTree, symbolTable, typeSystem, interner, appName);
+        var typeEmitter = new CilCompilationUnitEmitter(irTree, symbolTable, typeSystem, interner, appName);
         var definedMethods = typeEmitter.EmitAssembly(mob);
 
         int mainId = interner.Intern("main");

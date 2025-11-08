@@ -21,12 +21,12 @@ public class SemanticBinder(SyntaxTree syntaxTree, TypeSystem typeSystem, Identi
         RegisterStd();
 
         List<BoundStatement> boundStatements = new(syntaxTree.Length);
+        
+        var constantDeclarations = syntaxTree.OfType<ConstantDeclaration>();
+        var functionDeclarations = syntaxTree.OfType<FunctionDeclaration>();
 
-        foreach (var stmt in syntaxTree)
-        {
-            var boundStatement = BindStatement(stmt);
-            boundStatements.Add(boundStatement);
-        }
+        boundStatements.AddRange(constantDeclarations.Select(BindStatement));
+        boundStatements.AddRange(functionDeclarations.Select(BindStatement));
 
         BoundTree boundTree = new([..boundStatements], syntaxTree.FileName);
 

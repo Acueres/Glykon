@@ -13,7 +13,7 @@ internal class Program
     {
         const string filename = "Test";
         const string src = @"
-            def main(v: int) {
+            def main() {
                 println(v)
                 def inner() {
                     let i = 1
@@ -26,6 +26,7 @@ internal class Program
                 }
                 inner() # Should print 3.5
             }
+            const v: int = 7 + 4
 ";
         List<IGlykonError> errors = [];
         
@@ -57,12 +58,12 @@ internal class Program
 
         var assembly = backend.Emit(irTree, symbolTable, typeSystem);
 
-        Type? program = assembly.GetType("Program");
+        Type? program = assembly.GetType(filename);
         if (program is null) return;
 
-        var main = program.GetMethod("main", [typeof(int)]);
+        var main = program.GetMethod("main", []);
         if (main is null) return;
 
-        main.Invoke(null, [42]);
+        main.Invoke(null, []);
     }
 }

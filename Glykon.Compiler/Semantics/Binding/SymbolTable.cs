@@ -128,11 +128,6 @@ public class SymbolTable
         current = global;
     }
 
-    public void SetScope(Scope scope)
-    {
-        current = scope;
-    }
-
     string ComputeQualifiedName(string localName)
     {
         var stack = GetContainingFunctionStack();
