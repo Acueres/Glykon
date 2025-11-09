@@ -9,25 +9,13 @@ using Glykon.Compiler.Semantics.Types;
 
 namespace Glykon.Compiler.Backend.CIL;
 
-public class CilCompilationUnitEmitter
+public class CilCompilationUnitEmitter(
+    IRTree irTree,
+    SymbolTable symbolTable,
+    TypeSystem typeSystem,
+    IdentifierInterner interner,
+    string appName)
 {
-    readonly string appName;
-    readonly IRTree irTree;
-    readonly SymbolTable symbolTable;
-    readonly TypeSystem typeSystem;
-    readonly IdentifierInterner interner;
-    
-    MethodBuilder main;
-
-    public CilCompilationUnitEmitter(IRTree irTree, SymbolTable symbolTable, TypeSystem typeSystem, IdentifierInterner interner, string appname)
-    {
-        appName = appname;
-        this.irTree = irTree;
-        this.symbolTable = symbolTable;
-        this.typeSystem = typeSystem;
-        this.interner = interner;
-    }
-
     public List<FunctionInfo> EmitAssembly(ModuleBuilder mob)
     {
         symbolTable.ResetScope();
@@ -54,7 +42,7 @@ public class CilCompilationUnitEmitter
 
         foreach (var mg in methodGenerators)
         {
-            mg.EmitMethod(methods);
+            mg.Emit(methods);
         }
 
         tb.CreateType();
