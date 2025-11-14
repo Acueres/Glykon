@@ -1,4 +1,5 @@
-﻿using Glykon.Compiler.Diagnostics.Errors;
+﻿using Glykon.Compiler.Core;
+using Glykon.Compiler.Diagnostics.Errors;
 using Glykon.Compiler.Semantics.Binding;
 using Glykon.Compiler.Semantics.Flow;
 using Glykon.Compiler.Semantics.Optimization;
@@ -8,14 +9,14 @@ using Glykon.Compiler.Syntax;
 
 namespace Glykon.Compiler.Semantics.Analysis;
 
-public class SemanticAnalyzer(SyntaxTree syntaxTree, IdentifierInterner interner, string fileName)
+public class SemanticAnalyzer(SyntaxTree syntaxTree, IdentifierInterner interner, LanguageMode mode, string fileName)
 {
     public (IRTree, TypeSystem, SymbolTable, IGlykonError[]) Analyze()
     {
         TypeSystem typeSystem = new(interner);
         typeSystem.BuildPrimitives();
 
-        SemanticBinder binder = new(syntaxTree, typeSystem, interner, fileName);
+        SemanticBinder binder = new(syntaxTree, typeSystem, interner, mode, fileName);
 
         var (boundTree, st, binderErrors) = binder.Bind();
 

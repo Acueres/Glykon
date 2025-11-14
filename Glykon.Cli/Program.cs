@@ -42,7 +42,7 @@ internal class Program
         errors.AddRange(parserErrors);
         
         IdentifierInterner interner = new();
-        SemanticAnalyzer semanticAnalyzer = new(syntaxTree, interner, filename);
+        SemanticAnalyzer semanticAnalyzer = new(syntaxTree, interner, LanguageMode.Application, filename);
         var (irTree, typeSystem, symbolTable, semanticErrors) = semanticAnalyzer.Analyze();
 
         errors.AddRange(semanticErrors);

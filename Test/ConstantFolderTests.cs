@@ -21,7 +21,7 @@ public class ConstantFoldingTests
         var (syntaxTree, parseErr) = new Parser(tokens, file).Execute();
 
         IdentifierInterner interner = new();
-        var analyzer = new SemanticAnalyzer(syntaxTree, interner, file);
+        var analyzer = new SemanticAnalyzer(syntaxTree, interner, LanguageMode.Script, file);
         var (irTree, _, _, errors) = analyzer.Analyze();
 
         Assert.Empty(lexerErrors);

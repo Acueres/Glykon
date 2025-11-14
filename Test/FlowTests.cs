@@ -13,7 +13,7 @@ public class FlowTests
         var (tokens, _) = new Lexer(source, file).Execute();
         var (syntaxTree, parseErr) = new Parser(tokens, file).Execute();
         
-        SemanticAnalyzer semanticAnalyzer = new(syntaxTree, new IdentifierInterner(), file);
+        SemanticAnalyzer semanticAnalyzer = new(syntaxTree, new IdentifierInterner(), LanguageMode.Script, file);
         var (_, _, _, errors) = semanticAnalyzer.Analyze();
         
         Assert.Empty(parseErr);

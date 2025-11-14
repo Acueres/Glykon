@@ -27,7 +27,7 @@ public class SemanticTests
         
         Assert.Empty(parseErr);
         
-        SemanticAnalyzer semanticAnalyzer = new(syntaxTree, interner, file);
+        SemanticAnalyzer semanticAnalyzer = new(syntaxTree, interner, LanguageMode.Script, file);
         var (_, _, _, errors) = semanticAnalyzer.Analyze();
 
         return errors;
@@ -50,7 +50,7 @@ public class SemanticTests
 
         IdentifierInterner interner = new();
 
-        var semanticAnalyzer = new SemanticAnalyzer(syntaxTree, interner, fileName);
+        var semanticAnalyzer = new SemanticAnalyzer(syntaxTree, interner, LanguageMode.Script, fileName);
         var (irTree, _, _, semanticErrors) = semanticAnalyzer.Analyze();
 
         Assert.Empty(semanticErrors);
@@ -81,7 +81,7 @@ public class SemanticTests
 
         IdentifierInterner interner = new();
 
-        var semanticAnalyzer = new SemanticAnalyzer(syntaxTree, interner, fileName);
+        var semanticAnalyzer = new SemanticAnalyzer(syntaxTree, interner, LanguageMode.Script, fileName);
         var (_, _, _, semanticErrors) = semanticAnalyzer.Analyze();
 
         Assert.Single(syntaxTree);
@@ -106,9 +106,9 @@ public class SemanticTests
 
         IdentifierInterner interner = new();
 
-        var semanticAnalyzer = new SemanticAnalyzer(syntaxTree, interner, fileName);
+        var semanticAnalyzer = new SemanticAnalyzer(syntaxTree, interner, LanguageMode.Script, fileName);
         var (_, _, _, semanticErrors) = semanticAnalyzer.Analyze();
-        Assert.Single(semanticErrors);
+        Assert.Equal(2, semanticErrors.Length);
     }
 
     // Calls & overloads
@@ -172,7 +172,7 @@ public class SemanticTests
         Assert.Empty(parseErrors);
 
         var interner = new IdentifierInterner();
-        var analyzer = new SemanticAnalyzer(syntax, interner, fileName);
+        var analyzer = new SemanticAnalyzer(syntax, interner, LanguageMode.Script, fileName);
         var (_, _, _, semanticErrors) = analyzer.Analyze();
 
         Assert.Single(semanticErrors);
@@ -195,7 +195,7 @@ public class SemanticTests
         Assert.Empty(parseErrors);
 
         var interner = new IdentifierInterner();
-        var analyzer = new SemanticAnalyzer(syntax, interner, fileName);
+        var analyzer = new SemanticAnalyzer(syntax, interner, LanguageMode.Script, fileName);
         var (_, _, _, semanticErrors) = analyzer.Analyze();
 
         Assert.Single(semanticErrors);
@@ -218,7 +218,7 @@ public class SemanticTests
         Assert.Empty(parseErrors);
 
         var interner = new IdentifierInterner();
-        var analyzer = new SemanticAnalyzer(syntax, interner, fileName);
+        var analyzer = new SemanticAnalyzer(syntax, interner, LanguageMode.Script, fileName);
         var (_, _, _, semanticErrors) = analyzer.Analyze();
 
         Assert.Empty(semanticErrors);
@@ -242,7 +242,7 @@ public class SemanticTests
         Assert.Empty(parseErrors);
 
         var interner = new IdentifierInterner();
-        var analyzer = new SemanticAnalyzer(syntax, interner, fileName);
+        var analyzer = new SemanticAnalyzer(syntax, interner, LanguageMode.Script, fileName);
         var (_, _, _, semanticErrors) = analyzer.Analyze();
 
         Assert.Single(semanticErrors);
@@ -267,7 +267,7 @@ public class SemanticTests
         Assert.Empty(parseErrors);
 
         var interner = new IdentifierInterner();
-        var analyzer = new SemanticAnalyzer(syntax, interner, fileName);
+        var analyzer = new SemanticAnalyzer(syntax, interner, LanguageMode.Script, fileName);
         var (_, _, _, semanticErrors) = analyzer.Analyze();
 
         Assert.Empty(semanticErrors);

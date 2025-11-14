@@ -94,7 +94,9 @@ public class IRTypeBuilder(
                 var declaredType = constantStmt.Symbol.Type;
                 
                 var initializer = BuildExpression(constantStmt.Initializer);
-                if (!declaredType.IsPrimitive)
+
+                if (initializer.Kind == IRExpressionKind.Invalid) return new IRConstantDeclaration(initializer, constantStmt.Symbol);
+                    if (!declaredType.IsPrimitive)
                 {
                     TypeError error = new(fileName,
                         $"Wrong constant type: {interner[declaredType.NameId]}. Must be compile-time");

@@ -24,7 +24,7 @@ public class TypeCheckingTests
         Assert.Empty(parseErr);
         
         IdentifierInterner interner = new();
-        SemanticAnalyzer semanticAnalyzer = new(syntaxTree, interner, file);
+        SemanticAnalyzer semanticAnalyzer = new(syntaxTree, interner, LanguageMode.Script, file);
         var (_, _, _, errors) = semanticAnalyzer.Analyze();
         
         return errors;
