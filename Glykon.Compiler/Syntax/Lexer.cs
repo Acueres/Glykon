@@ -5,9 +5,6 @@ namespace Glykon.Compiler.Syntax;
 
 public class Lexer(SourceText source, string fileName)
 {
-    readonly SourceText source = source;
-    readonly string fileName = fileName;
-
     bool AtEnd => currentCharIndex >= source.Length;
 
     readonly List<Token> tokens = [];
@@ -15,7 +12,7 @@ public class Lexer(SourceText source, string fileName)
     int line = 0;
     int currentCharIndex = 0;
 
-    public (Token[] tokens, List<IGlykonError> errors) Execute()
+    public LexResult Lex()
     {
         while (!AtEnd)
         {
@@ -38,7 +35,7 @@ public class Lexer(SourceText source, string fileName)
             tokens.Add(new(TokenKind.EOF, line));
         }
 
-        return (tokens.ToArray(), errors);
+        return new LexResult(tokens.ToArray(), [..errors]);
     }
 
     Token GetNextToken()

@@ -4,35 +4,26 @@ using System.Reflection.PortableExecutable;
 using System.Reflection;
 using System.Reflection.Emit;
 using System.Runtime.Loader;
-
+using Glykon.Compiler.Semantics.Analysis;
 using Glykon.Compiler.Semantics.Binding;
 using Glykon.Compiler.Semantics.IR;
 using Glykon.Compiler.Semantics.Types;
 
 namespace Glykon.Compiler.Backend.CIL;
 
-public sealed class CilBackend
+public sealed class CilBackend(SemanticResult semanticResult, AssemblyName asmName, string appName)
 {
-    private readonly string appName;
-    private readonly IdentifierInterner interner;
-    private readonly AssemblyName asmName;
-    private readonly PersistedAssemblyBuilder ab;
+    private readonly IdentifierInterner interner = semanticResult.Interner;
+    private readonly PersistedAssemblyBuilder ab = new(asmName, typeof(object).Assembly);
 
     private int metadataToken;
-    
-    public CilBackend(string appName, IdentifierInterner interner)
-    {
-        this.appName = appName;
-        this.interner = interner;
-        asmName = new AssemblyName(appName);
-        ab = new PersistedAssemblyBuilder(asmName, typeof(object).Assembly);
-    }
 
-    public Assembly Emit(IRTree irTree, SymbolTable symbolTable, TypeSystem typeSystem, bool saveToDisk = false)
+    public Assembly Emit(bool saveToDisk = false)
     {
         var mob = ab.DefineDynamicModule(asmName.Name!);
-        
-        var typeEmitter = new CilCompilationUnitEmitter(irTree, symbolTable, typeSystem, interner, appName);
+
+        var typeEmitter = new CilCompilationUnitEmitter(semanticResult.Ir, semanticResult.SymbolTable,
+            semanticResult.TypeSystem, interner, asmName.Name!);
         var definedMethods = typeEmitter.EmitAssembly(mob);
 
         int mainId = interner.Intern("main");

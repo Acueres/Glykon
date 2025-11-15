@@ -7,16 +7,16 @@ using System.Globalization;
 
 namespace Glykon.Compiler.Syntax;
 
-public class Parser(Token[] tokens, string filename)
+public class Parser(LexResult lexResult, string filename)
 {
     bool AtEnd => tokenIndex >= tokens.Length;
 
-    readonly Token[] tokens = tokens;
+    readonly Token[] tokens = lexResult.Tokens;
     readonly List<Statement> statements = [];
     readonly List<IGlykonError> errors = [];
     int tokenIndex;
 
-    public (SyntaxTree, List<IGlykonError>) Execute()
+    public ParseResult Parse()
     {
         while (!AtEnd)
         {
@@ -32,7 +32,7 @@ public class Parser(Token[] tokens, string filename)
             }
         }
         var syntaxTree = new SyntaxTree([..statements], filename);
-        return (syntaxTree, errors);
+        return new ParseResult(syntaxTree, lexResult.Tokens, lexResult.Errors, [..errors]);
     }
 
     Statement ParseStatement()

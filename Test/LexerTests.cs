@@ -1,19 +1,16 @@
-using Glykon.Compiler.Core;
 using Glykon.Compiler.Syntax;
+using Tests.Infrastructure;
 
 namespace Tests;
 
-public class LexerTests
+public class LexerTests : CompilerTestBase
 {
     [Fact]
     public void ScanIdentifiers()
     {
-        string filename = nameof(ScanIdentifiers);
         const string src = @"let text = 'Hello Glykon';";
-
-        SourceText source = new(filename, src);
-        Lexer lexer = new(source, filename);
-        var (tokens, _) = lexer.Execute();
+        
+        var (tokens, _) = Lex(src);
 
         tokens = [.. tokens.Where(t => t.Kind != TokenKind.EOF)];
 
@@ -26,7 +23,6 @@ public class LexerTests
     [Fact]
     public void ScanComments()
     {
-        string filename = nameof(ScanComments);
         const string src = @"
             #comment1
 
@@ -38,9 +34,8 @@ public class LexerTests
             code3
 
 ";
-        SourceText source = new(filename, src);
-        Lexer lexer = new(source, filename);
-        var (tokens, _) = lexer.Execute();
+
+        var (tokens, _) = Lex(src);
 
         //three identifiers, three statement terminators and EOF
         Assert.Equal(3 * 2 + 1, tokens.Length);
@@ -49,12 +44,9 @@ public class LexerTests
     [Fact]
     public void ScanSymbols()
     {
-        string filename = nameof(ScanSymbols);
         const string src = "(( )){} *+-/=<> <= == != >= // ** , . ->";
 
-        SourceText source = new(filename, src);
-        Lexer lexer = new(source, filename);
-        var (tokens, _) = lexer.Execute();
+        var (tokens, _) = Lex(src);
 
         tokens = [.. tokens.Where(t => t.Kind != TokenKind.EOF)];
 
@@ -94,12 +86,9 @@ public class LexerTests
     [Fact]
     public void ScanKeywords()
     {
-        string filename = nameof(ScanKeywords);
         const string src = "if class struct else def while false";
-
-        SourceText source = new(filename, src);
-        Lexer lexer = new(source, filename);
-        var (tokens, _) = lexer.Execute();
+        
+        var (tokens, _) = Lex(src);
 
         tokens = [.. tokens.Where(t => t.Kind != TokenKind.EOF && t.Kind != TokenKind.Semicolon)];
 
@@ -122,12 +111,9 @@ public class LexerTests
     [Fact]
     public void ScanString()
     {
-        var filename = nameof(ScanString);
         const string src = "\"some text\" 'other text' \"\"\"multiline oneliner\"\"\" \"unterminated";
-
-        SourceText source = new(filename, src);
-        Lexer lexer = new(source, filename);
-        var (tokens, _) = lexer.Execute();
+        
+        var (tokens, _) = Lex(src);
 
         tokens = [.. tokens.Where(t => t.Kind != TokenKind.EOF && t.Kind != TokenKind.Semicolon)];
 
@@ -141,7 +127,6 @@ public class LexerTests
     [Fact]
     public void ScanMultilineString()
     {
-        var filename = nameof(ScanMultilineString);
         const string src = @"'''multiline string
 '''
             'regular string'
@@ -150,10 +135,8 @@ public class LexerTests
  text
 '''
             '''unterminated";
-
-        SourceText source = new(filename, src);
-        Lexer lexer = new(source, filename);
-        var (tokens, _) = lexer.Execute();
+        
+        var (tokens, _) = Lex(src);
 
         //filter out statement terminators
         tokens = [.. tokens.Where(t => t.Kind != TokenKind.Semicolon && t.Kind != TokenKind.EOF)];
@@ -169,12 +152,9 @@ public class LexerTests
     [Fact]
     public void ScanNumbers()
     {
-        string filename = nameof(ScanNumbers);
         const string src = "123 42 1.2 .2 2.";
-
-        SourceText source = new(filename, src);
-        Lexer lexer = new(source, filename);
-        var (tokens, _) = lexer.Execute();
+        
+        var (tokens, _) = Lex(src);
 
         tokens = [.. tokens.Where(t => t.Kind != TokenKind.EOF)];
 
@@ -193,7 +173,6 @@ public class LexerTests
     [Fact]
     public void SemicolonInsertion()
     {
-        string filename = nameof(SemicolonInsertion);
         const string src = @"
 # 1. Basic insertion
 let a = 1
@@ -218,10 +197,8 @@ if a > b
     d = 5
 }
 ";
-
-        SourceText source = new(filename, src);
-        Lexer lexer = new(source, filename);
-        var (tokens, _) = lexer.Execute();
+        
+        var (tokens, _) = Lex(src);
 
         TokenKind[] expectedTypes =
         [
@@ -258,7 +235,6 @@ if a > b
     [Fact]
     public void ChainingAndLineContinuation()
     {
-        string filename = nameof(ChainingAndLineContinuation);
         const string src = @"
 # Test 1: Method chaining
 let item = my_collection
@@ -290,10 +266,8 @@ let id = 1
 let status = ""order""
 let details = ""...""
 ";
-
-        SourceText source = new(filename, src);
-        Lexer lexer = new(source, filename);
-        var (tokens, _) = lexer.Execute();
+        
+        var (tokens, _) = Lex(src);
 
         var expectedTypes = new[]
         {

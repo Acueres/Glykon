@@ -1,59 +1,26 @@
 ﻿using Glykon.Compiler.Core;
-using Glykon.Compiler.Diagnostics.Errors;
-using Glykon.Compiler.Semantics.Analysis;
 using Glykon.Compiler.Semantics.Binding;
-using Glykon.Compiler.Semantics.Binding.BoundStatements;
 using Glykon.Compiler.Semantics.IR.Statements;
 using Glykon.Compiler.Semantics.Types;
-using Glykon.Compiler.Syntax;
-using Glykon.Compiler.Syntax.Statements;
+using Tests.Infrastructure;
 
 namespace Tests;
 
-public class SemanticTests
+public class SemanticTests : CompilerTestBase
 {
-    // Helpers
-    private static (SyntaxTree syntaxTree, List<IGlykonError> parseErr) Parse(string src, string file)
-    {
-        SourceText source = new(file, src);
-        var (tokens, _) = new Lexer(source, file).Execute();
-        return new Parser(tokens, file).Execute();
-    }
-
-    private static IGlykonError[] Check(string src, string file)
-    {
-        var (syntaxTree, parseErr) = Parse(src, file);
-        IdentifierInterner interner = new();
-        
-        Assert.Empty(parseErr);
-        
-        SemanticAnalyzer semanticAnalyzer = new(syntaxTree, interner, LanguageMode.Script, file);
-        var (_, _, _, errors) = semanticAnalyzer.Analyze();
-
-        return errors;
-    }
-
     [Fact]
     public void VariableTypeInference()
     {
-        const string fileName = "VariableTypeInferenceTest";
         const string src = @"
             let i = 6
             let res = i + (2 + 2 * 3)
 ";
-        SourceText source = new(fileName, src);
-        Lexer lexer = new(source, fileName);
-        (var tokens, _) = lexer.Execute();
-        Parser parser = new(tokens, fileName);
-        var (syntaxTree, parseErrors) = parser.Execute();
-        Assert.Empty(parseErrors);
 
-        IdentifierInterner interner = new();
-
-        var semanticAnalyzer = new SemanticAnalyzer(syntaxTree, interner, LanguageMode.Script, fileName);
-        var (irTree, _, _, semanticErrors) = semanticAnalyzer.Analyze();
-
-        Assert.Empty(semanticErrors);
+        var semanticResult = Analyze(src, LanguageMode.Script);
+        var irTree = semanticResult.Ir;
+        var interner = semanticResult.Interner;
+        
+        Assert.Empty(semanticResult.AllErrors);
         Assert.NotEmpty(irTree);
         Assert.Equal(2, irTree.Length);
         Assert.Equal(IRStatementKind.Variable, irTree[1].Kind);
@@ -68,24 +35,13 @@ public class SemanticTests
     [Fact]
     public void VariableWrongTypeInference()
     {
-        const string fileName = "VariableWrongTypeInferenceTest";
         const string src = @"
             let res = (2 + 2 * 'text')
 ";
-        SourceText source = new(fileName, src);
-        Lexer lexer = new(source, fileName);
-        (var tokens, _) = lexer.Execute();
-        Parser parser = new(tokens, fileName);
-        var (syntaxTree, parseErrors) = parser.Execute();
-        Assert.Empty(parseErrors);
-
-        IdentifierInterner interner = new();
-
-        var semanticAnalyzer = new SemanticAnalyzer(syntaxTree, interner, LanguageMode.Script, fileName);
-        var (_, _, _, semanticErrors) = semanticAnalyzer.Analyze();
-
-        Assert.Single(syntaxTree);
-        Assert.Single(semanticErrors);
+        var semanticResult = Analyze(src, LanguageMode.Script);
+        
+        Assert.Single(semanticResult.AllErrors);
+        Assert.Single(semanticResult.Ir);
     }
     
     [Fact]
@@ -95,20 +51,8 @@ public class SemanticTests
                                 let v = 1
                                 const c: int = 5 * v
                             """;
-        string fileName = nameof(CheckVariableInsideConstantDeclaration);
-
-        SourceText source = new(fileName, src);
-        Lexer lexer = new(source, fileName);
-        (var tokens, _) = lexer.Execute();
-        Parser parser = new(tokens, fileName);
-        var (syntaxTree, parseErrors) = parser.Execute();
-        Assert.Empty(parseErrors);
-
-        IdentifierInterner interner = new();
-
-        var semanticAnalyzer = new SemanticAnalyzer(syntaxTree, interner, LanguageMode.Script, fileName);
-        var (_, _, _, semanticErrors) = semanticAnalyzer.Analyze();
-        Assert.Equal(2, semanticErrors.Length);
+        var semanticResult = Analyze(src, LanguageMode.Script);
+        Assert.Equal(2, semanticResult.SemanticErrors.Length);
     }
 
     // Calls & overloads
@@ -116,142 +60,101 @@ public class SemanticTests
     [Fact]
     public void CallWithCorrectArguments()
     {
-        const string code = """
+        const string src = """
             def sum(a: int, b: int) -> int { return a + b }
             let r = sum(2, 3)
         """;
-        Assert.Empty(Check(code, nameof(CallWithCorrectArguments)));
+        var semanticResult = Analyze(src, LanguageMode.Script);
+        Assert.Empty(semanticResult.AllErrors);
     }
 
     [Fact]
     public void CallWithWrongArgumentType()
     {
-        const string code = """
+        const string src = """
             def sum(a: int, b: int) -> int { return a + b }
             let r = sum(2, 'str')
         """;
-        Assert.Single(Check(code, nameof(CallWithWrongArgumentType)));
+        var semanticResult = Analyze(src, LanguageMode.Script);
+        Assert.Single(semanticResult.AllErrors);
     }
 
     [Fact]
     public void OverloadResolutionSuccess()
     {
-        const string code = """
+        const string src = """
             def log(msg: str) { return }
             def log(level: int, msg: str) { return }
             log('hi')          # picks 1‑arg
             log(1, 'bye')      # picks 2‑arg
         """;
-        Assert.Empty(Check(code, nameof(OverloadResolutionSuccess)));
+        var semanticResult = Analyze(src, LanguageMode.Script);
+        Assert.Empty(semanticResult.AllErrors);
     }
 
     [Fact]
     public void OverloadResolutionFailure()
     {
-        const string code = """
+        const string src = """
             def log(msg: str) { return }
             def log(level: int, msg: str) { return }
             log(true, 'oops')   # no matching overload
         """;
-        Assert.Single(Check(code, nameof(OverloadResolutionFailure)));
+        var semanticResult = Analyze(src, LanguageMode.Script);
+        Assert.Single(semanticResult.AllErrors);
     }
 
     [Fact]
     public void CallWithUnknownIdentifier()
     {
-        const string fileName = "CallWithUnknownIdentifier";
         const string src = @"
             foo()      # unknown
         ";
 
-        SourceText source = new(fileName, src);
-        var lexer = new Lexer(source, fileName);
-        (var tokens, _) = lexer.Execute();
-        var parser = new Parser(tokens, fileName);
-        var (syntax, parseErrors) = parser.Execute();
-        Assert.Empty(parseErrors);
-
-        var interner = new IdentifierInterner();
-        var analyzer = new SemanticAnalyzer(syntax, interner, LanguageMode.Script, fileName);
-        var (_, _, _, semanticErrors) = analyzer.Analyze();
-
-        Assert.Single(semanticErrors);
+        var semanticResult = Analyze(src, LanguageMode.Script);
+        Assert.Single(semanticResult.AllErrors);
     }
 
     [Fact]
     public void CallOnVariableNotCallable()
     {
-        const string fileName = "CallOnVariableNotCallable";
         const string src = @"
             let x = 1
             x()        # variable, not a function
         ";
 
-        SourceText source = new(fileName, src);
-        var lexer = new Lexer(source, fileName);
-        (var tokens, _) = lexer.Execute();
-        var parser = new Parser(tokens, fileName);
-        var (syntax, parseErrors) = parser.Execute();
-        Assert.Empty(parseErrors);
-
-        var interner = new IdentifierInterner();
-        var analyzer = new SemanticAnalyzer(syntax, interner, LanguageMode.Script, fileName);
-        var (_, _, _, semanticErrors) = analyzer.Analyze();
-
-        Assert.Single(semanticErrors);
+        var semanticResult = Analyze(src, LanguageMode.Script);
+        Assert.Single(semanticResult.AllErrors);
     }
 
     [Fact]
     public void CallWithParenthesizedIdentifier()
     {
-        const string fileName = "CallWithParenthesizedIdentifier";
         const string src = @"
             def ping(): return
             (ping)()   # grouping around identifier is allowed
         ";
 
-        SourceText source = new(fileName, src);
-        var lexer = new Lexer(source, fileName);
-        (var tokens, _) = lexer.Execute();
-        var parser = new Parser(tokens, fileName);
-        var (syntax, parseErrors) = parser.Execute();
-        Assert.Empty(parseErrors);
-
-        var interner = new IdentifierInterner();
-        var analyzer = new SemanticAnalyzer(syntax, interner, LanguageMode.Script, fileName);
-        var (_, _, _, semanticErrors) = analyzer.Analyze();
-
-        Assert.Empty(semanticErrors);
+        var semanticResult = Analyze(src, LanguageMode.Script);
+        Assert.Empty(semanticResult.AllErrors);
     }
 
     [Fact]
     public void CallOverloadNoMatch()
     {
-        const string fileName = "CallOverloadNoMatch";
         const string src = @"
             def log(i: int): return
             def log(i: int, j: int): return
             log(true)     # no matching overload for (bool)
         ";
 
-        SourceText source = new(fileName, src);
-        var lexer = new Lexer(source, fileName);
-        (var tokens, _) = lexer.Execute();
-        var parser = new Parser(tokens, fileName);
-        var (syntax, parseErrors) = parser.Execute();
-        Assert.Empty(parseErrors);
-
-        var interner = new IdentifierInterner();
-        var analyzer = new SemanticAnalyzer(syntax, interner, LanguageMode.Script, fileName);
-        var (_, _, _, semanticErrors) = analyzer.Analyze();
-
-        Assert.Single(semanticErrors);
+        var semanticResult = Analyze(src, LanguageMode.Script);
+        Assert.Single(semanticResult.AllErrors);
     }
 
     [Fact]
     public void CallOverloadExactMatch()
     {
-        const string fileName = "CallOverloadExactMatch";
         const string src = @"
             def log(i: int): return
             def log(i: int, j: int): return
@@ -259,18 +162,8 @@ public class SemanticTests
             log(1, 2)
         ";
 
-        SourceText source = new(fileName, src);
-        var lexer = new Lexer(source, fileName);
-        (var tokens, _) = lexer.Execute();
-        var parser = new Parser(tokens, fileName);
-        var (syntax, parseErrors) = parser.Execute();
-        Assert.Empty(parseErrors);
-
-        var interner = new IdentifierInterner();
-        var analyzer = new SemanticAnalyzer(syntax, interner, LanguageMode.Script, fileName);
-        var (_, _, _, semanticErrors) = analyzer.Analyze();
-
-        Assert.Empty(semanticErrors);
+        var semanticResult = Analyze(src, LanguageMode.Script);
+        Assert.Empty(semanticResult.AllErrors);
     }
 
     // Symbol table tests

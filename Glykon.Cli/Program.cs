@@ -1,7 +1,8 @@
-﻿using Glykon.Compiler.Backend.CIL;
+﻿using System.Reflection;
+
+using Glykon.Compiler.Backend.CIL;
 using Glykon.Compiler.Semantics.Analysis;
 using Glykon.Compiler.Syntax;
-using Glykon.Compiler.Diagnostics.Errors;
 using Glykon.Compiler.Semantics.Binding;
 using Glykon.Compiler.Core;
 
@@ -28,35 +29,29 @@ internal class Program
             }
             const v: int = 7 + 4
 ";
-        List<IGlykonError> errors = [];
-        
         SourceText source = new(filename, src);
         Lexer lexer = new(source, filename);
-        var (tokens, lexerErrors) = lexer.Execute();
-
-        errors.AddRange(lexerErrors);
+        var lexResult = lexer.Lex();
         
-        Parser parser = new(tokens, filename);
-        var (syntaxTree, parserErrors) = parser.Execute();
-
-        errors.AddRange(parserErrors);
+        Parser parser = new(lexResult, filename);
+        var parseResult = parser.Parse();
         
         IdentifierInterner interner = new();
-        SemanticAnalyzer semanticAnalyzer = new(syntaxTree, interner, LanguageMode.Application, filename);
-        var (irTree, typeSystem, symbolTable, semanticErrors) = semanticAnalyzer.Analyze();
+        SemanticAnalyzer semanticAnalyzer = new(parseResult, interner, LanguageMode.Application, filename);
+        var semanticResult = semanticAnalyzer.Analyze();
 
-        errors.AddRange(semanticErrors);
+        var errors = semanticResult.AllErrors.ToArray();
 
         foreach (var error in errors)
         {
             error.Report();
         }
 
-        if (errors.Count != 0) return;
+        if (errors.Length != 0) return;
 
-        var backend = new CilBackend(filename, interner);
+        var backend = new CilBackend(semanticResult, new AssemblyName(filename), filename);
 
-        var assembly = backend.Emit(irTree, symbolTable, typeSystem);
+        var assembly = backend.Emit();
 
         Type? program = assembly.GetType(filename);
         if (program is null) return;
