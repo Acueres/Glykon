@@ -4,14 +4,17 @@ using Glykon.Compiler.Semantics.Flow;
 using Glykon.Compiler.Semantics.Optimization;
 using Glykon.Compiler.Semantics.Types;
 using Glykon.Compiler.Semantics.IR;
+using Glykon.Compiler.Semantics.Lowering;
 using Glykon.Compiler.Syntax;
 
 namespace Glykon.Compiler.Semantics.Analysis;
 
-public class SemanticAnalyzer(ParseResult parseResult, IdentifierInterner interner, LanguageMode mode, string fileName)
+public class SemanticAnalyzer(ParseResult parseResult, LanguageMode mode, string fileName)
 {
     public SemanticResult Analyze()
     {
+        IdentifierInterner interner = new();
+        
         TypeSystem typeSystem = new(interner);
         typeSystem.BuildPrimitives();
 
@@ -27,8 +30,11 @@ public class SemanticAnalyzer(ParseResult parseResult, IdentifierInterner intern
 
         ConstantFolder folder = new(irTree, typeSystem, interner, fileName);
         var (foldedTree, foldingErrors) = folder.Fold();
+        
+        Lowerer lowerer = new(foldedTree, interner, typeSystem, st, mode);
+        var loweredTree = lowerer.Lower();
 
-        return new SemanticResult(parseResult.SyntaxTree, parseResult.Tokens, foldedTree, typeSystem, interner, st,
+        return new SemanticResult(parseResult.SyntaxTree, parseResult.Tokens, loweredTree, typeSystem, interner, st,
             parseResult.LexErrors, parseResult.ParseErrors,
             [.. binderErrors, ..flowErrors, ..typeErrors, ..foldingErrors]);
     }

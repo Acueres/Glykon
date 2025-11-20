@@ -4,90 +4,95 @@ using System.Reflection.PortableExecutable;
 using System.Reflection;
 using System.Reflection.Emit;
 using System.Runtime.Loader;
+
 using Glykon.Compiler.Semantics.Analysis;
 using Glykon.Compiler.Semantics.Binding;
-using Glykon.Compiler.Semantics.IR;
-using Glykon.Compiler.Semantics.Types;
 
 namespace Glykon.Compiler.Backend.CIL;
 
-public sealed class CilBackend(SemanticResult semanticResult, AssemblyName asmName, string appName)
+public sealed class CilBackend(SemanticResult semanticResult, AssemblyName asmName)
 {
     private readonly IdentifierInterner interner = semanticResult.Interner;
     private readonly PersistedAssemblyBuilder ab = new(asmName, typeof(object).Assembly);
 
-    private int metadataToken;
-
-    public Assembly Emit(bool saveToDisk = false)
+    public EmittedImage EmitToImage()
     {
         var mob = ab.DefineDynamicModule(asmName.Name!);
 
         var typeEmitter = new CilCompilationUnitEmitter(semanticResult.Ir, semanticResult.SymbolTable,
             semanticResult.TypeSystem, interner, asmName.Name!);
-        var definedMethods = typeEmitter.EmitAssembly(mob);
+        var functions = typeEmitter.EmitAssembly(mob);
 
-        int mainId = interner.Intern("main");
-        var mains = definedMethods
-            .Where(t => t.Symbol.QualifiedNameId == mainId)
-            .ToList();
+        var mainMb = functions
+                         .Select(f => f.Method)
+                         .FirstOrDefault(m => m.Name == "main" && m.GetParameters().Length == 0)
+                     ?? throw new InvalidOperationException("No parameterless main().");
 
-        if (mains.Count == 0)
-            throw new InvalidOperationException("No entry point found ('main').");
-
-        var mainInfo = mains.Count == 1
-            ? mains[0]
-            : mains.FirstOrDefault(m => m.Method.GetParameters().Length == 0)
-              ?? throw new InvalidOperationException("Multiple 'main' overloads; define a parameterless main.");
-
-        metadataToken = mainInfo.Method.MetadataToken;
-
-        if (saveToDisk)
-        {
-            Save();
-        }
-
-        return GetAssembly();
-    }
-
-    private void Save()
-    {
-        MetadataBuilder metadataBuilder = ab.GenerateMetadata(out BlobBuilder ilStream, out BlobBuilder fieldData);
-        PEHeaderBuilder peHeaderBuilder = new(imageCharacteristics: Characteristics.ExecutableImage);
-
-        ManagedPEBuilder peBuilder = new(
-            header: peHeaderBuilder,
-            metadataRootBuilder: new MetadataRootBuilder(metadataBuilder),
-            ilStream: ilStream,
+        var md = ab.GenerateMetadata(out var il, out var fieldData);
+        var peBuilder = new ManagedPEBuilder(
+            header: PEHeaderBuilder.CreateExecutableHeader(),
+            metadataRootBuilder: new MetadataRootBuilder(md),
+            ilStream: il,
             mappedFieldData: fieldData,
-            entryPoint: MetadataTokens.MethodDefinitionHandle(metadataToken));
+            entryPoint: MetadataTokens.MethodDefinitionHandle(mainMb.MetadataToken));
 
-        BlobBuilder peBlob = new();
+        var peBlob = new BlobBuilder();
         peBuilder.Serialize(peBlob);
 
-        using var fileStream = new FileStream($"{appName}.exe", FileMode.Create, FileAccess.Write);
-        peBlob.WriteContentTo(fileStream);
+        using var ms = new MemoryStream();
+        peBlob.WriteContentTo(ms);
+        ms.Position = 0;
+        var assembly = AssemblyLoadContext.Default.LoadFromStream(ms);
 
-        const string runtimeConfig = @"{
-    ""runtimeOptions"": {
-      ""tfm"": ""net9.0"",
-      ""framework"": {
-        ""name"": ""Microsoft.NETCore.App"",
-        ""version"": ""9.0.0""
-      }
-    }
-  }
-";
+        var entry = assembly.GetType(asmName.Name!)?.GetMethod("main")
+                    ?? throw new InvalidOperationException("Entry not found.");
 
-        using StreamWriter outputFile = new($"{appName}.runtimeconfig.json");
-        outputFile.WriteLine(runtimeConfig);
+        return new EmittedImage(asmName.Name!, assembly, entry, functions);
     }
 
-    private Assembly GetAssembly()
+    public BuildResult EmitToDisk(string outputDir)
     {
-        using var stream = new MemoryStream();
-        ab.Save(stream);
-        stream.Seek(0, SeekOrigin.Begin);
-        Assembly assembly = AssemblyLoadContext.Default.LoadFromStream(stream);
-        return assembly;
+        Directory.CreateDirectory(outputDir);
+        var mob = ab.DefineDynamicModule(asmName.Name!);
+        var functions = new CilCompilationUnitEmitter(semanticResult.Ir, semanticResult.SymbolTable,
+            semanticResult.TypeSystem, interner, asmName.Name!).EmitAssembly(mob);
+
+        var mainMb = functions.Select(f => f.Method)
+            .First(m => m.Name == "main" && m.GetParameters().Length == 0);
+
+        var md = ab.GenerateMetadata(out var il, out var fieldData);
+        var peBuilder = new ManagedPEBuilder(
+            header: PEHeaderBuilder.CreateExecutableHeader(),
+            metadataRootBuilder: new MetadataRootBuilder(md),
+            ilStream: il,
+            mappedFieldData: fieldData,
+            entryPoint: MetadataTokens.MethodDefinitionHandle(mainMb.MetadataToken));
+
+        var peBlob = new BlobBuilder();
+        peBuilder.Serialize(peBlob);
+
+        var basePath = Path.Combine(outputDir, asmName.Name!);
+
+        var dllPath = basePath + ".dll";
+
+        using (var fs = File.Create(dllPath)) peBlob.WriteContentTo(fs);
+
+        const string runtimeConfig = """
+                                     {
+                                         "runtimeOptions": {
+                                           "tfm": "net9.0",
+                                           "framework": {
+                                             "name": "Microsoft.NETCore.App",
+                                             "version": "9.0.0"
+                                           }
+                                         }
+                                       }
+
+                                     """;
+
+        var runtimeConfigpath = basePath + ".runtimeconfig.json";
+        File.WriteAllText(runtimeConfigpath, runtimeConfig);
+
+        return new BuildResult(dllPath, runtimeConfigpath);
     }
 }

@@ -9,6 +9,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\Glykon.Compiler\Glykon.Compiler.csproj" />
+    <ProjectReference Include="..\Glykon.Runtime\Glykon.Runtime.csproj" />
   </ItemGroup>
 
 </Project>

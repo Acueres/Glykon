@@ -44,9 +44,7 @@ public class CilCodeGenerator(ILGenerator il, TypeSystem typeSystem, CilEmitCont
             case IRStatementKind.Return:
                 EmitReturnStatement((IRReturnStmt)statement);
                 break;
-            case IRStatementKind.Function:
-            case IRStatementKind.Constant:  break;
-            default:
+            case IRStatementKind.Expression:
                 EmitExpression(((IRExpressionStmt)statement).Expression);
                 break;
         }

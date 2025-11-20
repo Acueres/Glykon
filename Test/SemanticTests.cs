@@ -11,10 +11,12 @@ public class SemanticTests : CompilerTestBase
     [Fact]
     public void VariableTypeInference()
     {
-        const string src = @"
-            let i = 6
-            let res = i + (2 + 2 * 3)
-";
+        const string src = """
+
+                                       let i = 6
+                                       let res = i + (2 + 2 * 3)
+
+                           """;
 
         var semanticResult = Analyze(src, LanguageMode.Script);
         var irTree = semanticResult.Ir;
@@ -22,9 +24,12 @@ public class SemanticTests : CompilerTestBase
         
         Assert.Empty(semanticResult.AllErrors);
         Assert.NotEmpty(irTree);
-        Assert.Equal(2, irTree.Length);
-        Assert.Equal(IRStatementKind.Variable, irTree[1].Kind);
-        var stmt = (IRVariableDeclaration)irTree[1];
+
+        var f = GetFunction(irTree.Single());
+        
+        Assert.Equal(2, f.Body.Statements.Length);
+        Assert.Equal(IRStatementKind.Variable, f.Body.Statements[1].Kind);
+        var stmt = (IRVariableDeclaration)f.Body.Statements[1];
 
         string name = interner[stmt.Symbol.NameId];
         Assert.Equal("res", name);
@@ -35,13 +40,16 @@ public class SemanticTests : CompilerTestBase
     [Fact]
     public void VariableWrongTypeInference()
     {
-        const string src = @"
-            let res = (2 + 2 * 'text')
-";
+        const string src = """
+
+                                       let res = (2 + 2 * 'text')
+                           """;
         var semanticResult = Analyze(src, LanguageMode.Script);
         
         Assert.Single(semanticResult.AllErrors);
-        Assert.Single(semanticResult.Ir);
+
+        var f = GetFunction(semanticResult.Ir.Single());
+        Assert.Single(f.Body.Statements);
     }
     
     [Fact]

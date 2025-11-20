@@ -15,7 +15,8 @@ public class ConstantFoldingTests : CompilerTestBase
 
         Assert.Empty(semanticResult.AllErrors);
 
-        var decl = GetVar(semanticResult.Ir.Single());
+        var f = GetFunction(semanticResult.Ir.Single());
+        var decl = GetVar(f.Body.Statements.Single());
         Assert.Equal("x", semanticResult.Interner[decl.Symbol.NameId]);
 
         var lit = GetLit(decl.Initializer);
@@ -31,8 +32,9 @@ public class ConstantFoldingTests : CompilerTestBase
         var semanticResult = Analyze(src, LanguageMode.Script);
         
         Assert.Single(semanticResult.AllErrors);
-
-        var decl = GetVar(semanticResult.Ir.Single());
+        
+        var f = GetFunction(semanticResult.Ir.Single());
+        var decl = GetVar(f.Body.Statements.Single());
         var lit = GetLit(decl.Initializer);
         Assert.False(lit.Value.Bool);
     }
@@ -45,7 +47,8 @@ public class ConstantFoldingTests : CompilerTestBase
         
         Assert.Single(semanticResult.AllErrors);
 
-        var decl = GetVar(semanticResult.Ir.Single());
+        var f = GetFunction(semanticResult.Ir.Single());
+        var decl = GetVar(f.Body.Statements.Single());
         var lit = GetLit(decl.Initializer);
         Assert.True(lit.Value.Bool);
     }
@@ -62,16 +65,15 @@ public class ConstantFoldingTests : CompilerTestBase
         var semanticResult = Analyze(src, LanguageMode.Script);
         
         Assert.Empty(semanticResult.AllErrors);
-
-        var folded = semanticResult.Ir;
-
-        var a = GetVar(folded[0]);
+        
+        var f = GetFunction(semanticResult.Ir.Single());
+        var a = GetVar(f.Body.Statements[0]);
         Assert.True(GetLit(a.Initializer).Value.Bool);
 
-        var b = GetVar(folded[1]);
+        var b = GetVar(f.Body.Statements[1]);
         Assert.True(GetLit(b.Initializer).Value.Bool);
 
-        var c = GetVar(folded[2]);
+        var c = GetVar(f.Body.Statements[2]);
         Assert.False(GetLit(c.Initializer).Value.Bool);
     }
 
@@ -88,17 +90,17 @@ public class ConstantFoldingTests : CompilerTestBase
         
         Assert.Empty(semanticResult.AllErrors);
         
-        var folded = semanticResult.Ir;
+        var f = GetFunction(semanticResult.Ir.Single());
 
-        var s = GetVar(folded[0]);
-        var sLit = GetLit(s.Initializer);
-        Assert.Equal(ConstantKind.String, sLit.Value.Kind);
-        Assert.Equal("abcd", sLit.Value.String);
+        var s = GetVar(f.Body.Statements[0]);
+        var lit = GetLit(s.Initializer);
+        Assert.Equal(ConstantKind.String, lit.Value.Kind);
+        Assert.Equal("abcd", lit.Value.String);
 
-        var ok = GetVar(folded[1]);
+        var ok = GetVar(f.Body.Statements[1]);
         Assert.True(GetLit(ok.Initializer).Value.Bool);
 
-        var no = GetVar(folded[2]);
+        var no = GetVar(f.Body.Statements[2]);
         Assert.False(GetLit(no.Initializer).Value.Bool);
     }
 
@@ -117,8 +119,9 @@ public class ConstantFoldingTests : CompilerTestBase
         var semanticResult = Analyze(src, LanguageMode.Script);
         
         Assert.Empty(semanticResult.AllErrors);
-
-        var block = Assert.IsType<IRBlockStmt>(semanticResult.Ir.Single());
+        
+        var f = GetFunction(semanticResult.Ir.Single());
+        var block = Assert.IsType<IRBlockStmt>(f.Body.Statements.Single());
         var decl = GetVar(block.Statements.Single());
         Assert.Equal("then_only", semanticResult.Interner[decl.Symbol.NameId]);
         Assert.Equal(1, GetLit(decl.Initializer).Value.Int);
@@ -138,8 +141,9 @@ public class ConstantFoldingTests : CompilerTestBase
         var semanticResult = Analyze(src, LanguageMode.Script);
         
         Assert.Empty(semanticResult.AllErrors);
-
-        var block = Assert.IsType<IRBlockStmt>(semanticResult.Ir.Single());
+        
+        var f = GetFunction(semanticResult.Ir.Single());
+        var block = Assert.IsType<IRBlockStmt>(f.Body.Statements.Single());
         var decl = GetVar(block.Statements.Single());
         Assert.Equal("elseOnly", semanticResult.Interner[decl.Symbol.NameId]);
         Assert.Equal(2, GetLit(decl.Initializer).Value.Int);
@@ -159,13 +163,13 @@ public class ConstantFoldingTests : CompilerTestBase
         
         Assert.Empty(semanticResult.AllErrors);
         
-        var folded = semanticResult.Ir;
-
-        Assert.Equal(2, folded.Length);
-        var first = Assert.IsType<IRBlockStmt>(folded[0]);
+        var f = GetFunction(semanticResult.Ir.Single());
+        
+        Assert.Equal(2, f.Body.Statements.Length);
+        var first = Assert.IsType<IRBlockStmt>(f.Body.Statements[0]);
         Assert.Empty(first.Statements);
 
-        var y = GetVar(folded[1]);
+        var y = GetVar(f.Body.Statements[1]);
         Assert.Equal("y", semanticResult.Interner[y.Symbol.NameId]);
         Assert.Equal(2, GetLit(y.Initializer).Value.Int);
     }
@@ -178,8 +182,9 @@ public class ConstantFoldingTests : CompilerTestBase
         var semanticResult = Analyze(src, LanguageMode.Script);
         
         Assert.Empty(semanticResult.AllErrors);
-
-        var decl = GetVar(semanticResult.Ir.Single());
+        
+        var f = GetFunction(semanticResult.Ir.Single());
+        var decl = GetVar(f.Body.Statements.Single());
         var lit = GetLit(decl.Initializer);
 
         Assert.Equal(ConstantKind.Real, lit.Value.Kind);
@@ -194,8 +199,9 @@ public class ConstantFoldingTests : CompilerTestBase
         var semanticResult = Analyze(src, LanguageMode.Script);
         
         Assert.Empty(semanticResult.AllErrors);
-
-        var decl = GetVar(semanticResult.Ir.Single());
+        
+        var f = GetFunction(semanticResult.Ir.Single());
+        var decl = GetVar(f.Body.Statements.Single());
         Assert.IsType<IRLiteralExpr>(decl.Initializer);
         Assert.Equal(ConstantKind.Real, ((IRLiteralExpr)decl.Initializer).Value.Kind);
     }
@@ -212,10 +218,10 @@ public class ConstantFoldingTests : CompilerTestBase
         var semanticResult = Analyze(src, LanguageMode.Script);
         Assert.Empty(semanticResult.AllErrors);
         
-        var folded  = semanticResult.Ir;
+        var f = GetFunction(semanticResult.Ir[1]);
         var interner = semanticResult.Interner;
 
-        var piDecl = GetConst(folded[0]);
+        var piDecl = GetConst(semanticResult.Ir[0]);
         var piInit = GetLit(piDecl.Initializer);
         Assert.Equal("pi", interner[piDecl.Symbol.NameId]);
         Assert.Equal(ConstantKind.Real, piInit.Value.Kind);
@@ -223,11 +229,11 @@ public class ConstantFoldingTests : CompilerTestBase
         Assert.Equal(ConstantKind.Real, piDecl.Symbol.Value.Kind);
         Assert.Equal(3.14, piDecl.Symbol.Value.Real, precision: 5);
 
-        var a = GetVar(folded[1]);
+        var a = GetVar(f.Body.Statements[0]);
         Assert.Equal("a", interner[a.Symbol.NameId]);
         Assert.Equal(3.14, GetLit(a.Initializer).Value.Real, precision: 5);
 
-        var b = GetVar(folded[2]);
+        var b = GetVar(f.Body.Statements[1]);
         Assert.Equal("b", interner[b.Symbol.NameId]);
         Assert.Equal(6.28, GetLit(b.Initializer).Value.Real, precision: 5);
     }
@@ -244,8 +250,10 @@ public class ConstantFoldingTests : CompilerTestBase
         var semanticResult = Analyze(src, LanguageMode.Script);
         Assert.Empty(semanticResult.AllErrors);
         
-        var folded = semanticResult.Ir;
         var interner = semanticResult.Interner;
+
+        var folded = semanticResult.Ir;
+        var f = GetFunction(folded[2]);
         
         var x = GetConst(folded[0]);
         Assert.Equal("x", interner[x.Symbol.NameId]);
@@ -257,7 +265,7 @@ public class ConstantFoldingTests : CompilerTestBase
         Assert.Equal(20, GetLit(y.Initializer).Value.Int);
         Assert.Equal(20, y.Symbol.Value.Int);
 
-        var z = GetVar(folded[2]);
+        var z = GetVar(f.Body.Statements.Single());
         Assert.Equal("z", interner[z.Symbol.NameId]);
         Assert.Equal(21, GetLit(z.Initializer).Value.Int);
     }
@@ -307,8 +315,9 @@ public class ConstantFoldingTests : CompilerTestBase
         Assert.Equal(5.0, rLit.Value.Real, precision: 5);
         Assert.Equal(ConstantKind.Real, r.Symbol.Value.Kind);
         Assert.Equal(5.0, r.Symbol.Value.Real, precision: 5);
-
-        var s = GetVar(folded[2]);
+        
+        var f = GetFunction(folded[2]);
+        var s = GetVar(f.Body.Statements.Single());
         var sLit = GetLit(s.Initializer);
         Assert.Equal(ConstantKind.Real, sLit.Value.Kind);
         Assert.Equal(10.0, sLit.Value.Real, precision: 5);

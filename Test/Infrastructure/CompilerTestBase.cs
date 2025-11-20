@@ -42,8 +42,7 @@ public abstract class CompilerTestBase
         var lexResult = new Lexer(text, file).Lex();
         var parseResult = new Parser(lexResult, file).Parse();
 
-        var interner = new IdentifierInterner();
-        var analyzer = new SemanticAnalyzer(parseResult, interner, mode, file);
+        var analyzer = new SemanticAnalyzer(parseResult, mode, file);
         var semanticResult = analyzer.Analyze();
 
         return semanticResult;
@@ -57,6 +56,9 @@ public abstract class CompilerTestBase
     
     protected static T GetIRStmt<T>(IRStatement s)
         => Assert.IsType<T>(s);
+    
+    protected static IRFunctionDeclaration GetFunction(IRStatement s)
+        => Assert.IsType<IRFunctionDeclaration>(s);
     
     protected static IRVariableDeclaration GetVar(IRStatement s)
         => Assert.IsType<IRVariableDeclaration>(s);

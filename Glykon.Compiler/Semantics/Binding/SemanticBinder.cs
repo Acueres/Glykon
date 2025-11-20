@@ -23,8 +23,8 @@ public class SemanticBinder(SyntaxTree syntaxTree, TypeSystem typeSystem, Identi
         RegisterStd();
 
         List<BoundStatement> boundStatements = new(syntaxTree.Length);
-        List<ConstantDeclaration> constants = [];
-        List<FunctionDeclaration> functions = [];
+        List<Statement> constants = [];
+        List<Statement> functions = [];
         List<Statement> statements = [];
 
         foreach (var node in syntaxTree)
@@ -53,7 +53,7 @@ public class SemanticBinder(SyntaxTree syntaxTree, TypeSystem typeSystem, Identi
         }
 
         boundStatements.AddRange(constants.Select(BindStatement));
-        boundStatements.AddRange(functions.Select(BindStatement));
+        boundStatements.AddRange(BindStatementsWithDeclarations(functions));
         boundStatements.AddRange(statements.Select(BindStatement));
 
         BoundTree boundTree = new([.. boundStatements], syntaxTree.FileName);
@@ -72,7 +72,7 @@ public class SemanticBinder(SyntaxTree syntaxTree, TypeSystem typeSystem, Identi
                 Scope scope = symbolTable.BeginScope(ScopeKind.Block);
                 var blockStmt = (BlockStmt)stmt;
 
-                var boundStatements = BindBlockStatements(blockStmt.Statements);
+                var boundStatements = BindStatementsWithDeclarations(blockStmt.Statements);
 
                 BoundBlockStmt boundBlockStmt = new([.. boundStatements], scope);
 
@@ -139,7 +139,7 @@ public class SemanticBinder(SyntaxTree syntaxTree, TypeSystem typeSystem, Identi
                 var parameterSymbols = functionStmt.Parameters
                     .Select(p => symbolTable.RegisterParameter(p.Name, BindTypeAnnotation(p.Type))).ToList();
 
-                var boundStatements = BindBlockStatements(functionStmt.Body.Statements);
+                var boundStatements = BindStatementsWithDeclarations(functionStmt.Body.Statements);
                 BoundBlockStmt boundBody = new([.. boundStatements], scope);
 
                 symbolTable.ExitScope();
@@ -293,7 +293,7 @@ public class SemanticBinder(SyntaxTree syntaxTree, TypeSystem typeSystem, Identi
         }
     }
 
-    List<BoundStatement> BindBlockStatements(List<Statement> statements)
+    List<BoundStatement> BindStatementsWithDeclarations(List<Statement> statements)
     {
         List<BoundStatement> boundStatements = new(statements.Count);
 

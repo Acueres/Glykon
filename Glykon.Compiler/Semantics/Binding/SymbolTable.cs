@@ -6,18 +6,18 @@ namespace Glykon.Compiler.Semantics.Binding;
 
 public class SymbolTable
 {
-    readonly Scope global = new();
+    readonly Scope top = new();
     readonly List<Scope> scopes;
     readonly IdentifierInterner interner;
 
     Scope current;
 
-    int functionSerial = 0;
+    int functionSerial;
 
     public SymbolTable(IdentifierInterner interner)
     {
-        scopes = [global];
-        current = global;
+        scopes = [top];
+        current = top;
         this.interner = interner;
     }
 
@@ -61,11 +61,6 @@ public class SymbolTable
         if (!interner.TryGetId(name, out var nameId)) return null;
         return current.GetType(nameId);
     }
-
-    public bool IsFunction(Symbol symbol)
-    {
-        return current.GetFunctionOverloads(symbol.NameId).Length > 0;
-    }
     
     public FunctionSymbol? RegisterFunction(string name, TypeSymbol returnType, TypeSymbol[] parameterTypes)
     {
@@ -102,14 +97,14 @@ public class SymbolTable
         current.AddType(type.NameId, type);
     }
 
+    public Scope GetCurrentScope() => current;
+
     public Scope BeginScope(ScopeKind scopeKind)
     {
         current = new Scope(current, scopeKind);
         scopes.Add(current);
         return current;
     }
-    
-    public Scope GetCurrentScope() => current;
 
     public Scope BeginScope(FunctionSymbol containingFunction)
     {
@@ -125,7 +120,7 @@ public class SymbolTable
 
     public void ResetScope()
     {
-        current = global;
+        current = top;
     }
 
     string ComputeQualifiedName(string localName)

@@ -16,7 +16,7 @@ public class CilCompilationUnitEmitter(
     IdentifierInterner interner,
     string appName)
 {
-    public List<FunctionInfo> EmitAssembly(ModuleBuilder mob)
+    public FunctionInfo[] EmitAssembly(ModuleBuilder mob)
     {
         symbolTable.ResetScope();
 
@@ -47,7 +47,7 @@ public class CilCompilationUnitEmitter(
 
         tb.CreateType();
 
-        return definedMethods;
+        return [..definedMethods];
     }
 
     Dictionary<FunctionSymbol, MethodInfo> LoadStdLibrary()
