@@ -104,8 +104,8 @@ public class TypeCheckingTests : CompilerTestBase
     public void IfWhileConditionMustBeBool()
     {
         const string code = """
-            if 0: let a = 1
-            while 'text': break
+            if 0 { let a = 1 }
+            while 'text' { break }
         """;
         Assert.Equal(2, Check(code, nameof(IfWhileConditionMustBeBool)).Count());
     }

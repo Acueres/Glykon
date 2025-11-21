@@ -139,7 +139,7 @@ public class SemanticTests : CompilerTestBase
     public void CallWithParenthesizedIdentifier()
     {
         const string src = @"
-            def ping(): return
+            def ping() { return }
             (ping)()   # grouping around identifier is allowed
         ";
 
@@ -151,8 +151,8 @@ public class SemanticTests : CompilerTestBase
     public void CallOverloadNoMatch()
     {
         const string src = @"
-            def log(i: int): return
-            def log(i: int, j: int): return
+            def log(i: int) { return }
+            def log(i: int, j: int) { return }
             log(true)     # no matching overload for (bool)
         ";
 
@@ -164,8 +164,8 @@ public class SemanticTests : CompilerTestBase
     public void CallOverloadExactMatch()
     {
         const string src = @"
-            def log(i: int): return
-            def log(i: int, j: int): return
+            def log(i: int) { return }
+            def log(i: int, j: int) { return }
             log(1)
             log(1, 2)
         ";

@@ -107,56 +107,41 @@ public class Parser(LexResult lexResult, string filename)
     {
         Expression condition = ParseLogicalOr();
 
-        // Handle ASI artefacts
+        // Handle ASI artifacts
         Match(TokenKind.Semicolon);
-
-        Statement stmt;
-        if (Match(TokenKind.BraceLeft))
-        {
-            stmt = ParseBlockStatement();
-        }
-        else
-        {
-            Consume(TokenKind.Colon, "Expect ':' after if condition");
-
-            stmt = ParseStatement();
-        }
+        
+        Consume(TokenKind.BraceLeft, "Expect '{' after if condition");
+        
+        Statement body = ParseBlockStatement();
 
         Statement? elseStmt = null;
         if (Match(TokenKind.Else))
         {
-            // Handle ASI artefacts
+            // Handle ASI artifacts
             Match(TokenKind.Semicolon);
             elseStmt = ParseStatement();
         }
         else if (Match(TokenKind.Elif))
         {
-            // Handle ASI artefacts
+            // Handle ASI artifacts
             Match(TokenKind.Semicolon);
             elseStmt = ParseIfStatement();
         }
 
-        return new IfStmt(condition, stmt, elseStmt);
+        return new IfStmt(condition, body, elseStmt);
     }
 
     WhileStmt ParseWhileStatement()
     {
         Expression condition = ParseLogicalOr();
 
-        // Handle ASI artefacts
+        // Handle ASI artifacts
         Match(TokenKind.Semicolon);
 
-        if (Match(TokenKind.BraceLeft))
-        {
-            var body = ParseBlockStatement();
-            return new WhileStmt(condition, body);
-        }
+        Consume(TokenKind.BraceLeft, "Expect '{' after while condition");
 
-        Consume(TokenKind.Colon, "Expect ':' after while condition");
-
-        var statement = ParseStatement();
-
-        return new WhileStmt(condition, statement);
+        var body = ParseBlockStatement();
+        return new WhileStmt(condition, body);
     }
 
     FunctionDeclaration ParseFunctionDeclaration()
@@ -178,18 +163,9 @@ public class Parser(LexResult lexResult, string filename)
             returnType = ParseTypeDeclaration();
         }
 
-
-        BlockStmt body;
-        if (Match(TokenKind.BraceLeft))
-        {
-            body = ParseBlockStatement();
-        }
-        else
-        {
-            Consume(TokenKind.Colon, "Body must be declared");
-            var stmt = ParseStatement();
-            body = new BlockStmt([stmt]);
-        }
+        Consume(TokenKind.BraceLeft, "Body must be declared");
+        
+        BlockStmt body = ParseBlockStatement();
 
         return new FunctionDeclaration(functionName.Text, parameters, returnType, body);
     }
