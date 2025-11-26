@@ -2,9 +2,9 @@
 
 namespace Glykon.Compiler.Semantics.IR.Statements;
 
-public class IRWhileStmt(IRExpression condition, IRStatement statement) : IRStatement
+public class IRWhileStmt(IRExpression condition, IRStatement body) : IRStatement
 {
     public override IRStatementKind Kind => IRStatementKind.While;
     public IRExpression Condition { get; } = condition;
-    public IRStatement Body { get; } = statement;
+    public IRStatement Body { get; } = body;
 }

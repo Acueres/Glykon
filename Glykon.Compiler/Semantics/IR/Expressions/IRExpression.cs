@@ -13,7 +13,8 @@ public enum IRExpressionKind : byte
     Variable,
     Assignment,
     Logical,
-    Conversion
+    Conversion,
+    Range
 }
 
 public abstract class IRExpression(TypeSymbol type)

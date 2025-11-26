@@ -165,6 +165,202 @@ public class RuntimeTests
 
         if (Directory.Exists(outputDir)) Directory.Delete(outputDir, true);
     }
+    
+    // For loops tests
+    [Fact]
+    public void Script_For_AscendingExclusive_Prints0To9()
+    {
+        const string code = """
+                                for i in 0..10 {
+                                    println(i)
+                                }
+                            """;
+
+        var runtime = new GlykonRuntime(code, nameof(Script_For_AscendingExclusive_Prints0To9));
+        var result = runtime.RunScript();
+
+        Assert.Null(result.Exception);
+
+        var expected = "";
+        for (int i = 0; i < 10; i++)
+        {
+            expected += i + Environment.NewLine;
+        }
+
+        Assert.Equal(expected, result.Stdout);
+    }
+    
+    [Fact]
+    public void Script_For_AscendingInclusive_Prints0To10()
+    {
+        const string code = """
+                                for i in 0..=10 {
+                                    println(i)
+                                }
+                            """;
+
+        var runtime = new GlykonRuntime(code, nameof(Script_For_AscendingInclusive_Prints0To10));
+        var result = runtime.RunScript();
+
+        Assert.Null(result.Exception);
+
+        var expected = "";
+        for (int i = 0; i <= 10; i++)
+        {
+            expected += i + Environment.NewLine;
+        }
+
+        Assert.Equal(expected, result.Stdout);
+    }
+    
+    [Fact]
+    public void Script_For_AscendingWithStep_PrintsEvenNumbers()
+    {
+        const string code = """
+                                for i in 0..10 by 2 {
+                                    println(i)
+                                }
+                            """;
+
+        var runtime = new GlykonRuntime(code, nameof(Script_For_AscendingWithStep_PrintsEvenNumbers));
+        var result = runtime.RunScript();
+
+        Assert.Null(result.Exception);
+
+        var expected = "";
+        for (int i = 0; i < 10; i += 2)
+        {
+            expected += i + Environment.NewLine;
+        }
+
+        Assert.Equal(expected, result.Stdout);
+    }
+    
+    [Fact]
+    public void Script_For_DescendingExclusiveWithNegativeStep_Prints10DownTo1()
+    {
+        const string code = """
+                                for i in 10..0 by -1 {
+                                    println(i)
+                                }
+                            """;
+
+        var runtime = new GlykonRuntime(code, nameof(Script_For_DescendingExclusiveWithNegativeStep_Prints10DownTo1));
+        var result = runtime.RunScript();
+
+        Assert.Null(result.Exception);
+
+        var expected = "";
+        for (int i = 10; i > 0; i--)
+        {
+            expected += i + Environment.NewLine;
+        }
+
+        Assert.Equal(expected, result.Stdout);
+    }
+    
+    [Fact]
+    public void Script_For_DescendingInclusiveWithNegativeStep_Prints10DownTo0By2()
+    {
+        const string code = """
+                                for i in 10..=0 by -2 {
+                                    println(i)
+                                }
+                            """;
+
+        var runtime = new GlykonRuntime(code, nameof(Script_For_DescendingInclusiveWithNegativeStep_Prints10DownTo0By2));
+        var result = runtime.RunScript();
+
+        Assert.Null(result.Exception);
+
+        var expected = "";
+        for (int i = 10; i >= 0; i -= 2)
+        {
+            expected += i + Environment.NewLine;
+        }
+
+        Assert.Equal(expected, result.Stdout);
+    }
+
+    [Fact]
+    public void Script_For_StepZero_ProducesNoOutput()
+    {
+        const string code = """
+                                for i in 0..10 by 0 {
+                                    println(i)
+                                }
+                            """;
+
+        var runtime = new GlykonRuntime(code, nameof(Script_For_StepZero_ProducesNoOutput));
+        var result = runtime.RunScript();
+
+        Assert.Null(result.Exception);
+        Assert.Equal(string.Empty, result.Stdout);
+    }
+    
+    [Fact]
+    public void Script_For_StartGreaterThanEnd_DefaultStep_ProducesNoOutput()
+    {
+        const string code = """
+                                for i in 10..0 {
+                                    println(i)
+                                }
+                            """;
+
+        var runtime = new GlykonRuntime(code, nameof(Script_For_StartGreaterThanEnd_DefaultStep_ProducesNoOutput));
+        var result = runtime.RunScript();
+
+        Assert.Null(result.Exception);
+        Assert.Equal(string.Empty, result.Stdout);
+    }
+    
+    [Fact]
+    public void Script_For_DynamicPositiveStep_Works()
+    {
+        const string code = """
+                                let step = 2
+                                for i in 0..10 by step {
+                                    println(i)
+                                }
+                            """;
+
+        var runtime = new GlykonRuntime(code, nameof(Script_For_DynamicPositiveStep_Works));
+        var result = runtime.RunScript();
+
+        Assert.Null(result.Exception);
+
+        var expected = "";
+        for (int i = 0; i < 10; i += 2)
+        {
+            expected += i + Environment.NewLine;
+        }
+
+        Assert.Equal(expected, result.Stdout);
+    }
+    
+    [Fact]
+    public void Script_For_DynamicNegativeStep_Works()
+    {
+        const string code = """
+                                let step = -2
+                                for i in 10..0 by step {
+                                    println(i)
+                                }
+                            """;
+
+        var runtime = new GlykonRuntime(code, nameof(Script_For_DynamicNegativeStep_Works));
+        var result = runtime.RunScript();
+
+        Assert.Null(result.Exception);
+
+        var expected = "";
+        for (int i = 10; i > 0; i -= 2)
+        {
+            expected += i + Environment.NewLine;
+        }
+
+        Assert.Equal(expected, result.Stdout);
+    }
 
     // Helpers
 

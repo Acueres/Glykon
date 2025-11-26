@@ -10,19 +10,25 @@ internal static class Program
         const string src = """
 
                                        def main() {
-                                           println(v)
-                                           def inner() {
-                                               let i = 1
-                                               if true {
-                                                   let k = 2.5
-                                                   {
-                                                       println(i + k)
-                                                   }
-                                               }
-                                           }
-                                           inner() # Should print 3.5
+                                            for i in 0..21 {
+                                                println(fib(i));
+                                            }
                                        }
-                                       const v: int = 7 + 4
+                                       
+                                       def fib(n: int) -> int {
+                                            let a = 0;
+                                            let b = 1;
+                                            let i = 0;
+                           
+                                            while i < n {
+                                                let next = a + b;
+                                                a = b;
+                                                b = next;
+                                                i = i + 1;
+                                            }
+                           
+                                        return a;
+                                      }
                            """;
         GlykonRuntime runtime = new(src, filename);
         var result = runtime.RunAppInMemory();
@@ -33,7 +39,5 @@ internal static class Program
         }
         
         Console.Write(result.Stdout);
-
-        runtime.BuildApp("out");
     }
 }

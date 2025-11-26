@@ -44,43 +44,43 @@ public class LexerTests : CompilerTestBase
     [Fact]
     public void ScanSymbols()
     {
-        const string src = "(( )){} *+-/=<> <= == != >= // ** , . ->";
+        const string src = "(( )){} *+-/=<> <= == != >= // ** , . -> .. ..=";
 
         var (tokens, _) = Lex(src);
 
         tokens = [.. tokens.Where(t => t.Kind != TokenKind.EOF)];
-
-        Assert.Equal(22, tokens.Length);
-
-        TokenKind[] expectedTypes =
+        
+        TokenKind[] expectedSymbols =
         [
             TokenKind.ParenthesisLeft,
-        TokenKind.ParenthesisLeft,
-        TokenKind.ParenthesisRight,
-        TokenKind.ParenthesisRight,
-        TokenKind.BraceLeft,
-        TokenKind.BraceRight,
-        TokenKind.Star,
-        TokenKind.Plus,
-        TokenKind.Minus,
-        TokenKind.Slash,
-        TokenKind.Assignment,
-        TokenKind.Less,
-        TokenKind.Greater,
-        TokenKind.LessEqual,
-        TokenKind.Equal,
-        TokenKind.NotEqual,
-        TokenKind.GreaterEqual,
-        TokenKind.SlashDouble,
-        TokenKind.StarDouble,
-        TokenKind.Comma,
-        TokenKind.Dot,
-        TokenKind.Arrow
+            TokenKind.ParenthesisLeft,
+            TokenKind.ParenthesisRight,
+            TokenKind.ParenthesisRight,
+            TokenKind.BraceLeft,
+            TokenKind.BraceRight,
+            TokenKind.Star,
+            TokenKind.Plus,
+            TokenKind.Minus,
+            TokenKind.Slash,
+            TokenKind.Assignment,
+            TokenKind.Less,
+            TokenKind.Greater,
+            TokenKind.LessEqual,
+            TokenKind.Equal,
+            TokenKind.NotEqual,
+            TokenKind.GreaterEqual,
+            TokenKind.SlashDouble,
+            TokenKind.StarDouble,
+            TokenKind.Comma,
+            TokenKind.Dot,
+            TokenKind.Arrow,
+            TokenKind.Range,
+            TokenKind.RangeInclusive
         ];
 
-        var actualTypes = tokens.Select(t => t.Kind).ToArray();
+        var actualSymbols = tokens.Select(t => t.Kind).ToArray();
 
-        Assert.Equal(expectedTypes, actualTypes);
+        Assert.Equal(expectedSymbols, actualSymbols);
     }
 
     [Fact]

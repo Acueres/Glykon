@@ -14,6 +14,7 @@ public abstract class IRTreeRewriter
             IRFunctionDeclaration f => RewriteFunctionDeclaration(f),
             IRIfStmt i => RewriteIf(i),
             IRWhileStmt w => RewriteWhile(w),
+            IRForStmt f => RewriteFor(f),
             IRReturnStmt r => RewriteReturn(r),
             IRExpressionStmt e => RewriteExprStmt(e),
             _ => s
@@ -27,6 +28,7 @@ public abstract class IRTreeRewriter
             IRLogicalExpr l => RewriteLogical(l),
             IRVariableExpr v => RewriteVariable(v),
             IRAssignmentExpr a => RewriteAssignment(a),
+            IRRangeExpr r => RewriteRange(r),
             IRCallExpr c => RewriteCall(c),
             IRGroupingExpr g => RewriteGrouping(g),
             IRConversionExpr cnv => RewriteConversion(cnv),
@@ -86,6 +88,15 @@ public abstract class IRTreeRewriter
         return new IRWhileStmt(cond, body);
     }
 
+    protected virtual IRStatement RewriteFor(IRForStmt forStmt)
+    {
+        var iter = VisitStmt(forStmt.Iterator);
+        var range = VisitExpr(forStmt.Range);
+        var body = VisitStmt(forStmt.Body);
+        if (ReferenceEquals(range, forStmt.Range) && ReferenceEquals(body, forStmt.Body)) return forStmt;
+        return new IRForStmt((IRVariableDeclaration)iter, (IRRangeExpr)range, (IRBlockStmt)body);
+    }
+
     protected virtual IRStatement RewriteReturn(IRReturnStmt r)
     {
         var expr = r.Value is null ? null : VisitExpr(r.Value);
@@ -133,6 +144,17 @@ public abstract class IRTreeRewriter
         return ReferenceEquals(value, a.Value)
             ? a
             : new IRAssignmentExpr(value, a.Symbol);
+    }
+    
+    protected virtual IRExpression RewriteRange(IRRangeExpr r)
+    {
+        var start = VisitExpr(r.Start);
+        var end = VisitExpr(r.End);
+        var step = VisitExpr(r.Step);
+        
+        return ReferenceEquals(start, r.Start) && ReferenceEquals(end, r.End) && ReferenceEquals(step, r.Step)
+            ? r
+            : new IRRangeExpr(start, end, step, r.IsInclusive);
     }
 
     protected virtual IRExpression RewriteCall(IRCallExpr c)

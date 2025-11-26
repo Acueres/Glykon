@@ -51,12 +51,6 @@ public abstract class CompilerTestBase
     protected static T GetStmt<T>(Statement s)
         => Assert.IsType<T>(s);
     
-    protected static T GetBoundStmt<T>(BoundStatement s)
-        => Assert.IsType<T>(s);
-    
-    protected static T GetIRStmt<T>(IRStatement s)
-        => Assert.IsType<T>(s);
-    
     protected static IRFunctionDeclaration GetFunction(IRStatement s)
         => Assert.IsType<IRFunctionDeclaration>(s);
     
@@ -69,22 +63,18 @@ public abstract class CompilerTestBase
     protected static IRConstantDeclaration GetConst(IRStatement s)
         => Assert.IsType<IRConstantDeclaration>(s);
     
-    protected static void AssertNoErrors(IEnumerable<IGlykonError> errors)
-        => Assert.Empty(errors);
-
-    protected static void AssertSingleError<T>(IEnumerable<IGlykonError> errors)
-        where T : IGlykonError
-    {
-        var list = errors.ToList();
-        var single = Assert.Single(list);
-        Assert.IsType<T>(single);
-    }
-
-    protected static void AssertAllErrors<T>(IEnumerable<IGlykonError> errors, int expectedCount)
-        where T : IGlykonError
-    {
-        var list = errors.ToList();
-        Assert.Equal(expectedCount, list.Count);
-        Assert.All(list, e => Assert.IsType<T>(e));
-    }
+    protected static IRWhileStmt GetWhileStmt(IRStatement s)
+        => Assert.IsType<IRWhileStmt>(s);
+    
+    protected static IRBlockStmt GetBlockStmt(IRStatement s)
+        => Assert.IsType<IRBlockStmt>(s);
+    
+    protected static IRExpressionStmt GetExprStmt(IRStatement s)
+        => Assert.IsType<IRExpressionStmt>(s);
+    
+    protected static IRBinaryExpr GetBinary(IRExpression e)
+        => Assert.IsType<IRBinaryExpr>(e);
+    
+    protected static IRAssignmentExpr GetAssignment(IRExpression e)
+        => Assert.IsType<IRAssignmentExpr>(e);
 }

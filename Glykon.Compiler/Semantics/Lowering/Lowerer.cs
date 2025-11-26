@@ -1,7 +1,9 @@
 using Glykon.Compiler.Core;
 using Glykon.Compiler.Semantics.Binding;
 using Glykon.Compiler.Semantics.IR;
+using Glykon.Compiler.Semantics.IR.Expressions;
 using Glykon.Compiler.Semantics.IR.Statements;
+using Glykon.Compiler.Semantics.Operators;
 using Glykon.Compiler.Semantics.Rewriting;
 using Glykon.Compiler.Semantics.Types;
 
@@ -11,24 +13,144 @@ public class Lowerer(IRTree ir, IdentifierInterner interner, TypeSystem ts, Symb
 {
     public IRTree Lower()
     {
-        List<IRStatement> wrapped = new(ir.Length);
+        List<IRStatement> rewritten = new(ir.Length);
+        rewritten.AddRange(ir.Select(VisitStmt));
 
-        wrapped = mode == LanguageMode.Script ? WrapScript() : ir.Select(s => s).ToList();
+        List<IRStatement> wrapped = mode == LanguageMode.Script
+            ? WrapScript(rewritten)
+            : rewritten;
+
+        return new IRTree([..wrapped], ir.FileName);
+    }
+    
+    protected override IRStatement RewriteFor(IRForStmt forStmt)
+    {
+        var iteratorDecl = (IRVariableDeclaration)VisitStmt(forStmt.Iterator);
+        var rangeExpr = (IRRangeExpr)VisitExpr(forStmt.Range);
+        var bodyBlock = (IRBlockStmt)VisitStmt(forStmt.Body);
         
-        List<IRStatement> rewritten = new(wrapped.Count);
+        var normalizedFor = new IRForStmt(iteratorDecl, rangeExpr, bodyBlock);
         
-        rewritten.AddRange(wrapped.Select(VisitStmt));
+        var whileStmt = LowerForToWhile(normalizedFor);
         
-        return new IRTree([..rewritten], ir.FileName);
+        IRStatement[] stmts = [iteratorDecl, whileStmt];
+        return new IRBlockStmt(stmts, bodyBlock.Scope);
     }
 
-    private List<IRStatement> WrapScript()
+    IRWhileStmt LowerForToWhile(IRForStmt forStatement)
+    {
+        var range = forStatement.Range;
+        
+        var iteratorVariable = new IRVariableExpr(forStatement.Iterator.Symbol);
+
+        var stepExpr = range.Step switch
+        {
+            null => new IRLiteralExpr(ConstantValue.FromInt(1), ts[TypeKind.Int64]),
+            IRLiteralExpr stepLiteral => stepLiteral,
+            _ => range.Step!
+        };
+
+        IRExpression loopCondition = HandleForDirection(range, stepExpr, iteratorVariable);
+        var nextIterator = new IRBinaryExpr(BinaryOp.Add, iteratorVariable, stepExpr, ts[TypeKind.Int64]);
+        var iteratorIncrement = new IRAssignmentExpr(nextIterator, iteratorVariable.Symbol);
+
+        var body = (IRBlockStmt)forStatement.Body;
+        var bodyStatements = body.Statements.ToList();
+        bodyStatements.Add(new IRExpressionStmt(iteratorIncrement));
+
+        return new IRWhileStmt(loopCondition, new IRBlockStmt([..bodyStatements], body.Scope));
+    }
+
+    IRExpression HandleForDirection(
+        IRRangeExpr range,
+        IRExpression stepExpr,
+        IRVariableExpr iteratorVariable)
+    {
+        var intType = ts[TypeKind.Int64];
+        var boolType = ts[TypeKind.Bool];
+        
+        // Step is a literal: we know its sign now
+        if (stepExpr is IRLiteralExpr stepLiteral)
+        {
+            var stepValue = stepLiteral.Value.Int;
+
+            // Step 0: empty range
+            if (stepValue == 0)
+            {
+                return new IRLiteralExpr(ConstantValue.FromBool(false), boolType);
+            }
+
+            // Positive = ascending; negative = descending
+            var comparisonOp =
+                stepValue > 0
+                    ? (range.IsInclusive ? BinaryOp.LessOrEqual : BinaryOp.Less)
+                    : (range.IsInclusive ? BinaryOp.GreaterOrEqual : BinaryOp.Greater);
+
+            return new IRBinaryExpr(
+                comparisonOp,
+                iteratorVariable,
+                range.End,
+                boolType);
+        }
+
+        // Dynamic step: sign only known at runtime
+        var zeroLiteral = new IRLiteralExpr(ConstantValue.FromInt(0), intType);
+
+        // step > 0
+        var stepGreaterZero = new IRBinaryExpr(
+            BinaryOp.Greater,
+            stepExpr,
+            zeroLiteral,
+            boolType);
+
+        // step < 0
+        var stepLessZero = new IRBinaryExpr(
+            BinaryOp.Less,
+            stepExpr,
+            zeroLiteral,
+            boolType);
+
+        // Ascending bounds: i < end (or <=)
+        var forwardBound = new IRBinaryExpr(
+            range.IsInclusive ? BinaryOp.LessOrEqual : BinaryOp.Less,
+            iteratorVariable,
+            range.End,
+            boolType);
+
+        // Descending bounds: i > end (or >=)
+        var backwardBound = new IRBinaryExpr(
+            range.IsInclusive ? BinaryOp.GreaterOrEqual : BinaryOp.Greater,
+            iteratorVariable,
+            range.End,
+            boolType);
+
+        // (step > 0 && forwardBound) || (step < 0 && backwardBound)
+        var forwardCond = new IRLogicalExpr(
+            BinaryOp.LogicalAnd,
+            stepGreaterZero,
+            forwardBound,
+            boolType);
+
+        var backwardCond = new IRLogicalExpr(
+            BinaryOp.LogicalAnd,
+            stepLessZero,
+            backwardBound,
+            boolType);
+
+        return new IRLogicalExpr(
+            BinaryOp.LogicalOr,
+            forwardCond,
+            backwardCond,
+            boolType);
+    }
+
+    private List<IRStatement> WrapScript(List<IRStatement> stmts)
     {
         List<IRStatement> functions = [];
         List<IRStatement> constants = [];
         List<IRStatement> scriptStatements = [];
 
-        foreach (var stmt in ir)
+        foreach (var stmt in stmts)
         {
             if (stmt is IRFunctionDeclaration f)
             {

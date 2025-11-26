@@ -10,12 +10,14 @@ namespace Tests
         [Fact]
         public void BlockStatement()
         {
-            const string src = @"
-            let i = 6
-            {
-                let i = 5
-            }
-            ";
+            const string src = """
+
+                                           let i = 6
+                                           {
+                                               let i = 5
+                                           }
+                                           
+                               """;
 
             var (syntaxTree, _, lexErrors, errors) = Parse(src);
             
@@ -31,26 +33,28 @@ namespace Tests
         [Fact]
         public void IfStatement()
         {
-            const string src = @"
-            let condition = true
-            let second_condition = false
-            if condition {
-                let i = 0
-                println(i)
-            }
-            elif second_condition {
-                let i = 1
-                println(i)
-            }
-            else if not second_condition {
-                let i = 2
-                println(i)
-            }
-            else {
-                let i = 3
-                println(i)
-            }
-            ";
+            const string src = """
+
+                                           let condition = true
+                                           let second_condition = false
+                                           if condition {
+                                               let i = 0
+                                               println(i)
+                                           }
+                                           elif second_condition {
+                                               let i = 1
+                                               println(i)
+                                           }
+                                           else if not second_condition {
+                                               let i = 2
+                                               println(i)
+                                           }
+                                           else {
+                                               let i = 3
+                                               println(i)
+                                           }
+                                           
+                               """;
             
             var (syntaxTree, _, lexErrors, errors) = Parse(src);
             
@@ -71,12 +75,14 @@ namespace Tests
         [Fact]
         public void WhileStatement()
         {
-            const string src = @"
-            let condition = true
-            while condition {
-                println('ok')
-            }
-            ";
+            const string src = """
+
+                                           let condition = true
+                                           while condition {
+                                               println('ok')
+                                           }
+                                           
+                               """;
             
             var (syntaxTree, _, lexErrors, errors) = Parse(src);
             
@@ -84,19 +90,44 @@ namespace Tests
             Assert.Empty(errors);
             Assert.Equal(2, syntaxTree.Length);
 
-            WhileStmt whileStmt = (WhileStmt)syntaxTree[1];
+            var whileStmt = (WhileStmt)syntaxTree[1];
             Assert.NotNull(whileStmt.Body);
             Assert.NotNull(whileStmt.Condition);
+        }
+        
+        [Fact]
+        public void ForStatement()
+        {
+            const string src = """
+                               for i in 0..=10 {
+                                    println(i)
+                               }
+                               """;
+            
+            var (syntaxTree, _, lexErrors, errors) = Parse(src);
+            
+            Assert.Empty(lexErrors);
+            Assert.Empty(errors);
+            Assert.Single(syntaxTree);
+
+            var forStmt = (ForStmt)syntaxTree.Single();
+            Assert.NotNull(forStmt.Iterator);
+            Assert.Equal("i", forStmt.Iterator.Name);
+            Assert.NotNull(forStmt.Range);
+            Assert.True(forStmt.Range.IsInclusive);
+            Assert.NotNull(forStmt.Body);
         }
 
         [Fact]
         public void FunctionDeclaration()
         {
-            const string src = @"
-            def f(a: int, b: int) -> int {
-                return a + b
-            }
-            ";
+            const string src = """
+
+                                           def f(a: int, b: int) -> int {
+                                               return a + b
+                                           }
+                                           
+                               """;
             
             var (syntaxTree, _, lexErrors, errors) = Parse(src);
             
@@ -168,9 +199,11 @@ namespace Tests
         [Fact]
         public void Call()
         {
-            const string src = @"
-            function('call test')
-            ";
+            const string src = """
+
+                                           function('call test')
+                                           
+                               """;
             
             var (syntaxTree, _, lexErrors, errors) = Parse(src);
             
@@ -186,10 +219,12 @@ namespace Tests
         [Fact]
         public void Assignment()
         {
-            const string src = @"
-            let a = 5
-            a = 3
-"; 
+            const string src = """
+
+                                           let a = 5
+                                           a = 3
+
+                               """; 
             var (syntaxTree, _, lexErrors, errors) = Parse(src);
             
             Assert.Empty(lexErrors);

@@ -93,12 +93,22 @@ public class SemanticBinder(SyntaxTree syntaxTree, TypeSystem typeSystem, Identi
             case StatementKind.While:
             {
                 var whileStmt = (WhileStmt)stmt;
-                var boundStatement = BindStatement(whileStmt.Body);
+                var boundBody = BindStatement(whileStmt.Body);
 
                 BoundExpression boundCondition = BindExpression(whileStmt.Condition);
-                BoundWhileStmt boundWhileStmt = new(boundCondition, boundStatement);
+                BoundWhileStmt boundWhileStmt = new(boundCondition, boundBody);
 
                 return boundWhileStmt;
+            }
+            case StatementKind.For:
+            {
+                var forStmt = (ForStmt)stmt;
+                
+                var iter = BindStatement(forStmt.Iterator);
+                var boundRange = BindExpression(forStmt.Range);
+                var boundBody = BindStatement(forStmt.Body);
+                
+                return new BoundForStmt((BoundVariableDeclaration)iter, (BoundRangeExpr)boundRange, boundBody);
             }
             case StatementKind.Variable:
             {
@@ -224,6 +234,16 @@ public class SemanticBinder(SyntaxTree syntaxTree, TypeSystem typeSystem, Identi
                 BoundExpression right = BindExpression(assignmentExpr.Right);
                 
                 return new BoundAssignmentExpr(right, symbol);
+            }
+            case ExpressionKind.Range:
+            {
+                RangeExpr rangeExpr = (RangeExpr)expression;
+                
+                var start = BindExpression(rangeExpr.Start);
+                var end = BindExpression(rangeExpr.End);
+                var step = BindExpression(rangeExpr.Step);
+                
+                return new BoundRangeExpr(start, end, step, rangeExpr.IsInclusive);
             }
             case ExpressionKind.Variable:
             {
