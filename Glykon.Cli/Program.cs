@@ -1,68 +1,43 @@
-﻿using Glykon.Compiler.Backend.CIL;
-using Glykon.Compiler.Semantics.Analysis;
-using Glykon.Compiler.Syntax;
-using Glykon.Compiler.Diagnostics.Errors;
-using Glykon.Compiler.Semantics.Binding;
-using Glykon.Compiler.Core;
+﻿using Glykon.Runtime;
 
 namespace Glykon.Cli;
 
-internal class Program
+internal static class Program
 {
     static void Main(string[] args)
     {
         const string filename = "Test";
-        const string src = @"
-            def main(v: int) {
-                println(v)
-                def inner() {
-                    let i = 1
-                    if true {
-                        let k = 2.5
-                        {
-                            println(i + k)
-                        }
-                    }
-                }
-                inner() # Should print 3.5
-            }
-";
-        List<IGlykonError> errors = [];
+        const string src = """
+
+                                       def main() {
+                                            for i in 0..21 {
+                                                println(fib(i));
+                                            }
+                                       }
+                                       
+                                       def fib(n: int) -> int {
+                                            let a = 0;
+                                            let b = 1;
+                                            let i = 0;
+                           
+                                            while i < n {
+                                                let next = a + b;
+                                                a = b;
+                                                b = next;
+                                                i = i + 1;
+                                            }
+                           
+                                        return a;
+                                      }
+                           """;
+        GlykonRuntime runtime = new(src, filename);
+        var result = runtime.RunAppInMemory();
         
-        SourceText source = new(filename, src);
-        Lexer lexer = new(source, filename);
-        var (tokens, lexerErrors) = lexer.Execute();
-
-        errors.AddRange(lexerErrors);
-        
-        Parser parser = new(tokens, filename);
-        var (syntaxTree, parserErrors) = parser.Execute();
-
-        errors.AddRange(parserErrors);
-        
-        IdentifierInterner interner = new();
-        SemanticAnalyzer semanticAnalyzer = new(syntaxTree, interner, filename);
-        var (irTree, typeSystem, symbolTable, semanticErrors) = semanticAnalyzer.Analyze();
-
-        errors.AddRange(semanticErrors);
-
-        foreach (var error in errors)
+        if (result.Exception is not null)
         {
-            error.Report();
+            throw result.Exception;
         }
-
-        if (errors.Count != 0) return;
-
-        var backend = new CilBackend(filename, interner);
-
-        var assembly = backend.Emit(irTree, symbolTable, typeSystem);
-
-        Type? program = assembly.GetType("Program");
-        if (program is null) return;
-
-        var main = program.GetMethod("main", [typeof(int)]);
-        if (main is null) return;
-
-        main.Invoke(null, [42]);
+        
+        Console.Write(result.Stdout);
     }
 }

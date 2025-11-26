@@ -11,7 +11,8 @@ public enum BoundExpressionKind : byte
     Variable,
     Assignment,
     Logical,
-    Conversion
+    Conversion,
+    Range
 }
 
 public abstract class BoundExpression

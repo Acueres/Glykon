@@ -1,30 +1,15 @@
 ﻿using Glykon.Compiler.Core;
 using Glykon.Compiler.Diagnostics.Errors;
-using Glykon.Compiler.Semantics.Analysis;
-using Glykon.Compiler.Semantics.Binding;
-using Glykon.Compiler.Syntax;
+using Tests.Infrastructure;
+
 namespace Tests;
 
-public class FlowTests
+public class FlowTests : CompilerTestBase
 {
-    private static IGlykonError[] Check(string src, string file)
-    {
-        SourceText source = new(file, src);
-        var (tokens, _) = new Lexer(source, file).Execute();
-        var (syntaxTree, parseErr) = new Parser(tokens, file).Execute();
-        
-        SemanticAnalyzer semanticAnalyzer = new(syntaxTree, new IdentifierInterner(), file);
-        var (_, _, _, errors) = semanticAnalyzer.Analyze();
-        
-        Assert.Empty(parseErr);
-
-        return errors;
-    }
-
     [Fact]
     public void JumpStatementInsideLoop_ShouldSucceed()
     {
-        const string code = """
+        const string src = """
             while true {
                 if false {
                     continue
@@ -32,14 +17,14 @@ public class FlowTests
                 break
             }
         """;
-        var errors = Check(code, nameof(JumpStatementInsideLoop_ShouldSucceed));
-        Assert.Empty(errors);
+        var semanticResult = Analyze(src, LanguageMode.Script);
+        Assert.Empty(semanticResult.AllErrors);
     }
 
     [Fact]
     public void JumpStatementOutsideLoop_ShouldFail_WithFlowErrors()
     {
-        const string code = """
+        const string src = """
             while true {
                 break       # valid
             }
@@ -50,86 +35,94 @@ public class FlowTests
                 break       # Error: cannot 'break' outside of a loop
             }
         """;
-
-        var errors = Check(code, nameof(JumpStatementOutsideLoop_ShouldFail_WithFlowErrors));
-        Assert.Equal(2, errors.Length);
-        Assert.All(errors, e => Assert.IsType<FlowError>(e));
+        
+        var semanticResult = Analyze(src, LanguageMode.Script);
+        Assert.Equal(2, semanticResult.AllErrors.Count());
+        Assert.All(semanticResult.AllErrors, e => Assert.IsType<FlowError>(e));
     }
 
     [Fact]
     public void ReturnStatementOutsideFunction_ShouldFail_WithFlowError()
     {
-        const string code = "return 42";
-        var errors = Check(code, nameof(ReturnStatementOutsideFunction_ShouldFail_WithFlowError));
-        var flow = errors.OfType<FlowError>().ToList();
-        Assert.Single(flow);
-        Assert.Equal(1, errors.Length);
+        const string src = "return 42";
+        var semanticResult = Analyze(src, LanguageMode.Script);
+
+        Assert.Single(semanticResult.AllErrors);
+        Assert.All(semanticResult.AllErrors, e => Assert.IsType<FlowError>(e));
     }
 
     [Fact]
     public void ReturnInsideTopLevelLoop_ShouldStillFail_WithFlowError()
     {
-        const string code = """
+        const string src = """
             while true {
                 return 1   # still outside any function
             }
         """;
-        var errors = Check(code, nameof(ReturnInsideTopLevelLoop_ShouldStillFail_WithFlowError));
-        Assert.Single(errors);
-        Assert.IsType<FlowError>(errors[0]);
+        
+        var semanticResult = Analyze(src, LanguageMode.Script);
+        
+        Assert.Single(semanticResult.AllErrors);
+        Assert.All(semanticResult.AllErrors, e => Assert.IsType<FlowError>(e));
     }
 
     [Fact]
     public void ReturnWithoutValue_InVoidFunction_ShouldSucceed()
     {
-        const string code = """
+        const string src = """
             def process() {
                 return
             }
         """;
-        var errors = Check(code, nameof(ReturnWithoutValue_InVoidFunction_ShouldSucceed));
-        Assert.Empty(errors);
+        
+        var semanticResult = Analyze(src, LanguageMode.Script);
+        Assert.Empty(semanticResult.AllErrors);
     }
 
     [Fact]
     public void BreakInsideNestedLocalFunction_WithinOuterLoop_ShouldFail()
     {
-        const string code = """
+        const string src = """
             while true {
                 def inner() {
                     break    # Error: no loop in this function context
                 }
             }
         """;
-        var errors = Check(code, nameof(BreakInsideNestedLocalFunction_WithinOuterLoop_ShouldFail));
-        Assert.Single(errors);
-        Assert.IsType<FlowError>(errors[0]);
+        
+        var semanticResult = Analyze(src, LanguageMode.Script);
+
+        Assert.Single(semanticResult.AllErrors);
+        Assert.All(semanticResult.AllErrors, e => Assert.IsType<FlowError>(e));
     }
 
     [Fact]
     public void BreakInsideLocalFunctionOwnLoop_ShouldSucceed()
     {
-        const string code = """
+        const string src = """
             def inner() {
                 while true {
                     break
                 }
             }
         """;
-        var errors = Check(code, nameof(BreakInsideLocalFunctionOwnLoop_ShouldSucceed));
-        Assert.Empty(errors);
+        
+        var semanticResult = Analyze(src, LanguageMode.Script);
+        Assert.Empty(semanticResult.AllErrors);
     }
 
     [Fact]
     public void ContinueOutsideLoopInIf_ShouldFail_WithFlowError()
     {
-        const string code = """
+        const string src = """
             if true {
                 continue   # Error: no enclosing loop
             }
         """;
-        var errors = Check(code, nameof(ContinueOutsideLoopInIf_ShouldFail_WithFlowError));
-        Assert.Single(errors);
-        Assert.IsType<FlowError>(errors[0]);
+        
+        var semanticResult = Analyze(src, LanguageMode.Script);
+
+        Assert.Single(semanticResult.AllErrors);
+        Assert.All(semanticResult.AllErrors, e => Assert.IsType<FlowError>(e));
     }
 }

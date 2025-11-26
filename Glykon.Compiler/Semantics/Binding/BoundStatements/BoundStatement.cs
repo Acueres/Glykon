@@ -11,6 +11,7 @@ public enum BoundStatementKind : byte
     Return,
     If,
     While,
+    For,
     Jump
 }
 

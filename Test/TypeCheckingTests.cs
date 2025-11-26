@@ -1,33 +1,17 @@
 using Glykon.Compiler.Core;
 using Glykon.Compiler.Diagnostics.Errors;
-using Glykon.Compiler.Semantics.Analysis;
-using Glykon.Compiler.Semantics.Binding;
-using Glykon.Compiler.Semantics.IR;
-using Glykon.Compiler.Semantics.Types;
-using Glykon.Compiler.Syntax;
+using Tests.Infrastructure;
 
 namespace Tests;
 
-public class TypeCheckingTests
+public class TypeCheckingTests : CompilerTestBase
 {
     // Helpers
-    private static (SyntaxTree syntaxTree, List<IGlykonError> parseErr) Parse(string src, string file)
-    {
-        SourceText source = new(file, src);
-        var (tokens, _) = new Lexer(source, file).Execute();
-        return new Parser(tokens, file).Execute();
-    }
 
-    private static IGlykonError[] Check(string src, string file)
+    private IGlykonError[] Check(string src, string file)
     {
-        var (syntaxTree, parseErr) = Parse(src, file);
-        Assert.Empty(parseErr);
-        
-        IdentifierInterner interner = new();
-        SemanticAnalyzer semanticAnalyzer = new(syntaxTree, interner, file);
-        var (_, _, _, errors) = semanticAnalyzer.Analyze();
-        
-        return errors;
+        var semanticResult = Analyze(src, LanguageMode.Script, file);
+        return [..semanticResult.AllErrors];
     }
 
     // Literals, unary & binary
@@ -120,14 +104,14 @@ public class TypeCheckingTests
     public void IfWhileConditionMustBeBool()
     {
         const string code = """
-            if 0: let a = 1
-            while 'text': break
+            if 0 { let a = 1 }
+            while 'text' { break }
         """;
-        Assert.Equal(2, Check(code, nameof(IfWhileConditionMustBeBool)).Length);
+        Assert.Equal(2, Check(code, nameof(IfWhileConditionMustBeBool)).Count());
     }
 
     // Function returns
-
+    
     [Fact]
     public void FunctionReturnTypeMatch()
     {
@@ -170,7 +154,8 @@ public class TypeCheckingTests
             }
         """;
         var errors = Check(code, nameof(ReturnWithoutValueFromTypedFunction_ShouldFail_WithTypeError));
+        
         Assert.Single(errors);
-        Assert.IsType<TypeError>(errors[0]);
+        Assert.All(errors, e => Assert.IsType<TypeError>(e));
     }
 }

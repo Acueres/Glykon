@@ -7,16 +7,16 @@ using System.Globalization;
 
 namespace Glykon.Compiler.Syntax;
 
-public class Parser(Token[] tokens, string filename)
+public class Parser(LexResult lexResult, string filename)
 {
     bool AtEnd => tokenIndex >= tokens.Length;
 
-    readonly Token[] tokens = tokens;
+    readonly Token[] tokens = lexResult.Tokens;
     readonly List<Statement> statements = [];
     readonly List<IGlykonError> errors = [];
     int tokenIndex;
 
-    public (SyntaxTree, List<IGlykonError>) Execute()
+    public ParseResult Parse()
     {
         while (!AtEnd)
         {
@@ -32,7 +32,7 @@ public class Parser(Token[] tokens, string filename)
             }
         }
         var syntaxTree = new SyntaxTree([..statements], filename);
-        return (syntaxTree, errors);
+        return new ParseResult(syntaxTree, lexResult.Tokens, lexResult.Errors, [..errors]);
     }
 
     Statement ParseStatement()
@@ -66,6 +66,11 @@ public class Parser(Token[] tokens, string filename)
         if (Match(TokenKind.While))
         {
             return ParseWhileStatement();
+        }
+        
+        if (Match(TokenKind.For))
+        {
+            return ParseForStatement();
         }
 
         if (Match(TokenKind.Break, TokenKind.Continue))
@@ -107,56 +112,57 @@ public class Parser(Token[] tokens, string filename)
     {
         Expression condition = ParseLogicalOr();
 
-        // Handle ASI artefacts
+        // Handle ASI artifacts
         Match(TokenKind.Semicolon);
-
-        Statement stmt;
-        if (Match(TokenKind.BraceLeft))
-        {
-            stmt = ParseBlockStatement();
-        }
-        else
-        {
-            Consume(TokenKind.Colon, "Expect ':' after if condition");
-
-            stmt = ParseStatement();
-        }
+        
+        Consume(TokenKind.BraceLeft, "Expect '{' after if condition");
+        
+        Statement body = ParseBlockStatement();
 
         Statement? elseStmt = null;
         if (Match(TokenKind.Else))
         {
-            // Handle ASI artefacts
+            // Handle ASI artifacts
             Match(TokenKind.Semicolon);
             elseStmt = ParseStatement();
         }
         else if (Match(TokenKind.Elif))
         {
-            // Handle ASI artefacts
+            // Handle ASI artifacts
             Match(TokenKind.Semicolon);
             elseStmt = ParseIfStatement();
         }
 
-        return new IfStmt(condition, stmt, elseStmt);
+        return new IfStmt(condition, body, elseStmt);
     }
 
     WhileStmt ParseWhileStatement()
     {
         Expression condition = ParseLogicalOr();
 
-        // Handle ASI artefacts
+        // Handle ASI artifacts
         Match(TokenKind.Semicolon);
 
-        if (Match(TokenKind.BraceLeft))
-        {
-            var body = ParseBlockStatement();
-            return new WhileStmt(condition, body);
-        }
+        Consume(TokenKind.BraceLeft, "Expect '{' after while condition");
 
-        Consume(TokenKind.Colon, "Expect ':' after while condition");
+        var body = ParseBlockStatement();
+        return new WhileStmt(condition, body);
+    }
 
-        var statement = ParseStatement();
+    ForStmt ParseForStatement()
+    {
+        Token identifierToken = Consume(TokenKind.Identifier, "Expect variable name");
 
-        return new WhileStmt(condition, statement);
+        Consume(TokenKind.In, "Expect 'in' before range'");
+        
+        var range = ParseRange();
+        
+        var iter = new VariableDeclaration(range.Start, identifierToken.Text, TypeAnnotation.None);
+        
+        Consume(TokenKind.BraceLeft, "Expect '{' before for loop body");
+        var body = ParseBlockStatement();
+
+        return new ForStmt(iter, range, body);
     }
 
     FunctionDeclaration ParseFunctionDeclaration()
@@ -178,18 +184,9 @@ public class Parser(Token[] tokens, string filename)
             returnType = ParseTypeDeclaration();
         }
 
-
-        BlockStmt body;
-        if (Match(TokenKind.BraceLeft))
-        {
-            body = ParseBlockStatement();
-        }
-        else
-        {
-            Consume(TokenKind.Colon, "Body must be declared");
-            var stmt = ParseStatement();
-            body = new BlockStmt([stmt]);
-        }
+        Consume(TokenKind.BraceLeft, "Body must be declared");
+        
+        BlockStmt body = ParseBlockStatement();
 
         return new FunctionDeclaration(functionName.Text, parameters, returnType, body);
     }
@@ -211,7 +208,7 @@ public class Parser(Token[] tokens, string filename)
 
     VariableDeclaration ParseVariableDeclarationStatement()
     {
-        Token token = Consume(TokenKind.Identifier, "Expect variable name");
+        Token identifierToken = Consume(TokenKind.Identifier, "Expect variable name");
 
         TypeAnnotation declaredType = TypeAnnotation.None;
         if (Match(TokenKind.Colon))
@@ -227,17 +224,16 @@ public class Parser(Token[] tokens, string filename)
 
         if (initializer == null)
         {
-            ParseError error = new(token, filename, "Variable must be initialized");
+            ParseError error = new(identifierToken, filename, "Variable must be initialized");
             errors.Add(error);
             throw error.Exception();
         }
-        else
-        {
-            TerminateStatement("Expect ';' after variable declaration");
 
-            string name = token.Text;
-            return new(initializer, name, declaredType);
-        }
+
+        TerminateStatement("Expect ';' after variable declaration");
+
+        string name = identifierToken.Text;
+        return new(initializer, name, declaredType);
     }
 
     ConstantDeclaration ParseConstantDeclaration()
@@ -305,6 +301,32 @@ public class Parser(Token[] tokens, string filename)
         }
 
         return expr;
+    }
+
+    RangeExpr ParseRange()
+    {
+        var start = ParseTerm();
+
+        bool isInclusive = false;
+        if (Match(TokenKind.RangeInclusive))
+        {
+            isInclusive = true;
+        }
+        else if (!Match(TokenKind.Range))
+        {
+            var error = new ParseError(Current, filename, "Expect range operator");
+            errors.Add(error);
+        }
+        
+        var end = ParseTerm();
+
+        Expression? step = null;
+        if (Match(TokenKind.By))
+        {
+            step = ParseTerm();
+        }
+        
+        return new RangeExpr(start, end, step, isInclusive);
     }
 
     Expression ParseLogicalOr()
@@ -438,8 +460,10 @@ public class Parser(Token[] tokens, string filename)
     Expression ParsePrimary()
     {
         if (Match(TokenKind.None, TokenKind.LiteralTrue, TokenKind.LiteralFalse,
-                  TokenKind.LiteralInt, TokenKind.LiteralReal, TokenKind.LiteralString))
+                TokenKind.LiteralInt, TokenKind.LiteralReal, TokenKind.LiteralString))
+        {
             return ParseLiteral();
+        }
 
         if (Match(TokenKind.Identifier))
         {
@@ -487,7 +511,7 @@ public class Parser(Token[] tokens, string filename)
             case TokenKind.LiteralString:
                 return new LiteralExpr(ConstantValue.FromString(span.Text));
             default:
-                ParseError error = new(Current, filename, $"{Previous.Kind} not a valid literal kind");
+                ParseError error = new(Previous, filename, $"{Previous.Kind} not a valid literal kind");
                 errors.Add(error);
                 throw error.Exception();
         }

@@ -11,6 +11,7 @@ public enum IRStatementKind : byte
     Return,
     If,
     While,
+    For,
     Jump
 }
 

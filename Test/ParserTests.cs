@@ -1,31 +1,27 @@
-﻿using Glykon.Compiler.Core;
-using Glykon.Compiler.Semantics.Binding;
-using Glykon.Compiler.Semantics.Symbols;
-using Glykon.Compiler.Semantics.Types;
-using Glykon.Compiler.Syntax;
+﻿using Glykon.Compiler.Syntax;
 using Glykon.Compiler.Syntax.Expressions;
 using Glykon.Compiler.Syntax.Statements;
+using Tests.Infrastructure;
 
 namespace Tests
 {
-    public class ParserTests
+    public class ParserTests : CompilerTestBase
     {
         [Fact]
         public void BlockStatement()
         {
-            const string fileName = "BlockStatementTest";
-            const string src = @"
-            let i = 6
-            {
-                let i = 5
-            }
-            ";
-            SourceText source = new(fileName, src);
-            Lexer lexer = new(source, fileName);
-            (var tokens, _) = lexer.Execute();
-            Parser parser = new(tokens, fileName);
-            var (syntaxTree, errors) = parser.Execute();
+            const string src = """
 
+                                           let i = 6
+                                           {
+                                               let i = 5
+                                           }
+                                           
+                               """;
+
+            var (syntaxTree, _, lexErrors, errors) = Parse(src);
+            
+            Assert.Empty(lexErrors);
             Assert.Empty(errors);
             Assert.NotEmpty(syntaxTree);
             Assert.Equal(2, syntaxTree.Length);
@@ -37,37 +33,32 @@ namespace Tests
         [Fact]
         public void IfStatement()
         {
-            const string fileName = "IfStatementTest";
-            const string src = @"
-            let condition = true
-            let second_condition = false
-            if condition {
-                let i = 0
-                println(i)
-            }
-            elif second_condition {
-                let i = 1
-                println(i)
-            }
-            else if not second_condition {
-                let i = 2
-                println(i)
-            }
-            else {
-                let i = 3
-                println(i)
-            }
-            ";
+            const string src = """
 
-            SourceText source = new(fileName, src);
-            Lexer lexer = new(source, fileName);
-            (var tokens, var lexerErrors) = lexer.Execute();
-
-            Assert.Empty(lexerErrors);
-
-            Parser parser = new(tokens, fileName);
-            var (syntaxTree, errors) = parser.Execute();
-
+                                           let condition = true
+                                           let second_condition = false
+                                           if condition {
+                                               let i = 0
+                                               println(i)
+                                           }
+                                           elif second_condition {
+                                               let i = 1
+                                               println(i)
+                                           }
+                                           else if not second_condition {
+                                               let i = 2
+                                               println(i)
+                                           }
+                                           else {
+                                               let i = 3
+                                               println(i)
+                                           }
+                                           
+                               """;
+            
+            var (syntaxTree, _, lexErrors, errors) = Parse(src);
+            
+            Assert.Empty(lexErrors);
             Assert.Empty(errors);
             Assert.Equal(3, syntaxTree.Length);
 
@@ -84,48 +75,63 @@ namespace Tests
         [Fact]
         public void WhileStatement()
         {
-            const string fileName = "WhileStatementTest";
-            const string src = @"
-            let condition = true
-            while condition {
-                println('ok')
-            }
-            ";
+            const string src = """
 
-            SourceText source = new(fileName, src);
-            Lexer lexer = new(source, fileName);
-            (var tokens, var lexerErrors) = lexer.Execute();
-
-            Assert.Empty(lexerErrors);
-
-            Parser parser = new(tokens, fileName);
-            var (syntaxTree, errors) = parser.Execute();
-
+                                           let condition = true
+                                           while condition {
+                                               println('ok')
+                                           }
+                                           
+                               """;
+            
+            var (syntaxTree, _, lexErrors, errors) = Parse(src);
+            
+            Assert.Empty(lexErrors);
             Assert.Empty(errors);
             Assert.Equal(2, syntaxTree.Length);
 
-            WhileStmt whileStmt = (WhileStmt)syntaxTree[1];
+            var whileStmt = (WhileStmt)syntaxTree[1];
             Assert.NotNull(whileStmt.Body);
             Assert.NotNull(whileStmt.Condition);
+        }
+        
+        [Fact]
+        public void ForStatement()
+        {
+            const string src = """
+                               for i in 0..=10 {
+                                    println(i)
+                               }
+                               """;
+            
+            var (syntaxTree, _, lexErrors, errors) = Parse(src);
+            
+            Assert.Empty(lexErrors);
+            Assert.Empty(errors);
+            Assert.Single(syntaxTree);
+
+            var forStmt = (ForStmt)syntaxTree.Single();
+            Assert.NotNull(forStmt.Iterator);
+            Assert.Equal("i", forStmt.Iterator.Name);
+            Assert.NotNull(forStmt.Range);
+            Assert.True(forStmt.Range.IsInclusive);
+            Assert.NotNull(forStmt.Body);
         }
 
         [Fact]
         public void FunctionDeclaration()
         {
-            const string fileName = "FunctionDeclarationTest";
-            const string src = @"
-            def f(a: int, b: int) -> int {
-                return a + b
-            }
-            ";
+            const string src = """
 
-            SourceText source = new(fileName, src);
-            Lexer lexer = new(source, fileName);
-            (var tokens, _) = lexer.Execute();
-
-            Parser parser = new(tokens, fileName);
-            var (syntaxTree, errors) = parser.Execute();
-
+                                           def f(a: int, b: int) -> int {
+                                               return a + b
+                                           }
+                                           
+                               """;
+            
+            var (syntaxTree, _, lexErrors, errors) = Parse(src);
+            
+            Assert.Empty(lexErrors);
             Assert.Empty(errors);
             Assert.Single(syntaxTree);
             Assert.Equal(StatementKind.Function, syntaxTree.First().Kind);
@@ -142,17 +148,11 @@ namespace Tests
         [Fact]
         public void ConstantDeclaration()
         {
-            const string fileName = "ConstantDeclarationTest";
             const string src = "const pi: real = 3.14";
-
-            SourceText source = new(fileName, src);
-            var lexer = new Lexer(source, fileName);
-            (var tokens, var lexErrs) = lexer.Execute();
-            Assert.Empty(lexErrs);
-
-            var parser = new Parser(tokens, fileName);
-            var (syntaxTree, errors) = parser.Execute();
-
+            
+            var (syntaxTree, _, lexErrors, errors) = Parse(src);
+            
+            Assert.Empty(lexErrors);
             Assert.Empty(errors);
             Assert.Single(syntaxTree);
             Assert.Equal(StatementKind.Constant, syntaxTree.First().Kind);
@@ -161,17 +161,12 @@ namespace Tests
         [Fact]
         public void VariableDeclaration()
         {
-            const string fileName = "VariableDeclarationTest";
             const string src = "let value = 42;";
-
-            SourceText source = new(fileName, src);
-            var lexer = new Lexer(source, fileName);
-            (var tokens, var lexErrs) = lexer.Execute();
-            Assert.Empty(lexErrs);
-
-            var parser = new Parser(tokens, fileName);
-            var (syntaxTree, _) = parser.Execute();
-
+            
+            var (syntaxTree, _, lexErrors, errors) = Parse(src);
+            
+            Assert.Empty(lexErrors);
+            Assert.Empty(errors);
             Assert.NotEmpty(syntaxTree);
             Assert.Single(syntaxTree);
             Assert.Equal(StatementKind.Variable, syntaxTree.First().Kind);
@@ -185,17 +180,12 @@ namespace Tests
         [Fact]
         public void VariableTypeDeclaration()
         {
-            const string fileName = "VariableTypeDeclarationTest";
             const string src = "let value: int = 42;";
-
-            SourceText source = new(fileName, src);
-            var lexer = new Lexer(source, fileName);
-            (var tokens, var lexErrs) = lexer.Execute();
-            Assert.Empty(lexErrs);
-
-            var parser = new Parser(tokens, fileName);
-            var (syntaxTree, _) = parser.Execute();
-
+            
+            var (syntaxTree, _, lexErrors, errors) = Parse(src);
+            
+            Assert.Empty(lexErrors);
+            Assert.Empty(errors);
             Assert.NotEmpty(syntaxTree);
             Assert.Single(syntaxTree);
             Assert.Equal(StatementKind.Variable, syntaxTree.First().Kind);
@@ -209,17 +199,15 @@ namespace Tests
         [Fact]
         public void Call()
         {
-            const string fileName = "CallTest";
-            const string src = @"
-            function('call test')
-            ";
+            const string src = """
 
-            SourceText source = new(fileName, src);
-            Lexer lexer = new(source, fileName);
-            (var tokens, _) = lexer.Execute();
-            Parser parser = new(tokens, fileName);
-            var (syntaxTree, errors) = parser.Execute();
-
+                                           function('call test')
+                                           
+                               """;
+            
+            var (syntaxTree, _, lexErrors, errors) = Parse(src);
+            
+            Assert.Empty(lexErrors);
             Assert.Empty(errors);
             Assert.Single(syntaxTree);
 
@@ -231,17 +219,15 @@ namespace Tests
         [Fact]
         public void Assignment()
         {
-            const string fileName = "AssignmentTest";
-            const string src = @"
-            let a = 5
-            a = 3
-"; 
-            SourceText source = new(fileName, src);
-            Lexer lexer = new(source, fileName);
-            (var tokens, _) = lexer.Execute();
-            Parser parser = new(tokens, fileName);
-            var (syntaxTree, errors) = parser.Execute();
+            const string src = """
 
+                                           let a = 5
+                                           a = 3
+
+                               """; 
+            var (syntaxTree, _, lexErrors, errors) = Parse(src);
+            
+            Assert.Empty(lexErrors);
             Assert.Empty(errors);
             Assert.Equal(2, syntaxTree.Length);
 
@@ -253,17 +239,14 @@ namespace Tests
         [Fact]
         public void UnaryOperator()
         {
-            const string fileName = "UnaryTest";
             const string src = "not false;";
-
-            SourceText source = new(fileName, src);
-            var lexer = new Lexer(source, fileName);
-            (var tokens, var lexErrs) = lexer.Execute();
-            Assert.Empty(lexErrs);
-
-            var parser = new Parser(tokens, fileName);
-            var ast = parser.ParseExpression();
-
+            
+            var (syntaxTree, _, lexErrors, errors) = Parse(src);
+            var exprStmt = GetStmt<ExpressionStmt>(syntaxTree.Single());
+            var ast = exprStmt.Expression;
+            
+            Assert.Empty(lexErrors);
+            Assert.Empty(errors);
             Assert.NotNull(ast);
             Assert.Equal(ExpressionKind.Unary, ast.Kind);
 
@@ -276,17 +259,14 @@ namespace Tests
         [Fact]
         public void Equality()
         {
-            const string fileName = "EqualityTest";
             const string src = "true == false;";
-
-            SourceText source = new(fileName, src);
-            var lexer = new Lexer(source, fileName);
-            (var tokens, var lexErrs) = lexer.Execute();
-            Assert.Empty(lexErrs);
-
-            var parser = new Parser(tokens, fileName);
-            var ast = parser.ParseExpression();
-
+            
+            var (syntaxTree, _, lexErrors, errors) = Parse(src);
+            var exprStmt = GetStmt<ExpressionStmt>(syntaxTree.Single());
+            var ast = exprStmt.Expression;
+            
+            Assert.Empty(lexErrors);
+            Assert.Empty(errors);
             Assert.NotNull(ast);
             Assert.Equal(ExpressionKind.Binary, ast.Kind);
 
@@ -301,17 +281,14 @@ namespace Tests
         [Fact]
         public void Comparison()
         {
-            const string fileName = "ComparisonTest";
             const string src = "2 > 1;";
-
-            SourceText source = new(fileName, src);
-            var lexer = new Lexer(source, fileName);
-            (var tokens, var lexErrs) = lexer.Execute();
-            Assert.Empty(lexErrs);
-
-            var parser = new Parser(tokens, fileName);
-            var ast = parser.ParseExpression();
-
+            
+            var (syntaxTree, _, lexErrors, errors) = Parse(src);
+            var exprStmt = GetStmt<ExpressionStmt>(syntaxTree.Single());
+            var ast = exprStmt.Expression;
+            
+            Assert.Empty(lexErrors);
+            Assert.Empty(errors);
             Assert.NotNull(ast);
             Assert.Equal(ExpressionKind.Binary, ast.Kind);
 
@@ -326,17 +303,14 @@ namespace Tests
         [Fact]
         public void Term()
         {
-            const string fileName = "TermTest";
             const string src = "2 - 3;";
-
-            SourceText source = new(fileName, src);
-            var lexer = new Lexer(source, fileName);
-            (var tokens, var lexErrs) = lexer.Execute();
-            Assert.Empty(lexErrs);
-
-            var parser = new Parser(tokens, fileName);
-            var ast = parser.ParseExpression();
-
+            
+            var (syntaxTree, _, lexErrors, errors) = Parse(src);
+            var exprStmt = GetStmt<ExpressionStmt>(syntaxTree.Single());
+            var ast = exprStmt.Expression;
+            
+            Assert.Empty(lexErrors);
+            Assert.Empty(errors);
             Assert.NotNull(ast);
             Assert.Equal(ExpressionKind.Binary, ast.Kind);
 
@@ -351,17 +325,14 @@ namespace Tests
         [Fact]
         public void Factor()
         {
-            const string fileName = "FactorTest";
             const string src = "6 / 3;";
-
-            SourceText source = new(fileName, src);
-            var lexer = new Lexer(source, fileName);
-            (var tokens, var lexErrs) = lexer.Execute();
-            Assert.Empty(lexErrs);
-
-            var parser = new Parser(tokens, fileName);
-            var ast = parser.ParseExpression();
-
+            
+            var (syntaxTree, _, lexErrors, errors) = Parse(src);
+            var exprStmt = GetStmt<ExpressionStmt>(syntaxTree.Single());
+            var ast = exprStmt.Expression;
+            
+            Assert.Empty(lexErrors);
+            Assert.Empty(errors);
             Assert.NotNull(ast);
             Assert.Equal(ExpressionKind.Binary, ast.Kind);
 
@@ -376,17 +347,14 @@ namespace Tests
         [Fact]
         public void LogicalAnd()
         {
-            const string fileName = "LogicalAndTest";
             const string src = "true and false;";
-
-            SourceText source = new(fileName, src);
-            var lexer = new Lexer(source, fileName);
-            (var tokens, var lexErrs) = lexer.Execute();
-            Assert.Empty(lexErrs);
-
-            var parser = new Parser(tokens, fileName);
-            var ast = parser.ParseExpression();
-
+            
+            var (syntaxTree, _, lexErrors, errors) = Parse(src);
+            var exprStmt = GetStmt<ExpressionStmt>(syntaxTree.Single());
+            var ast = exprStmt.Expression;
+            
+            Assert.Empty(lexErrors);
+            Assert.Empty(errors);
             Assert.NotNull(ast);
             Assert.Equal(ExpressionKind.Logical, ast.Kind);
 
@@ -401,17 +369,14 @@ namespace Tests
         [Fact]
         public void LogicalOr()
         {
-            const string fileName = "LogicalOrTest";
             const string src = "true or false;";
-
-            SourceText source = new(fileName, src);
-            var lexer = new Lexer(source, fileName);
-            (var tokens, var lexErrs) = lexer.Execute();
-            Assert.Empty(lexErrs);
-
-            var parser = new Parser(tokens, fileName);
-            var ast = parser.ParseExpression();
-
+            
+            var (syntaxTree, _, lexErrors, errors) = Parse(src);
+            var exprStmt = GetStmt<ExpressionStmt>(syntaxTree.Single());
+            var ast = exprStmt.Expression;
+            
+            Assert.Empty(lexErrors);
+            Assert.Empty(errors);
             Assert.NotNull(ast);
             Assert.Equal(ExpressionKind.Logical, ast.Kind);
 

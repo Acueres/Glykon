@@ -10,6 +10,7 @@ public enum StatementKind : byte
     Return,
     If,
     While,
+    For,
     Jump
 }
 

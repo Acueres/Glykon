@@ -14,8 +14,10 @@ public enum TokenKind : byte
     BracketLeft, BracketRight, //[]
     ParenthesisLeft, ParenthesisRight, //()
     BraceLeft, BraceRight, //{}
-
-    Comma, Dot, Minus, Plus, Semicolon, Colon, Slash, SlashDouble, Star, StarDouble, Assignment, Arrow, //, . - + ; : / // * ** = ->
+    
+    //, . - + ; : / // * ** = -> .. ..=
+    Comma, Dot, Minus, Plus, Semicolon, Colon, Slash,
+    SlashDouble, Star, StarDouble, Assignment, Arrow, Range, RangeInclusive,
 
     NotEqual, Equal, //!= ==
     Greater, GreaterEqual, //> >=
@@ -24,7 +26,7 @@ public enum TokenKind : byte
     // Keywords
     Identifier, Class, Struct, Interface, Enum, Def, Let, Const,
     And, Not, Or,
-    If, Else, Elif, For, While, Return, Break, Continue,
+    If, Else, Elif, For, By, In, While, Return, Break, Continue,
 
     EOF
 }

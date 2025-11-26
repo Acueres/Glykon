@@ -9,30 +9,19 @@ using Glykon.Compiler.Semantics.Types;
 
 namespace Glykon.Compiler.Backend.CIL;
 
-public class CilTypeEmitter
+public class CilCompilationUnitEmitter(
+    IRTree irTree,
+    SymbolTable symbolTable,
+    TypeSystem typeSystem,
+    IdentifierInterner interner,
+    string appName)
 {
-    readonly string appName;
-    readonly IRTree irTree;
-    readonly SymbolTable symbolTable;
-    readonly TypeSystem typeSystem;
-    readonly IdentifierInterner interner;
-    
-    MethodBuilder main;
-
-    public CilTypeEmitter(IRTree irTree, SymbolTable symbolTable, TypeSystem typeSystem, IdentifierInterner interner, string appname)
-    {
-        appName = appname;
-        this.irTree = irTree;
-        this.symbolTable = symbolTable;
-        this.typeSystem = typeSystem;
-        this.interner = interner;
-    }
-
-    public List<FunctionInfo> EmitAssembly(ModuleBuilder mob)
+    public FunctionInfo[] EmitAssembly(ModuleBuilder mob)
     {
         symbolTable.ResetScope();
-        
-        TypeBuilder tb = mob.DefineType("Program", TypeAttributes.Public | TypeAttributes.Class);
+
+        TypeBuilder tb = mob.DefineType(appName,
+            TypeAttributes.Class | TypeAttributes.NotPublic | TypeAttributes.Abstract | TypeAttributes.Sealed);
 
         List<CilFunctionEmitter> methodGenerators = [];
         Dictionary<FunctionSymbol, MethodInfo> methods = LoadStdLibrary();
@@ -53,12 +42,12 @@ public class CilTypeEmitter
 
         foreach (var mg in methodGenerators)
         {
-            mg.EmitMethod(methods);
+            mg.Emit(methods);
         }
 
         tb.CreateType();
 
-        return definedMethods;
+        return [..definedMethods];
     }
 
     Dictionary<FunctionSymbol, MethodInfo> LoadStdLibrary()
@@ -71,7 +60,7 @@ public class CilTypeEmitter
             console.GetMethod("WriteLine", [typeof(string)]));
 
         stdFunctions.Add(symbolTable.GetFunction("println", [typeSystem[TypeKind.Int64]]),
-            console.GetMethod("WriteLine", [typeof(int)]));
+            console.GetMethod("WriteLine", [typeof(long)]));
 
         stdFunctions.Add(symbolTable.GetFunction("println", [typeSystem[TypeKind.Float64]]),
             console.GetMethod("WriteLine", [typeof(double)]));
@@ -80,7 +69,7 @@ public class CilTypeEmitter
             console.GetMethod("WriteLine", [typeof(bool)]));
 
         stdFunctions.Add(symbolTable.GetFunction("println", [typeSystem[TypeKind.None]]),
-            console.GetMethod("WriteLine", [typeof(void)]));
+            console.GetMethod("WriteLine", []));
 
         return stdFunctions;
     }

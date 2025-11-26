@@ -1,4 +1,5 @@
-﻿using Glykon.Compiler.Diagnostics.Errors;
+﻿using Glykon.Compiler.Core;
+using Glykon.Compiler.Diagnostics.Errors;
 using Glykon.Compiler.Semantics.Binding;
 using Glykon.Compiler.Semantics.Binding.BoundExpressions;
 using Glykon.Compiler.Semantics.Binding.BoundStatements;
@@ -63,6 +64,16 @@ public class IRTypeBuilder(
 
                 return irWhileStmt;
             }
+            case BoundStatementKind.For:
+            {
+                var forStmt = (BoundForStmt)stmt;
+
+                var iter = BuildStatement(forStmt.Iterator);
+                var range = BuildExpression(forStmt.Range);
+                var body = BuildStatement(forStmt.Body);
+                
+                return new IRForStmt((IRVariableDeclaration)iter, (IRRangeExpr)range, body);
+            }
             case BoundStatementKind.Variable:
             {
                 var variableStmt = (BoundVariableDeclaration)stmt;
@@ -94,7 +105,9 @@ public class IRTypeBuilder(
                 var declaredType = constantStmt.Symbol.Type;
                 
                 var initializer = BuildExpression(constantStmt.Initializer);
-                if (!declaredType.IsPrimitive)
+
+                if (initializer.Kind == IRExpressionKind.Invalid) return new IRConstantDeclaration(initializer, constantStmt.Symbol);
+                    if (!declaredType.IsPrimitive)
                 {
                     TypeError error = new(fileName,
                         $"Wrong constant type: {interner[declaredType.NameId]}. Must be compile-time");
@@ -263,6 +276,28 @@ public class IRTypeBuilder(
                 CheckAssignmentExpression(irAssignment);
                 return irAssignment;
             }
+            case BoundExpressionKind.Range:
+            {
+                var rangeExpr = (BoundRangeExpr)expression;
+                
+                var start = BuildExpression(rangeExpr.Start);
+                var end = BuildExpression(rangeExpr.End);
+                IRExpression? step = null;
+                if (rangeExpr.Step is not null)
+                {
+                    step = BuildExpression(rangeExpr.Step);
+                }
+
+                if (start.Type.Kind != TypeKind.Int64 || end.Type.Kind != TypeKind.Int64
+                                                      || (step is not null && step.Type.Kind != TypeKind.Int64))
+                {
+                    var error = new TypeError(fileName, "Range expression must be of type \"int\".");
+                    errors.Add(error);
+                    return new IRInvalidExpr(typeSystem[TypeKind.Error]);
+                }
+                
+                return new IRRangeExpr(start, end, step, rangeExpr.IsInclusive);
+            }
             case BoundExpressionKind.Variable:
             {
                 var variableExpr = (BoundVariableExpr)expression;
@@ -385,21 +420,6 @@ public class IRTypeBuilder(
         error = new TypeError(fileName,
             $"Type mismatch. Expected {interner[expected.NameId]}, got {interner[actual.NameId]}");
         errors.Add(error);
-    }
-
-    bool IsArithmeticOperator(TokenKind operatorKind)
-    {
-        return operatorKind is TokenKind.Plus or TokenKind.Minus or TokenKind.Star or TokenKind.Slash;
-    }
-
-    bool IsComparisonOperator(TokenKind operatorKind)
-    {
-        return operatorKind is TokenKind.Greater or TokenKind.GreaterEqual or TokenKind.Less or TokenKind.LessEqual;
-    }
-
-    bool IsEqualityOperator(TokenKind operatorKind)
-    {
-        return operatorKind is TokenKind.Equal or TokenKind.NotEqual;
     }
 
     bool PromoteNumericPair(ref IRExpression l, ref IRExpression r, out TypeSymbol? common)

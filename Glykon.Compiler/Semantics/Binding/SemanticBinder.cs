@@ -1,4 +1,5 @@
-﻿using Glykon.Compiler.Diagnostics.Errors;
+﻿using Glykon.Compiler.Core;
+using Glykon.Compiler.Diagnostics.Errors;
 using Glykon.Compiler.Semantics.Binding.BoundExpressions;
 using Glykon.Compiler.Semantics.Binding.BoundStatements;
 using Glykon.Compiler.Semantics.Optimization;
@@ -7,10 +8,11 @@ using Glykon.Compiler.Semantics.Types;
 using Glykon.Compiler.Syntax;
 using Glykon.Compiler.Syntax.Expressions;
 using Glykon.Compiler.Syntax.Statements;
+using System.Xml.Linq;
 
 namespace Glykon.Compiler.Semantics.Binding;
 
-public class SemanticBinder(SyntaxTree syntaxTree, TypeSystem typeSystem, IdentifierInterner interner, string fileName)
+public class SemanticBinder(SyntaxTree syntaxTree, TypeSystem typeSystem, IdentifierInterner interner, LanguageMode mode, string fileName)
 {
     readonly SymbolTable symbolTable = new(interner);
     readonly List<IGlykonError> errors = [];
@@ -21,16 +23,42 @@ public class SemanticBinder(SyntaxTree syntaxTree, TypeSystem typeSystem, Identi
         RegisterStd();
 
         List<BoundStatement> boundStatements = new(syntaxTree.Length);
+        List<Statement> constants = [];
+        List<Statement> functions = [];
+        List<Statement> statements = [];
 
-        foreach (var stmt in syntaxTree)
+        foreach (var node in syntaxTree)
         {
-            var boundStatement = BindStatement(stmt);
-            boundStatements.Add(boundStatement);
+            switch (node)
+            {
+                case ConstantDeclaration cd:
+                    constants.Add(cd);
+                    break;
+
+                case FunctionDeclaration fd:
+                    functions.Add(fd);
+                    break;
+
+                default:
+                    if (mode == LanguageMode.Script)
+                    {
+                        statements.Add(node);
+                    }
+                    else
+                    {
+                        ReportTopLevelNotAllowed(node);
+                    }
+                    break;
+            }
         }
 
-        BoundTree boundTree = new([..boundStatements], syntaxTree.FileName);
+        boundStatements.AddRange(constants.Select(BindStatement));
+        boundStatements.AddRange(BindStatementsWithDeclarations(functions));
+        boundStatements.AddRange(statements.Select(BindStatement));
 
-        return (boundTree, symbolTable, [..errors]);
+        BoundTree boundTree = new([.. boundStatements], syntaxTree.FileName);
+
+        return (boundTree, symbolTable, [.. errors]);
     }
 
     BoundStatement BindStatement(Statement stmt)
@@ -44,7 +72,7 @@ public class SemanticBinder(SyntaxTree syntaxTree, TypeSystem typeSystem, Identi
                 Scope scope = symbolTable.BeginScope(ScopeKind.Block);
                 var blockStmt = (BlockStmt)stmt;
 
-                var boundStatements = BindBlockStatements(blockStmt.Statements);
+                var boundStatements = BindStatementsWithDeclarations(blockStmt.Statements);
 
                 BoundBlockStmt boundBlockStmt = new([.. boundStatements], scope);
 
@@ -65,12 +93,22 @@ public class SemanticBinder(SyntaxTree syntaxTree, TypeSystem typeSystem, Identi
             case StatementKind.While:
             {
                 var whileStmt = (WhileStmt)stmt;
-                var boundStatement = BindStatement(whileStmt.Body);
+                var boundBody = BindStatement(whileStmt.Body);
 
                 BoundExpression boundCondition = BindExpression(whileStmt.Condition);
-                BoundWhileStmt boundWhileStmt = new(boundCondition, boundStatement);
+                BoundWhileStmt boundWhileStmt = new(boundCondition, boundBody);
 
                 return boundWhileStmt;
+            }
+            case StatementKind.For:
+            {
+                var forStmt = (ForStmt)stmt;
+                
+                var iter = BindStatement(forStmt.Iterator);
+                var boundRange = BindExpression(forStmt.Range);
+                var boundBody = BindStatement(forStmt.Body);
+                
+                return new BoundForStmt((BoundVariableDeclaration)iter, (BoundRangeExpr)boundRange, boundBody);
             }
             case StatementKind.Variable:
             {
@@ -111,7 +149,7 @@ public class SemanticBinder(SyntaxTree syntaxTree, TypeSystem typeSystem, Identi
                 var parameterSymbols = functionStmt.Parameters
                     .Select(p => symbolTable.RegisterParameter(p.Name, BindTypeAnnotation(p.Type))).ToList();
 
-                var boundStatements = BindBlockStatements(functionStmt.Body.Statements);
+                var boundStatements = BindStatementsWithDeclarations(functionStmt.Body.Statements);
                 BoundBlockStmt boundBody = new([.. boundStatements], scope);
 
                 symbolTable.ExitScope();
@@ -157,6 +195,8 @@ public class SemanticBinder(SyntaxTree syntaxTree, TypeSystem typeSystem, Identi
             {
                 UnaryExpr unaryExpr = (UnaryExpr)expression;
                 BoundExpression operand = BindExpression(unaryExpr.Operand);
+                if (operand.Kind == BoundExpressionKind.Invalid) return new BoundInvalidExpr();
+
                 return new BoundUnaryExpr(unaryExpr.Operator, operand);
             }
             case ExpressionKind.Binary:
@@ -165,6 +205,11 @@ public class SemanticBinder(SyntaxTree syntaxTree, TypeSystem typeSystem, Identi
                 BoundExpression left = BindExpression(binaryExpr.Left);
                 BoundExpression right = BindExpression(binaryExpr.Right);
 
+                if (left.Kind == BoundExpressionKind.Invalid || right.Kind == BoundExpressionKind.Invalid)
+                {
+                   return new BoundInvalidExpr();
+                }
+
                 return new BoundBinaryExpr(binaryExpr.Operator, left, right);
             }
             case ExpressionKind.Logical:
@@ -172,6 +217,11 @@ public class SemanticBinder(SyntaxTree syntaxTree, TypeSystem typeSystem, Identi
                 LogicalExpr logicalExpr = (LogicalExpr)expression;
                 BoundExpression left = BindExpression(logicalExpr.Left);
                 BoundExpression right = BindExpression(logicalExpr.Right);
+
+                if (left.Kind == BoundExpressionKind.Invalid || right.Kind == BoundExpressionKind.Invalid)
+                {
+                   return new BoundInvalidExpr();
+                }
 
                 return new BoundLogicalExpr(logicalExpr.Operator, left, right);
             }
@@ -184,6 +234,16 @@ public class SemanticBinder(SyntaxTree syntaxTree, TypeSystem typeSystem, Identi
                 BoundExpression right = BindExpression(assignmentExpr.Right);
                 
                 return new BoundAssignmentExpr(right, symbol);
+            }
+            case ExpressionKind.Range:
+            {
+                RangeExpr rangeExpr = (RangeExpr)expression;
+                
+                var start = BindExpression(rangeExpr.Start);
+                var end = BindExpression(rangeExpr.End);
+                var step = BindExpression(rangeExpr.Step);
+                
+                return new BoundRangeExpr(start, end, step, rangeExpr.IsInclusive);
             }
             case ExpressionKind.Variable:
             {
@@ -253,7 +313,7 @@ public class SemanticBinder(SyntaxTree syntaxTree, TypeSystem typeSystem, Identi
         }
     }
 
-    List<BoundStatement> BindBlockStatements(List<Statement> statements)
+    List<BoundStatement> BindStatementsWithDeclarations(List<Statement> statements)
     {
         List<BoundStatement> boundStatements = new(statements.Count);
 
@@ -304,5 +364,19 @@ public class SemanticBinder(SyntaxTree syntaxTree, TypeSystem typeSystem, Identi
         symbolTable.RegisterFunction("println", typeSystem[TypeKind.None], [typeSystem[TypeKind.Bool]]);
 
         symbolTable.RegisterFunction("println", typeSystem[TypeKind.None], [typeSystem[TypeKind.None]]);
+    }
+
+    private void ReportTopLevelNotAllowed(Statement stmt)
+    {
+        var msg = stmt switch
+        {
+            VariableDeclaration => "Top-level variables are not allowed. Use 'const' or move it inside a function.",
+            ExpressionStmt => "Top-level expressions are not allowed. Move the code inside a function (e.g., 'def main').",
+            ReturnStmt => "Top-level 'return' is not allowed.",
+            JumpStmt => "Top-level loop/control statements are not allowed.",
+            _ => "Top-level statements are not allowed in application mode."
+        };
+
+        errors.Add(new BindingError(fileName, msg));
     }
 }
