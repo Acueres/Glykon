@@ -157,7 +157,7 @@ public class Parser(LexResult lexResult, string filename)
         
         var range = ParseRange();
         
-        var iter = new VariableDeclaration(range.Start, identifierToken.Text, TypeAnnotation.None);
+        var iter = new VariableDeclaration(range.Start, identifierToken.Text, TypeAnnotation.None, immutable: true);
         
         Consume(TokenKind.BraceLeft, "Expect '{' before for loop body");
         var body = ParseBlockStatement();
@@ -208,6 +208,8 @@ public class Parser(LexResult lexResult, string filename)
 
     VariableDeclaration ParseVariableDeclarationStatement()
     {
+        bool immutable = Match(TokenKind.Const);
+        
         Token identifierToken = Consume(TokenKind.Identifier, "Expect variable name");
 
         TypeAnnotation declaredType = TypeAnnotation.None;
@@ -233,7 +235,7 @@ public class Parser(LexResult lexResult, string filename)
         TerminateStatement("Expect ';' after variable declaration");
 
         string name = identifierToken.Text;
-        return new(initializer, name, declaredType);
+        return new(initializer, name, declaredType, immutable);
     }
 
     ConstantDeclaration ParseConstantDeclaration()

@@ -131,9 +131,9 @@ public class Scope
         return symbol;
     }
 
-    public VariableSymbol AddVariable(int id, TypeSymbol type)
+    public VariableSymbol AddVariable(int id, bool immutable, TypeSymbol type)
     {
-        VariableSymbol symbol = new(id, type);
+        VariableSymbol symbol = new(id, immutable, type);
         symbols.Add(id, symbol);
         return symbol;
     }

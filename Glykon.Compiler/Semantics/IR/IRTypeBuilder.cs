@@ -6,6 +6,7 @@ using Glykon.Compiler.Semantics.Binding.BoundStatements;
 using Glykon.Compiler.Semantics.IR.Expressions;
 using Glykon.Compiler.Semantics.IR.Statements;
 using Glykon.Compiler.Semantics.Operators;
+using Glykon.Compiler.Semantics.Symbols;
 using Glykon.Compiler.Semantics.Types;
 using Glykon.Compiler.Syntax;
 
@@ -387,6 +388,17 @@ public class IRTypeBuilder(
         {
             errors.Add(new TypeError(fileName,
                 $"Type mismatch; can't assign {interner[valueType.NameId]} to {interner[variableType.NameId]}"));
+        }
+
+        if (assignmentExpr.Symbol is ConstantSymbol)
+        {
+            errors.Add(new TypeError(fileName,
+                "Can't assign value to a constant."));
+        }
+        else if (assignmentExpr.Symbol is VariableSymbol { Immutable: true })
+        {
+            errors.Add(new TypeError(fileName,
+                "Can't assign value to an immutable variable."));
         }
     }
 

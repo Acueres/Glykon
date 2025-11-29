@@ -97,6 +97,37 @@ public class TypeCheckingTests : CompilerTestBase
         """;
         Assert.Single(Check(code, nameof(ConstantTypeMismatch)));
     }
+    
+    // Variable and constant assignments
+    [Fact]
+    public void AssignValueToVariable()
+    {
+        const string code = """
+                                let i: int = 42
+                                i = 0
+                            """;
+        Assert.Empty(Check(code, nameof(AssignValueToVariable)));
+    }
+    
+    [Fact]
+    public void AssignValueToImmutableVariable()
+    {
+        const string code = """
+                                let const i: int = 42
+                                i = 0
+                            """;
+        Assert.Single((Check(code, nameof(AssignValueToImmutableVariable))));
+    }
+    
+    [Fact]
+    public void AssignValueToConstant()
+    {
+        const string code = """
+                                const i: int = 42
+                                i = 0
+                            """;
+        Assert.Single((Check(code, nameof(AssignValueToConstant))));
+    }
 
     //Conditions
 

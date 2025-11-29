@@ -115,9 +115,9 @@ public class SemanticBinder(SyntaxTree syntaxTree, TypeSystem typeSystem, Identi
                 var variableStmt = (VariableDeclaration)stmt;
                 var declaredType = BindTypeAnnotation(variableStmt.DeclaredType);
 
-                var boundExpression = BindExpression(variableStmt.Expression);
+                var boundExpression = BindExpression(variableStmt.Initializer);
 
-                var symbol = symbolTable.RegisterVariable(variableStmt.Name, declaredType);
+                var symbol = symbolTable.RegisterVariable(variableStmt.Name, variableStmt.Immutable, declaredType);
 
                 return new BoundVariableDeclaration(boundExpression, symbol, declaredType);
             }
@@ -228,8 +228,8 @@ public class SemanticBinder(SyntaxTree syntaxTree, TypeSystem typeSystem, Identi
             case ExpressionKind.Assignment:
             {
                 AssignmentExpr assignmentExpr = (AssignmentExpr)expression;
-
-                var symbol = symbolTable.GetLocalVariableSymbol(assignmentExpr.Name);
+                
+                var symbol = symbolTable.GetAllowedSymbol(assignmentExpr.Name);
 
                 BoundExpression right = BindExpression(assignmentExpr.Right);
                 

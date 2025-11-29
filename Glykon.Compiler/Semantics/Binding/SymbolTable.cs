@@ -31,6 +31,14 @@ public class SymbolTable
         if (!interner.TryGetId(name, out var id)) return null;
         return current.GetSymbol(id);
     }
+    public Symbol? GetAllowedSymbol(string name)
+    {
+        if (!interner.TryGetId(name, out var id)) return null;
+        
+        var localSymbol = current.GetVariable(id);
+        return localSymbol ?? current.GetSymbol(id);
+    }
+    
 
     public VariableSymbol? GetLocalVariableSymbol(string name)
     {
@@ -85,10 +93,10 @@ public class SymbolTable
         return parameter;
     }
 
-    public VariableSymbol RegisterVariable(string name, TypeSymbol type)
+    public VariableSymbol RegisterVariable(string name, bool immutable, TypeSymbol type)
     {
         int symbolIndex = interner.Intern(name);
-        VariableSymbol variable = current.AddVariable(symbolIndex, type);
+        VariableSymbol variable = current.AddVariable(symbolIndex, immutable, type);
         return variable;
     }
 

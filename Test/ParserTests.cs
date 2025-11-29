@@ -172,9 +172,9 @@ namespace Tests
             Assert.Equal(StatementKind.Variable, syntaxTree.First().Kind);
             VariableDeclaration stmt = (VariableDeclaration)syntaxTree.First();
             Assert.Equal("value", stmt.Name);
-            Assert.NotNull(stmt.Expression);
+            Assert.NotNull(stmt.Initializer);
             Assert.Equal("none", stmt.DeclaredType.Name);
-            Assert.Equal(42, ((LiteralExpr)stmt.Expression).Value.Int);
+            Assert.Equal(42, ((LiteralExpr)stmt.Initializer).Value.Int);
         }
 
         [Fact]
@@ -191,9 +191,9 @@ namespace Tests
             Assert.Equal(StatementKind.Variable, syntaxTree.First().Kind);
             VariableDeclaration stmt = (VariableDeclaration)syntaxTree.First();
             Assert.Equal("value", stmt.Name);
-            Assert.NotNull(stmt.Expression);
+            Assert.NotNull(stmt.Initializer);
             Assert.Equal("int", stmt.DeclaredType.Name);
-            Assert.Equal(42, (stmt.Expression as LiteralExpr).Value.Int);
+            Assert.Equal(42, (stmt.Initializer as LiteralExpr).Value.Int);
         }
 
         [Fact]
