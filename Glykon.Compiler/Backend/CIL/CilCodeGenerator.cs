@@ -1,3 +1,4 @@
+using System.Reflection;
 using System.Reflection.Emit;
 
 using Glykon.Compiler.Core;
@@ -11,8 +12,8 @@ namespace Glykon.Compiler.Backend.CIL;
 
 public class CilCodeGenerator(ILGenerator il, TypeSystem typeSystem, CilEmitContext context)
 {
-    readonly Stack<Label> loopStart = [];
-    readonly Stack<Label> loopEnd = [];
+    private readonly Stack<Label> loopStart = [];
+    private readonly Stack<Label> loopEnd = [];
 
     public void EmitStatements(IRStatement[] statements)
     {
@@ -157,223 +158,275 @@ public class CilCodeGenerator(ILGenerator il, TypeSystem typeSystem, CilEmitCont
         }
     }
 
-    TypeSymbol EmitExpression(IRExpression expression)
+    void EmitExpression(IRExpression expression)
     {
-        switch (expression.Kind)
+        while (true)
         {
-            case IRExpressionKind.Literal:
+            switch (expression.Kind)
             {
-                var expr = (IRLiteralExpr)expression;
-                return EmitPrimitive(expr.Value);
-            }
-            case IRExpressionKind.Variable:
-            {
-                var expr = (IRVariableExpr)expression;
-
-                Symbol symbol = expr.Symbol;
-
-                if (symbol is ParameterSymbol parameter)
+                case IRExpressionKind.Literal:
                 {
-                    il.Emit(OpCodes.Ldarg, parameter.Index);
-                    return parameter.Type;
+                    var expr = (IRLiteralExpr)expression;
+                    EmitPrimitive(expr.Value);
+                    break;
                 }
-
-                if (symbol is VariableSymbol variable)
+                case IRExpressionKind.Name:
                 {
-                    il.Emit(OpCodes.Ldloc, variable.LocalIndex);
+                    var expr = (IRNameExpr)expression;
 
-                    return variable.Type;
-                }
+                    Symbol symbol = expr.Symbol;
 
-                if (symbol is ConstantSymbol constant)
-                {
-                    return EmitPrimitive(constant.Value);
-                }
-
-                break;
-            }
-            case IRExpressionKind.Assignment:
-            {
-                var expr = (IRAssignmentExpr)expression;
-
-                if (expr.Symbol is not VariableSymbol variableSymbol)
-                {
-                    return typeSystem[TypeKind.None];
-                }
-
-                EmitExpression(expr.Value);
-                il.Emit(OpCodes.Stloc, variableSymbol.LocalIndex);
-
-                return variableSymbol.Type;
-            }
-            case IRExpressionKind.Call:
-            {
-                var expr = (IRCallExpr)expression;
-                
-                foreach (var arg in expr.Parameters)
-                {
-                    EmitExpression(arg);
-                }
-
-                var function = expr.Function;
-
-                il.EmitCall(OpCodes.Call, context.Functions[function], []);
-
-                return function.Type;
-            }
-            case IRExpressionKind.Unary:
-            {
-                var expr = (IRUnaryExpr)expression;
-                var type = EmitExpression(expr.Operand);
-
-                switch (expr.Operator)
-                {
-                    case UnaryOp.LogicalNot when type.Kind == TypeKind.Bool:
-                        il.Emit(OpCodes.Ldc_I4, 0);
-                        il.Emit(OpCodes.Ceq);
-                        return typeSystem[TypeKind.Bool];
-                    case UnaryOp.Minus when type.Kind is TypeKind.Int64 or TypeKind.Float64:
-                        il.Emit(OpCodes.Neg);
-                        return type;
-                }
-
-                break;
-            }
-            case IRExpressionKind.Binary:
-            {
-                var expr = (IRBinaryExpr)expression;
-                var typeLeft = EmitExpression(expr.Left);
-                var typeRight = EmitExpression(expr.Right);
-
-                switch (expr.Operator)
-                {
-                    case BinaryOp.Equal:
-                        il.Emit(OpCodes.Ceq);
-                        return typeSystem[TypeKind.Bool];
-                    case BinaryOp.NotEqual:
-                        il.Emit(OpCodes.Ceq);
-                        il.Emit(OpCodes.Ldc_I4, 0);
-                        il.Emit(OpCodes.Ceq);
-                        return typeSystem[TypeKind.Bool];
-                    case BinaryOp.Greater when typeLeft.Kind is TypeKind.Int64 or TypeKind.Float64:
-                        il.Emit(OpCodes.Cgt);
-                        return typeSystem[TypeKind.Bool];
-                    case BinaryOp.GreaterOrEqual
-                        when typeLeft.Kind is TypeKind.Int64 or TypeKind.Float64:
-                        il.Emit(OpCodes.Clt);
-                        il.Emit(OpCodes.Ldc_I4, 0);
-                        il.Emit(OpCodes.Ceq);
-                        return typeSystem[TypeKind.Bool];
-                    case BinaryOp.Less when typeLeft.Kind is TypeKind.Int64 or TypeKind.Float64:
-                        il.Emit(OpCodes.Clt);
-                        return typeSystem[TypeKind.Bool];
-                    case BinaryOp.LessOrEqual when typeLeft.Kind is TypeKind.Int64 or TypeKind.Float64:
-                        il.Emit(OpCodes.Cgt);
-                        il.Emit(OpCodes.Ldc_I4, 0);
-                        il.Emit(OpCodes.Ceq);
-                        return typeSystem[TypeKind.Bool];
-                    case BinaryOp.Add when typeLeft.Kind == TypeKind.String && typeRight.Kind == TypeKind.String:
-                        il.EmitCall(OpCodes.Call, typeof(string).GetMethod("Concat", [typeof(string), typeof(string)]),
-                            []);
-                        return typeSystem[TypeKind.String];
-                    case BinaryOp.Add when typeLeft.Kind is TypeKind.Int64 or TypeKind.Float64:
-                        il.Emit(OpCodes.Add);
-                        return typeLeft;
-                    case BinaryOp.Subtract when typeLeft.Kind is TypeKind.Int64 or TypeKind.Float64:
-                        il.Emit(OpCodes.Sub);
-                        return typeLeft;
-                    case BinaryOp.Divide when typeLeft.Kind is TypeKind.Int64 or TypeKind.Float64:
-                        il.Emit(OpCodes.Div);
-                        return typeLeft;
-                    case BinaryOp.Multiply when typeLeft.Kind is TypeKind.Int64 or TypeKind.Float64:
-                        il.Emit(OpCodes.Mul);
-                        return typeLeft;
-                }
-
-                break;
-            }
-
-            case IRExpressionKind.Logical:
-            {
-                var expr = (IRLogicalExpr)expression;
-
-                if (expr.Left.Kind is IRExpressionKind.Literal or IRExpressionKind.Variable
-                    && expr.Right.Kind is IRExpressionKind.Literal or IRExpressionKind.Variable)
-                {
-                    EmitExpression(expr.Left);
-                    EmitExpression(expr.Right);
-
-                    switch (expr.Operator)
+                    if (symbol is ParameterSymbol parameter)
                     {
-                        case BinaryOp.LogicalAnd:
-                            il.Emit(OpCodes.And);
-                            break;
-                        case BinaryOp.LogicalOr:
-                            il.Emit(OpCodes.Or);
-                            break;
+                        il.Emit(OpCodes.Ldarg, parameter.Index);
+                        break;
                     }
-                }
-                else
-                {
-                    EmitExpression(expr.Left);
 
-                    if (expr.Operator == BinaryOp.LogicalAnd)
+                    if (symbol is VariableSymbol variable)
                     {
-                        Label leftTrue = il.DefineLabel();
-                        il.Emit(OpCodes.Brtrue_S, leftTrue);
-                        il.Emit(OpCodes.Ldc_I4, 0);
-                        Label endLabel = il.DefineLabel();
-                        il.Emit(OpCodes.Br_S, endLabel);
+                        il.Emit(OpCodes.Ldloc, variable.LocalIndex);
+                        break;
+                    }
 
-                        il.MarkLabel(leftTrue);
-                        EmitExpression(expr.Right);
+                    if (symbol is ConstantSymbol constant)
+                    {
+                        EmitPrimitive(constant.Value);
+                        break;
+                    }
 
-                        il.MarkLabel(endLabel);
+                    break;
+                }
+                case IRExpressionKind.Assignment:
+                {
+                    var expr = (IRAssignmentExpr)expression;
+
+                    if (expr.Symbol is not VariableSymbol variableSymbol)
+                    {
+                        break;
+                    }
+
+                    EmitExpression(expr.Value);
+                    il.Emit(OpCodes.Stloc, variableSymbol.LocalIndex);
+
+                    break;
+                }
+                case IRExpressionKind.Call:
+                {
+                    var expr = (IRCallExpr)expression;
+
+                    foreach (var arg in expr.Parameters)
+                    {
+                        EmitExpression(arg);
+                    }
+
+                    MethodInfo methodInfo;
+                    if (expr.Callable is MethodSymbol method && context.Methods is not null)
+                    {
+                        methodInfo = context.Methods[method];
                     }
                     else
                     {
-                        Label leftTrue = il.DefineLabel();
-                        il.Emit(OpCodes.Brtrue_S, leftTrue);
-                        EmitExpression(expr.Right);
-
-                        Label endLabel = il.DefineLabel();
-                        il.Emit(OpCodes.Br_S, endLabel);
-
-                        il.MarkLabel(leftTrue);
-                        il.Emit(OpCodes.Ldc_I4, 1);
-
-                        il.MarkLabel(endLabel);
+                        methodInfo = context.Functions[(FunctionSymbol)expr.Callable];
                     }
+
+                    il.EmitCall(OpCodes.Call, methodInfo, []);
+
+                    break;
+                }
+                case IRExpressionKind.Unary:
+                {
+                    var expr = (IRUnaryExpr)expression;
+                    var type = expr.Operand.Type;
+
+                    switch (expr.Operator)
+                    {
+                        case UnaryOp.LogicalNot when type.Kind == TypeKind.Bool:
+                            il.Emit(OpCodes.Ldc_I4, 0);
+                            il.Emit(OpCodes.Ceq);
+                            break;
+                        case UnaryOp.Minus when type.Kind is TypeKind.Int64 or TypeKind.Float64:
+                            il.Emit(OpCodes.Neg);
+                            break;
+                    }
+
+                    break;
+                }
+                case IRExpressionKind.Binary:
+                {
+                    var expr = (IRBinaryExpr)expression;
+                    EmitExpression(expr.Left);
+                    EmitExpression(expr.Right);
+
+                    var typeLeft = expr.Left.Type;
+                    var typeRight = expr.Right.Type;
+
+                    switch (expr.Operator)
+                    {
+                        case BinaryOp.Equal:
+                            il.Emit(OpCodes.Ceq);
+                            break;
+                        case BinaryOp.NotEqual:
+                            il.Emit(OpCodes.Ceq);
+                            il.Emit(OpCodes.Ldc_I4, 0);
+                            il.Emit(OpCodes.Ceq);
+                            break;
+                        case BinaryOp.Greater when typeLeft.Kind is TypeKind.Int64 or TypeKind.Float64:
+                            il.Emit(OpCodes.Cgt);
+                            break;
+                        case BinaryOp.GreaterOrEqual when typeLeft.Kind is TypeKind.Int64 or TypeKind.Float64:
+                            il.Emit(OpCodes.Clt);
+                            il.Emit(OpCodes.Ldc_I4, 0);
+                            il.Emit(OpCodes.Ceq);
+                            break;
+                        case BinaryOp.Less when typeLeft.Kind is TypeKind.Int64 or TypeKind.Float64:
+                            il.Emit(OpCodes.Clt);
+                            break;
+                        case BinaryOp.LessOrEqual when typeLeft.Kind is TypeKind.Int64 or TypeKind.Float64:
+                            il.Emit(OpCodes.Cgt);
+                            il.Emit(OpCodes.Ldc_I4, 0);
+                            il.Emit(OpCodes.Ceq);
+                            break;
+                        case BinaryOp.Add when typeLeft.Kind == TypeKind.String && typeRight.Kind == TypeKind.String:
+                            il.EmitCall(OpCodes.Call, typeof(string).GetMethod("Concat", [typeof(string), typeof(string)]), []);
+                            break;
+                        case BinaryOp.Add when typeLeft.Kind is TypeKind.Int64 or TypeKind.Float64:
+                            il.Emit(OpCodes.Add);
+                            break;
+                        case BinaryOp.Subtract when typeLeft.Kind is TypeKind.Int64 or TypeKind.Float64:
+                            il.Emit(OpCodes.Sub);
+                            break;
+                        case BinaryOp.Divide when typeLeft.Kind is TypeKind.Int64 or TypeKind.Float64:
+                            il.Emit(OpCodes.Div);
+                            break;
+                        case BinaryOp.Multiply when typeLeft.Kind is TypeKind.Int64 or TypeKind.Float64:
+                            il.Emit(OpCodes.Mul);
+                            break;
+                    }
+
+                    break;
                 }
 
-                return typeSystem[TypeKind.Bool];
+                case IRExpressionKind.Logical:
+                {
+                    var expr = (IRLogicalExpr)expression;
+
+                    if (expr.Left.Kind is IRExpressionKind.Literal or IRExpressionKind.Name && expr.Right.Kind is IRExpressionKind.Literal or IRExpressionKind.Name)
+                    {
+                        EmitExpression(expr.Left);
+                        EmitExpression(expr.Right);
+
+                        switch (expr.Operator)
+                        {
+                            case BinaryOp.LogicalAnd:
+                                il.Emit(OpCodes.And);
+                                break;
+                            case BinaryOp.LogicalOr:
+                                il.Emit(OpCodes.Or);
+                                break;
+                        }
+                    }
+                    else
+                    {
+                        EmitExpression(expr.Left);
+
+                        if (expr.Operator == BinaryOp.LogicalAnd)
+                        {
+                            Label leftTrue = il.DefineLabel();
+                            il.Emit(OpCodes.Brtrue_S, leftTrue);
+                            il.Emit(OpCodes.Ldc_I4, 0);
+                            Label endLabel = il.DefineLabel();
+                            il.Emit(OpCodes.Br_S, endLabel);
+
+                            il.MarkLabel(leftTrue);
+                            EmitExpression(expr.Right);
+
+                            il.MarkLabel(endLabel);
+                        }
+                        else
+                        {
+                            Label leftTrue = il.DefineLabel();
+                            il.Emit(OpCodes.Brtrue_S, leftTrue);
+                            EmitExpression(expr.Right);
+
+                            Label endLabel = il.DefineLabel();
+                            il.Emit(OpCodes.Br_S, endLabel);
+
+                            il.MarkLabel(leftTrue);
+                            il.Emit(OpCodes.Ldc_I4, 1);
+
+                            il.MarkLabel(endLabel);
+                        }
+                    }
+
+                    break;
+                }
+                case IRExpressionKind.Conversion:
+                {
+                    var conversionExpr = (IRConversionExpr)expression;
+                    EmitExpression(conversionExpr.Expression);
+
+                    var from = conversionExpr.Expression.Type;
+                    if (from == conversionExpr.Type) break;
+                    // widening int64 to float64
+                    if (from.Kind == TypeKind.Int64 && conversionExpr.Type.Kind == TypeKind.Float64)
+                    {
+                        il.Emit(OpCodes.Conv_R8);
+                    }
+
+                    // cast to string
+                    if (conversionExpr.Type.Kind == TypeKind.String && from.Kind != TypeKind.String)
+                    {
+                        switch (from.Kind)
+                        {
+                            case TypeKind.Int64:
+                                il.Emit(OpCodes.Call, typeof(Convert).GetMethod(nameof(Convert.ToString), [typeof(long)])!);
+                                break;
+                            case TypeKind.Float64:
+                                il.Emit(OpCodes.Call, typeof(System.Globalization.CultureInfo).GetProperty(nameof(System.Globalization.CultureInfo.InvariantCulture))!.GetGetMethod()!);
+
+                                il.Emit(OpCodes.Call, typeof(Convert).GetMethod(nameof(Convert.ToString), [typeof(double), typeof(IFormatProvider)])!);
+                                break;
+                            case TypeKind.Bool:
+                            {
+                                var lblTrue = il.DefineLabel();
+                                var lblEnd = il.DefineLabel();
+
+                                il.Emit(OpCodes.Brtrue_S, lblTrue);
+                                il.Emit(OpCodes.Ldstr, "False");
+                                il.Emit(OpCodes.Br_S, lblEnd);
+
+                                il.MarkLabel(lblTrue);
+                                il.Emit(OpCodes.Ldstr, "True");
+
+                                il.MarkLabel(lblEnd);
+                                break;
+                            }
+                        }
+                    }
+
+                    break;
+                }
+                case IRExpressionKind.Grouping:
+                {
+                    var groupExpr = (IRGroupingExpr)expression;
+                    expression = groupExpr.Expression;
+                    continue;
+                }
             }
 
-            case IRExpressionKind.Conversion:
-            {
-                var conversionExpr = (IRConversionExpr)expression;
-                var from = EmitExpression(conversionExpr.Expression);
-                if (from == conversionExpr.Type) return conversionExpr.Type;
-                // widening int64 to float64
-                if (from.Kind == TypeKind.Int64 && conversionExpr.Type.Kind == TypeKind.Float64)
-                    il.Emit(OpCodes.Conv_R8);
-                
-                return conversionExpr.Type;
-            }
+            break;
         }
-
-        return typeSystem[TypeKind.None];
     }
 
-    TypeSymbol EmitPrimitive(in ConstantValue value)
+    void EmitPrimitive(in ConstantValue value)
     {
         switch (value.Kind)
         {
-            case ConstantKind.String: il.Emit(OpCodes.Ldstr, value.String); return typeSystem[TypeKind.String];
-            case ConstantKind.Int: il.Emit(OpCodes.Ldc_I8, value.Int); return typeSystem[TypeKind.Int64];
-            case ConstantKind.Real: il.Emit(OpCodes.Ldc_R8, value.Real); return typeSystem[TypeKind.Float64];
-            case ConstantKind.Bool: il.Emit(OpCodes.Ldc_I4, value.Bool ? 1 : 0); return typeSystem[TypeKind.Bool];
-            default: il.Emit(OpCodes.Ldnull); return typeSystem[TypeKind.None];
+            case ConstantKind.String: il.Emit(OpCodes.Ldstr, value.String); break;
+            case ConstantKind.Int: il.Emit(OpCodes.Ldc_I8, value.Int); break;
+            case ConstantKind.Real: il.Emit(OpCodes.Ldc_R8, value.Real); break;
+            case ConstantKind.Bool: il.Emit(OpCodes.Ldc_I4, value.Bool ? 1 : 0); break;
+            case ConstantKind.None: il.Emit(OpCodes.Ldnull); break;
         }
     }
 }

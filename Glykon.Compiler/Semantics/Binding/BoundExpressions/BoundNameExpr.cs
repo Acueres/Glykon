@@ -2,8 +2,8 @@
 
 namespace Glykon.Compiler.Semantics.Binding.BoundExpressions;
 
-public class BoundVariableExpr(Symbol symbol) : BoundExpression
+public class BoundNameExpr(Symbol symbol) : BoundExpression
 {
-    public override BoundExpressionKind Kind => BoundExpressionKind.Variable;
+    public override BoundExpressionKind Kind => BoundExpressionKind.Name;
     public Symbol Symbol { get; } = symbol;
 }

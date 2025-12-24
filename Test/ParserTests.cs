@@ -117,6 +117,49 @@ namespace Tests
             Assert.True(forStmt.Range.IsInclusive);
             Assert.NotNull(forStmt.Body);
         }
+        
+        [Fact]
+        public void ClassDeclaration()
+        {
+            const string src = """
+                                    class Test {
+                                           uninitialized: int
+                                           initialized: int = 1
+                                           
+                                           const pi: real = 3.14
+                                           
+                                           def add(self, a: int, b: int) -> int {
+                                               return a + b
+                                           }
+                                           
+                                           def static_add(a: int, b: int) -> int {
+                                                return a + b
+                                            }
+                                    }
+                               """;
+            
+            var (syntaxTree, _, lexErrors, parseErrors) = Parse(src);
+            
+            Assert.Empty(lexErrors);
+            Assert.Empty(parseErrors);
+            Assert.Single(syntaxTree);
+            Assert.Equal(StatementKind.Class, syntaxTree.First().Kind);
+
+            var classDecl = (ClassDeclaration)syntaxTree.First();
+            Assert.Equal("Test", classDecl.Name);
+            
+            var methods = classDecl.Methods;
+
+            Assert.Equal(2, methods.Length);
+            Assert.False(methods[0].IsStatic);
+            Assert.True(methods[1].IsStatic);
+            
+            var fields = classDecl.Fields;
+            Assert.Equal(2, fields.Length);
+            
+            var constants = classDecl.Constants;
+            Assert.Single(constants);
+        }
 
         [Fact]
         public void FunctionDeclaration()
@@ -139,7 +182,7 @@ namespace Tests
             FunctionDeclaration function = (FunctionDeclaration)syntaxTree.First();
             Assert.Equal("f", function.Name);
             Assert.Equal("int", function.ReturnType.Name);
-            Assert.Equal(2, function.Parameters.Count);
+            Assert.Equal(2, function.Parameters.Length);
             Assert.NotNull(function.Body);
             Assert.Single(function.Body.Statements);
             Assert.Equal(StatementKind.Return, function.Body.Statements.Single().Kind);
@@ -217,13 +260,33 @@ namespace Tests
         }
 
         [Fact]
-        public void Assignment()
+        public void Conversion()
         {
             const string src = """
 
-                                           let a = 5
-                                           a = 3
+                                           42 as str
+                               """; 
+            var (syntaxTree, _, lexErrors, errors) = Parse(src);
+            
+            Assert.Empty(lexErrors);
+            Assert.Empty(errors);
+            Assert.Single(syntaxTree);
 
+            Assert.True(syntaxTree[0] is ExpressionStmt);
+            ExpressionStmt exprStmt = (ExpressionStmt)syntaxTree[0];
+            Assert.True(exprStmt.Expression is ConversionExpr);
+            Assert.True(exprStmt.Expression is ConversionExpr);
+            ConversionExpr conversionExpr = (ConversionExpr)exprStmt.Expression;
+            Assert.Equal(ExpressionKind.Literal, conversionExpr.Expression.Kind);
+            Assert.Equal("str", conversionExpr.TargetType.Name);
+        }
+
+        [Fact]
+        public void Assignment()
+        {
+            const string src = """
+                                            let a = 5
+                                            a = 3
                                """; 
             var (syntaxTree, _, lexErrors, errors) = Parse(src);
             

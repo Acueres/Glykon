@@ -86,7 +86,7 @@ public class LexerTests : CompilerTestBase
     [Fact]
     public void ScanKeywords()
     {
-        const string src = "if class struct else def while false";
+        const string src = "if class struct else def while false as";
         
         var (tokens, _) = Lex(src);
 
@@ -100,7 +100,8 @@ public class LexerTests : CompilerTestBase
             TokenKind.Else,
             TokenKind.Def,
             TokenKind.While,
-            TokenKind.LiteralFalse
+            TokenKind.LiteralFalse,
+            TokenKind.As
         ];
 
         var actualTypes = tokens.Select(t => t.Kind).ToArray();

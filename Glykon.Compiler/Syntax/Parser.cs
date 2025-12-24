@@ -23,7 +23,7 @@ public class Parser(LexResult lexResult, string filename)
             try
             {
                 if (Current.Kind == TokenKind.EOF) break;
-                Statement stmt = ParseStatement();
+                Statement stmt = ParseDeclaration();
                 statements.Add(stmt);
             }
             catch (ParseException)
@@ -31,11 +31,12 @@ public class Parser(LexResult lexResult, string filename)
                 Synchronize();
             }
         }
+
         var syntaxTree = new SyntaxTree([..statements], filename);
         return new ParseResult(syntaxTree, lexResult.Tokens, lexResult.Errors, [..errors]);
     }
 
-    Statement ParseStatement()
+    Statement ParseDeclaration()
     {
         if (Match(TokenKind.Const))
         {
@@ -44,9 +45,203 @@ public class Parser(LexResult lexResult, string filename)
 
         if (Match(TokenKind.Let))
         {
-            return ParseVariableDeclarationStatement();
+            return ParseVariableDeclaration();
         }
 
+        if (Match(TokenKind.Def))
+        {
+            return ParseFunctionDeclaration();
+        }
+
+        if (Match(TokenKind.Class))
+        {
+            return ParseClassDeclaration();
+        }
+
+        return ParseStatement();
+    }
+
+    ClassDeclaration ParseClassDeclaration()
+    {
+        Token className = Consume(TokenKind.Identifier, "Expect class name");
+        Consume(TokenKind.BraceLeft, "Body must be declared");
+
+        List<MethodDeclaration> methods = [];
+        List<FieldDeclaration> fields = [];
+        List<ConstantDeclaration> constants = [];
+        List<Statement> nested = [];
+
+        while (Current.Kind != TokenKind.BraceRight && !AtEnd)
+        {
+            if (Match(TokenKind.Def))
+            {
+                var method = ParseMethodDeclaration();
+                methods.Add(method);
+            }
+            else if (Match(TokenKind.Const))
+            {
+                var constant = ParseConstantDeclaration();
+                constants.Add(constant);
+            }
+            else if (Match(TokenKind.Class))
+            {
+                var classDecl =  ParseClassDeclaration();
+                nested.Add(classDecl);
+            }
+            else
+            {
+                var field = ParseFieldDeclaration();
+                fields.Add(field);
+            }
+        }
+
+        Consume(TokenKind.BraceRight, "Expect '}' after class body");
+
+        return new ClassDeclaration(className.Text, [..methods], [..fields], [..constants], [..nested]);
+    }
+
+    MethodDeclaration ParseMethodDeclaration()
+    {
+        var func = ParseFunctionDeclaration(isMethod: true);
+        bool isStatic = func.Parameters.Length == 0 || func.Parameters.First().Type != TypeAnnotation.None;
+        return new MethodDeclaration(
+            func.Name,
+            func.Parameters,
+            func.ReturnType,
+            func.Body,
+            isStatic
+        );
+    }
+
+    FieldDeclaration ParseFieldDeclaration()
+    {
+        Token identifierToken = Consume(TokenKind.Identifier, "Expect field name");
+        
+        Consume(TokenKind.Colon, "Expect type declaration");
+        var declaredType = ParseTypeDeclaration();
+
+        Expression? initializer = null;
+        if (Match(TokenKind.Assignment))
+        {
+            initializer = ParseLogicalOr();
+        }
+
+        TerminateStatement("Expect ';' after field declaration");
+
+        string name = identifierToken.Text;
+        return new FieldDeclaration(initializer, name, declaredType);
+    }
+
+    FunctionDeclaration ParseFunctionDeclaration(bool isMethod = false)
+    {
+        string name = isMethod ? "method" : "function";
+        Token functionName = Consume(TokenKind.Identifier, $"Expect {name} name");
+        Consume(TokenKind.ParenthesisLeft, $"Expect '(' after {name} name");
+        List<Parameter> parameters = [];
+
+        if (Current.Kind != TokenKind.ParenthesisRight)
+        {
+            parameters = ParseParameters(isMethod);
+        }
+
+        Consume(TokenKind.ParenthesisRight, "Expect ')' after parameters");
+
+        TypeAnnotation returnType = TypeAnnotation.None;
+        if (Match(TokenKind.Arrow))
+        {
+            returnType = ParseTypeDeclaration();
+        }
+
+        Consume(TokenKind.BraceLeft, "Body must be declared");
+        
+        BlockStmt body = ParseBlockStatement();
+
+        return new FunctionDeclaration(functionName.Text, [..parameters], returnType, body);
+    }
+    
+    VariableDeclaration ParseVariableDeclaration()
+    {
+        bool immutable = Match(TokenKind.Const);
+        
+        Token identifierToken = Consume(TokenKind.Identifier, "Expect variable name");
+
+        TypeAnnotation declaredType = TypeAnnotation.None;
+        if (Match(TokenKind.Colon))
+        {
+            declaredType = ParseTypeDeclaration();
+        }
+
+        Expression? initializer = null;
+        if (Match(TokenKind.Assignment))
+        {
+            initializer = ParseLogicalOr();
+        }
+
+        if (initializer == null)
+        {
+            ParseError error = new(identifierToken, filename, "Variable must be initialized");
+            errors.Add(error);
+            throw error.Exception();
+        }
+
+        TerminateStatement("Expect ';' after variable declaration");
+
+        string name = identifierToken.Text;
+        return new VariableDeclaration(initializer, name, declaredType, immutable);
+    }
+
+    ConstantDeclaration ParseConstantDeclaration()
+    {
+        Token token = Consume(TokenKind.Identifier, "Expect constant name");
+
+        Consume(TokenKind.Colon, "Expect type declaration");
+
+        TypeAnnotation declaredType = ParseTypeDeclaration();
+
+        Consume(TokenKind.Assignment, "Expect constant value");
+        Expression initializer = ParseLogicalOr();
+
+        TerminateStatement("Expect ';' after constant declaration");
+
+        string name = token.Text;
+        return new(initializer, name, declaredType);
+    }
+
+    List<Parameter> ParseParameters(bool methodParams = false)
+    {
+        List<Parameter> parameters = [];
+        do
+        {
+            if (parameters.Count > ushort.MaxValue)
+            {
+                errors.Add(new ParseError(Current, filename, "Argument count exceeded"));
+            }
+
+            Token name = Consume(TokenKind.Identifier, "Expect parameter name");
+
+            Parameter parameter;
+            // Allow for self reference in methods
+            if (methodParams && parameters.Count == 0 && Current.Kind != TokenKind.Colon)
+            {
+                parameter = new Parameter(name.Text, TypeAnnotation.None);
+            }
+            else
+            {
+                Consume(TokenKind.Colon, "Expect colon before type declaration");
+                var type = ParseTypeDeclaration();
+
+                parameter = new Parameter(name.Text, type);
+            }
+
+            parameters.Add(parameter);
+        }
+        while (Match(TokenKind.Comma) && !AtEnd);
+
+        return parameters;
+    }
+
+    Statement ParseStatement()
+    {
         if (Match(TokenKind.Return))
         {
             return ParseReturnStatement();
@@ -54,8 +249,7 @@ public class Parser(LexResult lexResult, string filename)
 
         if (Match(TokenKind.BraceLeft))
         {
-            var blockStatement = ParseBlockStatement();
-            return blockStatement;
+            return ParseBlockStatement();
         }
 
         if (Match(TokenKind.If))
@@ -81,11 +275,6 @@ public class Parser(LexResult lexResult, string filename)
             return jumpStmt;
         }
 
-        if (Match(TokenKind.Def))
-        {
-            return ParseFunctionDeclaration();
-        }
-
         Expression expr = ParseExpression();
 
         TerminateStatement("Expect ';' after expression");
@@ -95,17 +284,17 @@ public class Parser(LexResult lexResult, string filename)
 
     BlockStmt ParseBlockStatement()
     {
-        List<Statement> statements = [];
+        List<Statement> stmts = [];
 
         while (Current.Kind != TokenKind.BraceRight && !AtEnd)
         {
-            Statement stmt = ParseStatement();
-            statements.Add(stmt);
+            Statement stmt = ParseDeclaration();
+            stmts.Add(stmt);
         }
 
         Consume(TokenKind.BraceRight, "Expect '}' after block");
 
-        return new BlockStmt(statements);
+        return new BlockStmt(stmts);
     }
 
     IfStmt ParseIfStatement()
@@ -165,32 +354,6 @@ public class Parser(LexResult lexResult, string filename)
         return new ForStmt(iter, range, body);
     }
 
-    FunctionDeclaration ParseFunctionDeclaration()
-    {
-        Token functionName = Consume(TokenKind.Identifier, "Expect function name");
-        Consume(TokenKind.ParenthesisLeft, "Expect '(' after function name");
-        List<(string Name, TypeAnnotation Type)> parameters = [];
-
-        if (Current.Kind != TokenKind.ParenthesisRight)
-        {
-            parameters = ParseParameters();
-        }
-
-        Consume(TokenKind.ParenthesisRight, "Expect ')' after parameters");
-
-        TypeAnnotation returnType = TypeAnnotation.None;
-        if (Match(TokenKind.Arrow))
-        {
-            returnType = ParseTypeDeclaration();
-        }
-
-        Consume(TokenKind.BraceLeft, "Body must be declared");
-        
-        BlockStmt body = ParseBlockStatement();
-
-        return new FunctionDeclaration(functionName.Text, parameters, returnType, body);
-    }
-
     ReturnStmt ParseReturnStatement()
     {
         Token token = Previous;
@@ -206,78 +369,7 @@ public class Parser(LexResult lexResult, string filename)
         return new ReturnStmt(value, token);
     }
 
-    VariableDeclaration ParseVariableDeclarationStatement()
-    {
-        bool immutable = Match(TokenKind.Const);
-        
-        Token identifierToken = Consume(TokenKind.Identifier, "Expect variable name");
-
-        TypeAnnotation declaredType = TypeAnnotation.None;
-        if (Match(TokenKind.Colon))
-        {
-            declaredType = ParseTypeDeclaration();
-        }
-
-        Expression? initializer = null;
-        if (Match(TokenKind.Assignment))
-        {
-            initializer = ParseLogicalOr();
-        }
-
-        if (initializer == null)
-        {
-            ParseError error = new(identifierToken, filename, "Variable must be initialized");
-            errors.Add(error);
-            throw error.Exception();
-        }
-
-
-        TerminateStatement("Expect ';' after variable declaration");
-
-        string name = identifierToken.Text;
-        return new(initializer, name, declaredType, immutable);
-    }
-
-    ConstantDeclaration ParseConstantDeclaration()
-    {
-        Token token = Consume(TokenKind.Identifier, "Expect constant name");
-
-        Consume(TokenKind.Colon, "Expect type declaration");
-
-        TypeAnnotation declaredType = ParseTypeDeclaration();
-
-        Consume(TokenKind.Assignment, "Expect constant value");
-        Expression initializer = ParseExpression();
-
-        TerminateStatement("Expect ';' after constant declaration");
-
-        string name = token.Text;
-        return new(initializer, name, declaredType);
-    }
-
-    List<(string Name, TypeAnnotation Type)> ParseParameters()
-    {
-        List<(string Name, TypeAnnotation Type)> parameters = [];
-        do
-        {
-            if (parameters.Count > ushort.MaxValue)
-            {
-                errors.Add(new ParseError(Current, filename, "Argument count exceeded"));
-            }
-
-            Token name = Consume(TokenKind.Identifier, "Expect parameter name");
-            Consume(TokenKind.Colon, "Expect colon before type declaration");
-            var type = ParseTypeDeclaration();
-
-            var parameter = (name.Text, type);
-            parameters.Add(parameter);
-        }
-        while (Match(TokenKind.Comma));
-
-        return parameters;
-    }
-
-    public Expression ParseExpression()
+    private Expression ParseExpression()
     {
         return ParseAssignment();
     }
@@ -286,49 +378,26 @@ public class Parser(LexResult lexResult, string filename)
     {
         Expression expr = ParseLogicalOr();
 
-        if (Match(TokenKind.Assignment))
+        if (!Match(TokenKind.Assignment)) return expr;
+        
+        Token token = Peek(-2);
+        Expression value = ParseAssignment();
+
+        switch (expr)
         {
-            Token token = Peek(-2);
-
-            Expression value = ParseAssignment();
-
-            if (expr.Kind == ExpressionKind.Variable)
+            case NameExpr variableExpr:
+                return new AssignmentExpr(variableExpr, value);
+            case MemberAccessExpr memberAccessExpr:
+                return new AssignmentExpr(memberAccessExpr, value);
+            default:
             {
-                string name = ((VariableExpr)expr).Name;
-                return new AssignmentExpr(name, value);
+                ParseError error = new(token, filename, "Invalid assignment target");
+                errors.Add(error);
+                break;
             }
-
-            ParseError error = new(token, filename, "Invalid assignment target");
-            errors.Add(error);
         }
 
         return expr;
-    }
-
-    RangeExpr ParseRange()
-    {
-        var start = ParseTerm();
-
-        bool isInclusive = false;
-        if (Match(TokenKind.RangeInclusive))
-        {
-            isInclusive = true;
-        }
-        else if (!Match(TokenKind.Range))
-        {
-            var error = new ParseError(Current, filename, "Expect range operator");
-            errors.Add(error);
-        }
-        
-        var end = ParseTerm();
-
-        Expression? step = null;
-        if (Match(TokenKind.By))
-        {
-            step = ParseTerm();
-        }
-        
-        return new RangeExpr(start, end, step, isInclusive);
     }
 
     Expression ParseLogicalOr()
@@ -424,16 +493,30 @@ public class Parser(LexResult lexResult, string filename)
             return new UnaryExpr(oper, right);
         }
 
-        return ParseCall();
+        return ParsePostfix();
     }
 
-    Expression ParseCall()
+    Expression ParsePostfix()
     {
         Expression expr = ParsePrimary();
 
-        while (Match(TokenKind.ParenthesisLeft))
+        while (true)
         {
-            expr = CompleteCall(expr);
+            if (Match(TokenKind.ParenthesisLeft))
+            {
+                expr = CompleteCall(expr);
+            }
+            else if (Match(TokenKind.Dot))
+            {
+                Token name = Consume(TokenKind.Identifier, "Expect member name after '.'");
+                expr = new MemberAccessExpr(expr, name.Text);
+            }
+            else if (Match(TokenKind.As))
+            {
+                var targetType = ParseTypeDeclaration();
+                expr = new ConversionExpr(expr, targetType);
+            }
+            else break;
         }
 
         return expr;
@@ -451,7 +534,7 @@ public class Parser(LexResult lexResult, string filename)
                     errors.Add(new ParseError(Current, filename, "Argument count exceeded"));
                 }
 
-                args.Add(ParseExpression());
+                args.Add(ParseLogicalOr());
             }
             while (Match(TokenKind.Comma));
         }
@@ -470,12 +553,12 @@ public class Parser(LexResult lexResult, string filename)
         if (Match(TokenKind.Identifier))
         {
             string name = Previous.Text;
-            return new VariableExpr(name);
+            return new NameExpr(name);
         }
 
         if (Match(TokenKind.ParenthesisLeft))
         {
-            Expression expr = ParseExpression();
+            Expression expr = ParseLogicalOr();
             Consume(TokenKind.ParenthesisRight, "Expect ')' after expression");
             return new GroupingExpr(expr);
         }
@@ -518,6 +601,32 @@ public class Parser(LexResult lexResult, string filename)
                 throw error.Exception();
         }
     }
+    
+    RangeExpr ParseRange()
+    {
+        var start = ParseTerm();
+
+        bool isInclusive = false;
+        if (Match(TokenKind.RangeInclusive))
+        {
+            isInclusive = true;
+        }
+        else if (!Match(TokenKind.Range))
+        {
+            var error = new ParseError(Current, filename, "Expect range operator");
+            errors.Add(error);
+        }
+        
+        var end = ParseTerm();
+
+        Expression? step = null;
+        if (Match(TokenKind.By))
+        {
+            step = ParseTerm();
+        }
+        
+        return new RangeExpr(start, end, step, isInclusive);
+    }
 
     TypeAnnotation ParseTypeDeclaration()
     {
@@ -548,6 +657,12 @@ public class Parser(LexResult lexResult, string filename)
 
     void Synchronize()
     {
+        if (Current.Kind == TokenKind.Semicolon)
+        {
+            Advance();
+            return;
+        }
+        
         Advance();
 
         while (!AtEnd)
@@ -601,15 +716,8 @@ public class Parser(LexResult lexResult, string filename)
 
     bool Match(params TokenKind[] values)
     {
-        foreach (TokenKind value in values)
-        {
-            if (Current.Kind == value)
-            {
-                Advance();
-                return true;
-            }
-        }
-
-        return false;
+        if (values.All(value => Current.Kind != value)) return false;
+        Advance();
+        return true;
     }
 }

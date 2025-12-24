@@ -14,25 +14,25 @@ internal class CilFunctionEmitter
     readonly ILGenerator il;
     readonly TypeSystem typeSystem;
 
-    readonly IRFunctionDeclaration fStmt;
+    readonly IRFunctionDeclaration functionDeclaration;
 
     Dictionary<FunctionSymbol, MethodInfo> combinedFunctions = [];
     readonly Dictionary<FunctionSymbol, MethodInfo> localFunctions = [];
-    readonly List<CilFunctionEmitter> methodGenerators = [];
+    readonly List<CilFunctionEmitter> functionEmitters = [];
 
     readonly Label? returnLabel;
     readonly LocalBuilder? returnLocal;
 
-    public CilFunctionEmitter(IRFunctionDeclaration stmt, TypeSystem typeSystem, IdentifierInterner interner,
+    public CilFunctionEmitter(IRFunctionDeclaration functionDeclaration, TypeSystem typeSystem, IdentifierInterner interner,
         TypeBuilder typeBuilder)
     {
-        fStmt = stmt;
+        this.functionDeclaration = functionDeclaration;
         this.typeSystem = typeSystem;
 
-        var parameterTypes = IntrinsicClrTypeTranslator.Translate([.. stmt.Parameters.Select(p => p.Type)]);
-        var returnType = IntrinsicClrTypeTranslator.Translate(stmt.ReturnType);
+        var parameterTypes = IntrinsicClrTypeTranslator.Translate([.. functionDeclaration.Parameters.Select(p => p.Type)]);
+        var returnType = IntrinsicClrTypeTranslator.Translate(functionDeclaration.ReturnType);
 
-        string name = interner[stmt.Signature.QualifiedNameId];
+        string name = interner[functionDeclaration.Signature.QualifiedNameId];
 
         mb = typeBuilder.DefineMethod(name,
             MethodAttributes.HideBySig | MethodAttributes.Public | MethodAttributes.Static,
@@ -40,40 +40,40 @@ internal class CilFunctionEmitter
 
         il = mb.GetILGenerator();
 
-        for (int i = 0; i < stmt.Parameters.Length; i++)
+        for (int i = 0; i < functionDeclaration.Parameters.Length; i++)
         {
-            string paramName = interner[stmt.Parameters[i].NameId];
+            string paramName = interner[functionDeclaration.Parameters[i].NameId];
             mb.DefineParameter(i + 1, ParameterAttributes.None, paramName);
         }
 
-        int n = CountReturnStatements(stmt);
+        int n = CountReturnStatements(functionDeclaration);
         bool multipleReturns = n > 1;
 
-        if (multipleReturns || (stmt.ReturnType.Kind == TypeKind.None && n > 0))
+        if (multipleReturns || (functionDeclaration.ReturnType.Kind == TypeKind.None && n > 0))
         {
             returnLabel = il.DefineLabel();
         }
 
-        if (stmt.ReturnType.Kind != TypeKind.None && multipleReturns)
+        if (functionDeclaration.ReturnType.Kind != TypeKind.None && multipleReturns)
         {
-            returnLocal = il.DeclareLocal(IntrinsicClrTypeTranslator.Translate(stmt.ReturnType));
+            returnLocal = il.DeclareLocal(IntrinsicClrTypeTranslator.Translate(functionDeclaration.ReturnType));
         }
 
-        var locals = stmt.Body.Statements
+        var locals = functionDeclaration.Body.Statements
             .Where(s => s.Kind == IRStatementKind.Function).Cast<IRFunctionDeclaration>();
         foreach (var f in locals)
         {
             CilFunctionEmitter mg = new(f, typeSystem, interner, typeBuilder);
-            methodGenerators.Add(mg);
+            functionEmitters.Add(mg);
             localFunctions.Add(f.Signature, mg.GetMethodBuilder());
         }
     }
 
     public MethodBuilder GetMethodBuilder() => mb;
 
-    public void Emit(Dictionary<FunctionSymbol, MethodInfo> methods)
+    public void Emit(Dictionary<FunctionSymbol, MethodInfo> functions)
     {
-        combinedFunctions = methods.Concat(localFunctions).ToDictionary();
+        combinedFunctions = functions.Concat(localFunctions).ToDictionary();
 
         CilEmitContext context = new()
         {
@@ -83,9 +83,9 @@ internal class CilFunctionEmitter
         };
         CilCodeGenerator codeGenerator = new CilCodeGenerator(il, typeSystem, context);
         
-        codeGenerator.EmitStatements(fStmt.Body.Statements);
+        codeGenerator.EmitStatements(functionDeclaration.Body.Statements);
 
-        foreach (var mg in methodGenerators)
+        foreach (var mg in functionEmitters)
         {
             mg.Emit(combinedFunctions);
         }

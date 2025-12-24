@@ -381,6 +381,7 @@ public class Lexer(SourceText source, string fileName)
             { "for", TokenKind.For },
             { "by", TokenKind.By },
             { "in",  TokenKind.In },
+            { "as", TokenKind.As },
             { "while", TokenKind.While },
             { "return", TokenKind.Return },
             { "break", TokenKind.Break },
@@ -430,7 +431,7 @@ public class Lexer(SourceText source, string fileName)
             TokenKind.Or,
             TokenKind.Not,
 
-            // Declaration and control-flow keywords
+            // Declarations
             TokenKind.Def,
             TokenKind.Class,
             TokenKind.Struct,
@@ -438,13 +439,18 @@ public class Lexer(SourceText source, string fileName)
             TokenKind.Enum,
             TokenKind.Let,
             TokenKind.Const,
+            
+            // Control-flow keywords
             TokenKind.If,
             TokenKind.Else,
             TokenKind.Elif,
+            
+            // Other keywords
             TokenKind.For,
             TokenKind.By,
             TokenKind.In,
-            TokenKind.While
+            TokenKind.While,
+            TokenKind.As
         ];
 
         chainingChars = ['.', '[', '(', '+', '-', '*', '/', '=', '!', '<', '>'];

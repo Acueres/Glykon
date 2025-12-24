@@ -18,7 +18,8 @@ public class IRTypeBuilder(
     IdentifierInterner interner,
     string fileName)
 {
-    readonly List<IGlykonError> errors = [];
+    private readonly List<IGlykonError> errors = [];
+    private readonly IRExpression invalidExpr = new IRInvalidExpr(typeSystem[TypeKind.Error]);
 
     public (IRTree, IGlykonError[]) Build()
     {
@@ -34,6 +35,17 @@ public class IRTypeBuilder(
     {
         switch (stmt.Kind)
         {
+            case BoundStatementKind.Class:
+            {
+                var classDecl = (BoundClassDeclaration)stmt;
+
+                var constants = classDecl.Constants.Select(BuildStatement).OfType<IRConstantDeclaration>().ToArray();
+                var fields = classDecl.Fields.Select(BuildFieldDeclaration).ToArray();
+                var nested = classDecl.Nested.Select(BuildStatement).ToArray();
+                var methods = classDecl.Methods.Select(BuildMethodDeclaration).ToArray();
+
+                return new IRClassDeclaration(classDecl.Type, methods, fields, constants, nested);
+            }
             case BoundStatementKind.Block:
             {
                 var blockStmt = (BoundBlockStmt)stmt;
@@ -125,7 +137,6 @@ public class IRTypeBuilder(
 
                 return new IRConstantDeclaration(initializer, constantStmt.Symbol);
             }
-
             case BoundStatementKind.Function:
             {
                 var functionStmt = (BoundFunctionDeclaration)stmt;
@@ -166,6 +177,35 @@ public class IRTypeBuilder(
         }
     }
 
+    IRFieldDeclaration BuildFieldDeclaration(BoundFieldDeclaration fieldDec)
+    {
+        IRExpression? initializer = null;
+        if (fieldDec.Initializer is not null)
+        {
+            initializer = BuildExpression(fieldDec.Initializer);
+            if (TypeSystem.CanImplicitlyConvert(initializer.Type, fieldDec.Symbol.Type))
+            {
+                initializer = new IRConversionExpr(initializer, fieldDec.Symbol.Type);
+            }
+            else if (initializer.Type != fieldDec.Symbol.Type)
+            {
+                TypeError error = new(fileName,
+                    $"Type mismatch between {interner[fieldDec.Symbol.Type.NameId]} and {interner[initializer.Type.NameId]}");
+                errors.Add(error);
+            }
+        }
+
+        return new IRFieldDeclaration(initializer, fieldDec.Symbol);
+    }
+
+    IRMethodDeclaration BuildMethodDeclaration(BoundMethodDeclaration methodDec)
+    {
+        var irStatements = methodDec.Body.Statements.Select(BuildStatement).ToArray();
+        IRBlockStmt irBody = new([.. irStatements], methodDec.Body.Scope);
+        return new IRMethodDeclaration(methodDec.Symbol, methodDec.ParentType, methodDec.Parameters,
+            methodDec.ReturnType, irBody, methodDec.ThisParameter);
+    }
+
     IRExpression BuildExpression(BoundExpression expression)
     {
         switch (expression.Kind)
@@ -183,7 +223,7 @@ public class IRTypeBuilder(
 
                 if (operand.Type.IsError)
                 {
-                    return new IRInvalidExpr(typeSystem[TypeKind.Error]);
+                    return invalidExpr;
                 }
 
                 var type = unaryExpr.Operator.Kind == TokenKind.Not ? typeSystem[TypeKind.Bool] : operand.Type;
@@ -202,7 +242,7 @@ public class IRTypeBuilder(
 
                 if (left.Type.IsError || right.Type.IsError)
                 {
-                    return new IRInvalidExpr(typeSystem[TypeKind.Error]);
+                    return invalidExpr;
                 }
                 
                 // Handle string concatenation
@@ -263,19 +303,66 @@ public class IRTypeBuilder(
             case BoundExpressionKind.Assignment:
             {
                 var assignmentExpr = (BoundAssignmentExpr)expression;
-                var symbol = assignmentExpr.Symbol;
-                var value = BuildExpression(assignmentExpr.Value);
-                
-                if (value.Type.IsError) return new IRAssignmentExpr(value, assignmentExpr.Symbol);
 
-                if (TypeSystem.CanImplicitlyConvert(value.Type, symbol.Type))
+                var target = BuildExpression(assignmentExpr.Target);
+                var value = BuildExpression(assignmentExpr.Value);
+
+                if (target.Kind == IRExpressionKind.Invalid || value.Kind == IRExpressionKind.Invalid)
                 {
-                    value = new IRConversionExpr(value, symbol.Type);
+                    return invalidExpr;
                 }
+
+                // Variable assignment
+                if (target is IRNameExpr v)
+                {
+                    if (v.Symbol is not VariableSymbol varSym)
+                    {
+                        return v.Symbol switch
+                        {
+                            ConstantSymbol => NotAssignable("Can't assign to a constant."),
+                            FunctionSymbol => NotAssignable("Can't assign to a function."),
+                            MethodSymbol => NotAssignable("Can't assign to a method."),
+                            ParameterSymbol => NotAssignable("Can't assign to a parameter."),
+                            _ => NotAssignable("Invalid assignment target.")
+                        };
+                    }
+
+                    if (varSym.Immutable)
+                    {
+                        return NotAssignable("Can't assign to an immutable variable.");
+                    }
+
+                    value = CoerceOrError(value, varSym.Type, interner[varSym.NameId]);
+                    if (value.Kind == IRExpressionKind.Invalid)
+                    {
+                        return invalidExpr;
+                    }
+
+                    return new IRAssignmentExpr(value, varSym);
+                }
+
+                // Field assignment
+                if (target is IRMemberAccessExpr ma)
+                {
+                    if (ma.MemberSymbol is not FieldSymbol field)
+                        return NotAssignable("Can only assign to fields.");
+
+                    value = CoerceOrError(value, field.Type, interner[field.NameId]);
+                    if (value.Kind == IRExpressionKind.Invalid)
+                    {
+                        return invalidExpr;
+                    }
+                    
+                    return new IRFieldAssignmentExpr(ma.Receiver, field, value);
+                }
+
+                return NotAssignable("Invalid assignment expression.");
                 
-                var irAssignment = new IRAssignmentExpr(value, symbol);
-                CheckAssignmentExpression(irAssignment);
-                return irAssignment;
+                IRExpression NotAssignable(string msg)
+                {
+                    errors.Add(new TypeError(fileName, msg));
+                    return invalidExpr;
+                }
             }
             case BoundExpressionKind.Range:
             {
@@ -294,40 +381,80 @@ public class IRTypeBuilder(
                 {
                     var error = new TypeError(fileName, "Range expression must be of type \"int\".");
                     errors.Add(error);
-                    return new IRInvalidExpr(typeSystem[TypeKind.Error]);
+                    return invalidExpr;
                 }
                 
                 return new IRRangeExpr(start, end, step, rangeExpr.IsInclusive);
             }
-            case BoundExpressionKind.Variable:
+            case BoundExpressionKind.Name:
             {
-                var variableExpr = (BoundVariableExpr)expression;
+                var variableExpr = (BoundNameExpr)expression;
                 var symbol = variableExpr.Symbol;
-                return new IRVariableExpr(symbol);
+                return new IRNameExpr(symbol);
+            }
+            case BoundExpressionKind.MemberAccess:
+            {
+                var memberExpr = (BoundMemberAccessExpr)expression;
+
+                var receiver = BuildExpression(memberExpr.Receiver);
+                if (receiver.Kind == IRExpressionKind.Invalid)
+                {
+                    return invalidExpr;
+                }
+                
+                var symbol = receiver.Type.Find(memberExpr.NameId);
+                if (symbol is null)
+                {
+                    var error = new TypeError(fileName,
+                        $"Unknown symbol {interner[memberExpr.NameId]} on type {interner[receiver.Type.NameId]}");
+                    errors.Add(error);
+                    return invalidExpr;
+                }
+                
+                return new IRMemberAccessExpr(receiver, symbol);
             }
             case BoundExpressionKind.Grouping:
             {
                 var groupExpr = (BoundGroupingExpr)expression;
-                var boundExpression = BuildExpression(groupExpr.Expression);
-                return new IRGroupingExpr(boundExpression);
+                var irExpression = BuildExpression(groupExpr.Expression);
+                return new IRGroupingExpr(irExpression);
             }
             case BoundExpressionKind.Call:
             {
                 var callExpr = (BoundCallExpr)expression;
-
-                var parameters = callExpr.Parameters.Select(BuildExpression).ToArray();
-                var paramTypes = parameters.Select(arg => arg.Type).ToArray();
-
-                var overloads = callExpr.Overloads;
-                var function = overloads.FirstOrDefault(overload => overload.Parameters.SequenceEqual(paramTypes));
-
-                if (function is null)
+                
+                var args = callExpr.Parameters.Select(BuildExpression).ToArray();
+                if (args.Any(a => a.Kind == IRExpressionKind.Invalid))
                 {
-                    errors.Add(new TypeError(fileName, $"Cannot resolve function {interner[callExpr.NameId]}"));
-                    return new IRInvalidExpr(typeSystem[TypeKind.Error]);
+                    return invalidExpr;
+                }
+                
+                var callee = BuildExpression(callExpr.Callee);
+                if (callee.Kind == IRExpressionKind.Invalid)
+                {
+                    return invalidExpr;
                 }
 
-                return new IRCallExpr(function, parameters);
+                // Free function call
+                if (callee is IRNameExpr { Symbol: FunctionSymbol fn })
+                {
+                    var coerced = CoerceArgs(args, fn.Parameters, fn.NameId);
+                    return coerced is null ? invalidExpr : new IRCallExpr(fn, coerced);
+                }
+
+                // Method call
+                if (callee is IRMemberAccessExpr { MemberSymbol: MethodSymbol method } ma)
+                {
+                    IRExpression[] actualArgs = method.IsStatic
+                        ? args
+                        : [ ma.Receiver, .. args ];
+
+                    var coerced = CoerceArgs(actualArgs, method.Parameters, method.NameId);
+                    return coerced is null ? invalidExpr : new IRCallExpr(method, coerced); 
+                }
+
+                errors.Add(new TypeError(fileName, "Expression is not callable."));
+                return invalidExpr;
             }
             case BoundExpressionKind.Conversion:
             {
@@ -335,8 +462,61 @@ public class IRTypeBuilder(
                 var irExpression = BuildExpression(conversionExpr.Expression);
                 return new IRConversionExpr(irExpression, conversionExpr.TargetType);
             }
-            default: return new IRInvalidExpr(typeSystem[TypeKind.Error]);
+            default: return invalidExpr;
         }
+    }
+    
+    IRExpression CoerceOrError(IRExpression value, TypeSymbol targetType, string targetName)
+    {
+        if (value.Type == targetType)
+            return value;
+
+        if (TypeSystem.CanImplicitlyConvert(value.Type, targetType))
+            return new IRConversionExpr(value, targetType);
+
+        errors.Add(new TypeError(fileName,
+            $"Type mismatch assigning to {targetName}: expected {interner[targetType.NameId]}, got {interner[value.Type.NameId]}"));
+        return invalidExpr;
+    }
+    
+    IRExpression[]? CoerceArgs(IRExpression[] args, TypeSymbol[] paramTypes, int calleeNameId)
+    {
+        if (args.Length != paramTypes.Length)
+        {
+            errors.Add(new TypeError(fileName,
+                $"Arity mismatch calling {interner[calleeNameId]}: expected {paramTypes.Length}, got {args.Length}."));
+            return null;
+        }
+
+        var coerced = new IRExpression[args.Length];
+
+        for (int i = 0; i < args.Length; i++)
+        {
+            var arg = args[i];
+            var expected = paramTypes[i];
+
+            if (arg.Kind == IRExpressionKind.Invalid)
+                return null;
+
+            if (arg.Type == expected)
+            {
+                coerced[i] = arg;
+                continue;
+            }
+
+            if (TypeSystem.CanImplicitlyConvert(arg.Type, expected))
+            {
+                coerced[i] = new IRConversionExpr(arg, expected);
+                continue;
+            }
+
+            errors.Add(new TypeError(fileName,
+                $"Type mismatch calling {interner[calleeNameId]} at argument #{i + 1}: " +
+                $"expected {interner[expected.NameId]}, got {interner[arg.Type.NameId]}."));
+            return null;
+        }
+
+        return coerced;
     }
 
     void CheckConstantType(IRExpression initializer, TypeSymbol declaredType)
@@ -376,29 +556,6 @@ public class IRTypeBuilder(
         {
             errors.Add(new TypeError(fileName,
                 $"Type mismatch; operator {logicalExpr.Operator} cannot be applied between types {interner[leftType.NameId]} and {interner[rightType.NameId]}"));
-        }
-    }
-
-    void CheckAssignmentExpression(IRAssignmentExpr assignmentExpr)
-    {
-        var variableType = assignmentExpr.Symbol.Type;
-        var valueType = assignmentExpr.Value.Type;
-
-        if (variableType != valueType)
-        {
-            errors.Add(new TypeError(fileName,
-                $"Type mismatch; can't assign {interner[valueType.NameId]} to {interner[variableType.NameId]}"));
-        }
-
-        if (assignmentExpr.Symbol is ConstantSymbol)
-        {
-            errors.Add(new TypeError(fileName,
-                "Can't assign value to a constant."));
-        }
-        else if (assignmentExpr.Symbol is VariableSymbol { Immutable: true })
-        {
-            errors.Add(new TypeError(fileName,
-                "Can't assign value to an immutable variable."));
         }
     }
 
@@ -460,6 +617,6 @@ public class IRTypeBuilder(
     {
         errors.Add(new TypeError(fileName,
             $"Operator {op} cannot be applied between types '{interner[l.Type.NameId]}' and '{interner[r.Type.NameId]}'"));
-        return new IRInvalidExpr(typeSystem[TypeKind.Error]);
+        return invalidExpr;
     }
 }

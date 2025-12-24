@@ -8,8 +8,9 @@ public enum BoundExpressionKind : byte
     Call,
     Grouping,
     Literal,
-    Variable,
+    Name,
     Assignment,
+    MemberAccess,
     Logical,
     Conversion,
     Range

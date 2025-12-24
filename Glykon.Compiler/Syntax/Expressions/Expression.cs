@@ -7,8 +7,9 @@ public enum ExpressionKind : byte
     Call,
     Grouping,
     Literal,
-    Variable,
+    Name,
     Assignment,
+    MemberAccess,
     Logical,
     Conversion,
     Range

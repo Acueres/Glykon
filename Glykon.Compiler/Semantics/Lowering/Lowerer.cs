@@ -41,7 +41,7 @@ public class Lowerer(IRTree ir, IdentifierInterner interner, TypeSystem ts, Symb
     {
         var range = forStatement.Range;
         
-        var iteratorVariable = new IRVariableExpr(forStatement.Iterator.Symbol);
+        var iteratorVariable = new IRNameExpr(forStatement.Iterator.Symbol);
 
         var stepExpr = range.Step switch
         {
@@ -64,7 +64,7 @@ public class Lowerer(IRTree ir, IdentifierInterner interner, TypeSystem ts, Symb
     IRExpression HandleForDirection(
         IRRangeExpr range,
         IRExpression stepExpr,
-        IRVariableExpr iteratorVariable)
+        IRNameExpr iteratorName)
     {
         var intType = ts[TypeKind.Int64];
         var boolType = ts[TypeKind.Bool];
@@ -88,7 +88,7 @@ public class Lowerer(IRTree ir, IdentifierInterner interner, TypeSystem ts, Symb
 
             return new IRBinaryExpr(
                 comparisonOp,
-                iteratorVariable,
+                iteratorName,
                 range.End,
                 boolType);
         }
@@ -113,14 +113,14 @@ public class Lowerer(IRTree ir, IdentifierInterner interner, TypeSystem ts, Symb
         // Ascending bounds: i < end (or <=)
         var forwardBound = new IRBinaryExpr(
             range.IsInclusive ? BinaryOp.LessOrEqual : BinaryOp.Less,
-            iteratorVariable,
+            iteratorName,
             range.End,
             boolType);
 
         // Descending bounds: i > end (or >=)
         var backwardBound = new IRBinaryExpr(
             range.IsInclusive ? BinaryOp.GreaterOrEqual : BinaryOp.Greater,
-            iteratorVariable,
+            iteratorName,
             range.End,
             boolType);
 

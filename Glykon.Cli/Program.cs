@@ -11,7 +11,7 @@ internal static class Program
 
                                        def main() {
                                             for i in 0..21 {
-                                                println(fib(i))
+                                                println(fib(i) as str)
                                             }
                                        }
                                        

@@ -1,10 +1,12 @@
 using Glykon.Compiler.Core;
 using Glykon.Compiler.Diagnostics.Errors;
+using Glykon.Compiler.Semantics.IR.Statements;
+using Glykon.Compiler.Semantics.Types;
 using Tests.Infrastructure;
 
 namespace Tests;
 
-public class TypeCheckingTests : CompilerTestBase
+public class TypeTests : CompilerTestBase
 {
     // Helpers
 
@@ -12,6 +14,82 @@ public class TypeCheckingTests : CompilerTestBase
     {
         var semanticResult = Analyze(src, LanguageMode.Script, file);
         return [..semanticResult.AllErrors];
+    }
+    
+    [Fact]
+    public void VariableTypeInference()
+    {
+        const string src = """
+
+                                       let i = 6
+                                       let res = i + (2 + 2 * 3)
+
+                           """;
+
+        var semanticResult = Analyze(src, LanguageMode.Script);
+        var irTree = semanticResult.Ir;
+        var interner = semanticResult.Interner;
+        
+        Assert.Empty(semanticResult.AllErrors);
+        Assert.NotEmpty(irTree);
+
+        var f = GetFunction(irTree.Single());
+        
+        Assert.Equal(2, f.Body.Statements.Length);
+        Assert.Equal(IRStatementKind.Variable, f.Body.Statements[1].Kind);
+        var stmt = (IRVariableDeclaration)f.Body.Statements[1];
+
+        string name = interner[stmt.Symbol.NameId];
+        Assert.Equal("res", name);
+        Assert.NotNull(stmt.Initializer);
+        Assert.Equal(TypeKind.Int64, stmt.Symbol.Type.Kind);
+    }
+
+    [Fact]
+    public void VariableWrongTypeInference()
+    {
+        const string src = """
+
+                                       let res = (2 + 2 * 'text')
+                           """;
+        var semanticResult = Analyze(src, LanguageMode.Script);
+        
+        Assert.Single(semanticResult.AllErrors);
+
+        var f = GetFunction(semanticResult.Ir.Single());
+        Assert.Single(f.Body.Statements);
+    }
+    
+    [Fact]
+    public void CastLiteral()
+    {
+        const string src = """
+                                       42 as str
+                           """;
+        var semanticResult = Analyze(src, LanguageMode.Script);
+        
+        Assert.Empty(semanticResult.AllErrors);
+        
+        var f = GetFunction(semanticResult.Ir.Single());
+        var exprStmt = GetExprStmt(f.Body.Statements.Single());
+        Assert.Equal(TypeKind.String, exprStmt.Expression.Type.Kind);
+    }
+    
+    [Fact]
+    public void CastVariable()
+    {
+        const string src = """
+
+                                       let f = 2.74
+                                       f as int
+                           """;
+        var semanticResult = Analyze(src, LanguageMode.Script);
+        
+        Assert.Empty(semanticResult.AllErrors);
+
+        var f = GetFunction(semanticResult.Ir.Single());
+        var exprStmt = GetExprStmt(f.Body.Statements[1]);
+        Assert.Equal(TypeKind.Int64, exprStmt.Expression.Type.Kind);
     }
 
     // Literals, unary & binary

@@ -23,31 +23,35 @@ public class CilCompilationUnitEmitter(
         TypeBuilder tb = mob.DefineType(appName,
             TypeAttributes.Class | TypeAttributes.NotPublic | TypeAttributes.Abstract | TypeAttributes.Sealed);
 
-        List<CilFunctionEmitter> methodGenerators = [];
-        Dictionary<FunctionSymbol, MethodInfo> methods = LoadStdLibrary();
-        List<FunctionInfo> definedMethods = [];
+        List<CilFunctionEmitter> functionEmitters = [];
+        Dictionary<FunctionSymbol, MethodInfo> stdFunctions = LoadStdLibrary();
+        List<FunctionInfo> definedFunctions = [];
 
         foreach (var stmt in irTree)
         {
             if (stmt is IRFunctionDeclaration f)
             {
                 CilFunctionEmitter mg = new(f, typeSystem, interner, tb);
-                methodGenerators.Add(mg);
+                functionEmitters.Add(mg);
 
                 var mb = mg.GetMethodBuilder();
-                methods[f.Signature] = mb;
-                definedMethods.Add(new FunctionInfo(f.Signature, mb));
+                stdFunctions[f.Signature] = mb;
+                definedFunctions.Add(new FunctionInfo(f.Signature, mb));
+            }
+            else if (stmt is IRClassDeclaration c)
+            {
+                
             }
         }
 
-        foreach (var mg in methodGenerators)
+        foreach (var mg in functionEmitters)
         {
-            mg.Emit(methods);
+            mg.Emit(stdFunctions);
         }
 
         tb.CreateType();
 
-        return [..definedMethods];
+        return [..definedFunctions];
     }
 
     Dictionary<FunctionSymbol, MethodInfo> LoadStdLibrary()
@@ -56,20 +60,8 @@ public class CilCompilationUnitEmitter(
 
         var console = typeof(Console);
 
-        stdFunctions.Add(symbolTable.GetFunction("println", [typeSystem[TypeKind.String]]),
-            console.GetMethod("WriteLine", [typeof(string)]));
-
-        stdFunctions.Add(symbolTable.GetFunction("println", [typeSystem[TypeKind.Int64]]),
-            console.GetMethod("WriteLine", [typeof(long)]));
-
-        stdFunctions.Add(symbolTable.GetFunction("println", [typeSystem[TypeKind.Float64]]),
-            console.GetMethod("WriteLine", [typeof(double)]));
-
-        stdFunctions.Add(symbolTable.GetFunction("println", [typeSystem[TypeKind.Bool]]),
-            console.GetMethod("WriteLine", [typeof(bool)]));
-
-        stdFunctions.Add(symbolTable.GetFunction("println", [typeSystem[TypeKind.None]]),
-            console.GetMethod("WriteLine", []));
+        stdFunctions.Add(symbolTable.GetFunction("println")!,
+            console.GetMethod("WriteLine", [typeof(string)])!);
 
         return stdFunctions;
     }

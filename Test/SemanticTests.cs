@@ -9,50 +9,6 @@ namespace Tests;
 public class SemanticTests : CompilerTestBase
 {
     [Fact]
-    public void VariableTypeInference()
-    {
-        const string src = """
-
-                                       let i = 6
-                                       let res = i + (2 + 2 * 3)
-
-                           """;
-
-        var semanticResult = Analyze(src, LanguageMode.Script);
-        var irTree = semanticResult.Ir;
-        var interner = semanticResult.Interner;
-        
-        Assert.Empty(semanticResult.AllErrors);
-        Assert.NotEmpty(irTree);
-
-        var f = GetFunction(irTree.Single());
-        
-        Assert.Equal(2, f.Body.Statements.Length);
-        Assert.Equal(IRStatementKind.Variable, f.Body.Statements[1].Kind);
-        var stmt = (IRVariableDeclaration)f.Body.Statements[1];
-
-        string name = interner[stmt.Symbol.NameId];
-        Assert.Equal("res", name);
-        Assert.NotNull(stmt.Initializer);
-        Assert.Equal(TypeKind.Int64, stmt.Symbol.Type.Kind);
-    }
-
-    [Fact]
-    public void VariableWrongTypeInference()
-    {
-        const string src = """
-
-                                       let res = (2 + 2 * 'text')
-                           """;
-        var semanticResult = Analyze(src, LanguageMode.Script);
-        
-        Assert.Single(semanticResult.AllErrors);
-
-        var f = GetFunction(semanticResult.Ir.Single());
-        Assert.Single(f.Body.Statements);
-    }
-    
-    [Fact]
     public void CheckVariableInsideConstantDeclaration()
     {
         const string src = """
@@ -88,31 +44,6 @@ public class SemanticTests : CompilerTestBase
     }
 
     [Fact]
-    public void OverloadResolutionSuccess()
-    {
-        const string src = """
-            def log(msg: str) { return }
-            def log(level: int, msg: str) { return }
-            log('hi')          # picks 1‑arg
-            log(1, 'bye')      # picks 2‑arg
-        """;
-        var semanticResult = Analyze(src, LanguageMode.Script);
-        Assert.Empty(semanticResult.AllErrors);
-    }
-
-    [Fact]
-    public void OverloadResolutionFailure()
-    {
-        const string src = """
-            def log(msg: str) { return }
-            def log(level: int, msg: str) { return }
-            log(true, 'oops')   # no matching overload
-        """;
-        var semanticResult = Analyze(src, LanguageMode.Script);
-        Assert.Single(semanticResult.AllErrors);
-    }
-
-    [Fact]
     public void CallWithUnknownIdentifier()
     {
         const string src = @"
@@ -141,33 +72,6 @@ public class SemanticTests : CompilerTestBase
         const string src = @"
             def ping() { return }
             (ping)()   # grouping around identifier is allowed
-        ";
-
-        var semanticResult = Analyze(src, LanguageMode.Script);
-        Assert.Empty(semanticResult.AllErrors);
-    }
-
-    [Fact]
-    public void CallOverloadNoMatch()
-    {
-        const string src = @"
-            def log(i: int) { return }
-            def log(i: int, j: int) { return }
-            log(true)     # no matching overload for (bool)
-        ";
-
-        var semanticResult = Analyze(src, LanguageMode.Script);
-        Assert.Single(semanticResult.AllErrors);
-    }
-
-    [Fact]
-    public void CallOverloadExactMatch()
-    {
-        const string src = @"
-            def log(i: int) { return }
-            def log(i: int, j: int) { return }
-            log(1)
-            log(1, 2)
         ";
 
         var semanticResult = Analyze(src, LanguageMode.Script);

@@ -10,8 +10,10 @@ public enum IRExpressionKind : byte
     Call,
     Grouping,
     Literal,
-    Variable,
+    Name,
     Assignment,
+    FieldAssignment,
+    MemberAccess,
     Logical,
     Conversion,
     Range

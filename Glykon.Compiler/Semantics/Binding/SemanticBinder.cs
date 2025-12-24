@@ -2,13 +2,11 @@
 using Glykon.Compiler.Diagnostics.Errors;
 using Glykon.Compiler.Semantics.Binding.BoundExpressions;
 using Glykon.Compiler.Semantics.Binding.BoundStatements;
-using Glykon.Compiler.Semantics.Optimization;
 using Glykon.Compiler.Semantics.Symbols;
 using Glykon.Compiler.Semantics.Types;
 using Glykon.Compiler.Syntax;
 using Glykon.Compiler.Syntax.Expressions;
 using Glykon.Compiler.Syntax.Statements;
-using System.Xml.Linq;
 
 namespace Glykon.Compiler.Semantics.Binding;
 
@@ -67,6 +65,37 @@ public class SemanticBinder(SyntaxTree syntaxTree, TypeSystem typeSystem, Identi
 
         switch (stmt.Kind)
         {
+            case StatementKind.Class:
+            {
+                var classDecl = (ClassDeclaration)stmt;
+
+                var type = typeSystem.RegisterType(classDecl.Name);
+                if (symbolTable.TryGetType(classDecl.Name, out _))
+                {
+                    errors.Add(new BindingError(fileName, $"Type '{classDecl.Name}' already defined."));
+                }
+                else
+                {
+                    symbolTable.RegisterType(type);
+                }
+
+                symbolTable.BeginScope(ScopeKind.Type);
+
+                var constants = classDecl.Constants.Select(BindStatement).OfType<BoundConstantDeclaration>()
+                    .ToArray();
+                var fields = classDecl.Fields.Select(f => BindField(f, type)).ToArray();
+                var nested = classDecl.Nested.Select(BindStatement).ToArray();
+                var methods = classDecl.Methods.Select(m => BindMethodDeclaration(m, type)).ToArray();
+
+                symbolTable.EndScope();
+
+                type.FinalizeType(methods.Select(m => m.Symbol).ToArray(),
+                    fields.Select(f => f.Symbol).ToArray(),
+                    constants.Select(c => c.Symbol).ToArray(),
+                    nested.OfType<BoundClassDeclaration>().Select(decl => decl.Type).ToArray());
+
+                return new BoundClassDeclaration(type, methods, fields, constants, nested);
+            }
             case StatementKind.Block:
             {
                 Scope scope = symbolTable.BeginScope(ScopeKind.Block);
@@ -76,7 +105,7 @@ public class SemanticBinder(SyntaxTree syntaxTree, TypeSystem typeSystem, Identi
 
                 BoundBlockStmt boundBlockStmt = new([.. boundStatements], scope);
 
-                symbolTable.ExitScope();
+                symbolTable.EndScope();
                 return boundBlockStmt;
             }
             case StatementKind.If:
@@ -112,47 +141,46 @@ public class SemanticBinder(SyntaxTree syntaxTree, TypeSystem typeSystem, Identi
             }
             case StatementKind.Variable:
             {
-                var variableStmt = (VariableDeclaration)stmt;
-                var declaredType = BindTypeAnnotation(variableStmt.DeclaredType);
+                var variableDecl = (VariableDeclaration)stmt;
+                var declaredType = BindTypeAnnotation(variableDecl.DeclaredType);
 
-                var boundExpression = BindExpression(variableStmt.Initializer);
+                var boundExpression = BindExpression(variableDecl.Initializer);
 
-                var symbol = symbolTable.RegisterVariable(variableStmt.Name, variableStmt.Immutable, declaredType);
+                var symbol = symbolTable.RegisterVariable(variableDecl.Name, variableDecl.Immutable, declaredType);
 
                 return new BoundVariableDeclaration(boundExpression, symbol, declaredType);
             }
             case StatementKind.Constant:
             {
-                var constantStmt = (ConstantDeclaration)stmt;
-                var declaredType = BindTypeAnnotation(constantStmt.DeclaredType);
+                var constantDecl = (ConstantDeclaration)stmt;
+                var declaredType = BindTypeAnnotation(constantDecl.DeclaredType);
                 
-                var initializer = BindExpression(constantStmt.Initializer);
+                var initializer = BindExpression(constantDecl.Initializer);
                 
-                var symbol = symbolTable.RegisterConstant(constantStmt.Name, declaredType);
+                var symbol = symbolTable.RegisterConstant(constantDecl.Name, declaredType);
                 
                 return new BoundConstantDeclaration(initializer, symbol);
             }
 
             case StatementKind.Function:
             {
-                var functionStmt = (FunctionDeclaration)stmt;
+                var functionDecl = (FunctionDeclaration)stmt;
 
-                TypeSymbol[] paramTypes = [.. functionStmt.Parameters.Select(p => BindTypeAnnotation(p.Type))];
-                var returnType = BindTypeAnnotation(functionStmt.ReturnType);
+                TypeSymbol[] paramTypes = [.. functionDecl.Parameters.Select(p => BindTypeAnnotation(p.Type))];
+                var returnType = BindTypeAnnotation(functionDecl.ReturnType);
 
-                FunctionSymbol? signature = symbolTable.GetLocalFunction(functionStmt.Name, paramTypes);
-                signature ??= symbolTable.RegisterFunction(functionStmt.Name, returnType, paramTypes);
+                FunctionSymbol? signature = symbolTable.GetLocalFunction(functionDecl.Name);
+                signature ??= symbolTable.RegisterFunction(functionDecl.Name, returnType, paramTypes);
 
                 var scope = symbolTable.BeginScope(signature!);
-                signature!.Scope = scope;
-
-                var parameterSymbols = functionStmt.Parameters
+                
+                var parameterSymbols = functionDecl.Parameters
                     .Select(p => symbolTable.RegisterParameter(p.Name, BindTypeAnnotation(p.Type))).ToList();
 
-                var boundStatements = BindStatementsWithDeclarations(functionStmt.Body.Statements);
+                var boundStatements = BindStatementsWithDeclarations(functionDecl.Body.Statements);
                 BoundBlockStmt boundBody = new([.. boundStatements], scope);
 
-                symbolTable.ExitScope();
+                symbolTable.EndScope();
 
                 return new BoundFunctionDeclaration(signature, [.. parameterSymbols], returnType, boundBody);
             }
@@ -229,11 +257,42 @@ public class SemanticBinder(SyntaxTree syntaxTree, TypeSystem typeSystem, Identi
             {
                 AssignmentExpr assignmentExpr = (AssignmentExpr)expression;
                 
-                var symbol = symbolTable.GetAllowedSymbol(assignmentExpr.Name);
-
-                BoundExpression right = BindExpression(assignmentExpr.Right);
+                var target = BindExpression(assignmentExpr.Target);
+                BoundExpression value = BindExpression(assignmentExpr.Right);
                 
-                return new BoundAssignmentExpr(right, symbol);
+                if (target is BoundNameExpr variableExpr)
+                {
+                    return new BoundAssignmentExpr(variableExpr, value);
+                }
+
+                if (target is BoundMemberAccessExpr memberAccessExpr)
+                {
+                    return new BoundAssignmentExpr(memberAccessExpr, value);
+                }
+
+                var error = new BindingError(fileName, "Invalid assignment target.");
+                errors.Add(error);
+                return new BoundInvalidExpr();
+            }
+            case ExpressionKind.Conversion:
+            {
+                ConversionExpr conversionExpr = (ConversionExpr)expression;
+                
+                var boundExpr = BindExpression(conversionExpr.Expression);
+                var targetType = BindTypeAnnotation(conversionExpr.TargetType);
+                
+                if (targetType.IsError) return new BoundInvalidExpr();
+                
+                return new BoundConversionExpr(boundExpr, targetType);
+            }
+            case ExpressionKind.MemberAccess:
+            {
+                MemberAccessExpr memberAccessExpr = (MemberAccessExpr)expression;
+                
+                var receiver = BindExpression(memberAccessExpr.Receiver);
+                int nameId = interner.Intern(memberAccessExpr.Name);
+                
+                return new BoundMemberAccessExpr(receiver, nameId);
             }
             case ExpressionKind.Range:
             {
@@ -245,31 +304,41 @@ public class SemanticBinder(SyntaxTree syntaxTree, TypeSystem typeSystem, Identi
                 
                 return new BoundRangeExpr(start, end, step, rangeExpr.IsInclusive);
             }
-            case ExpressionKind.Variable:
+            case ExpressionKind.Name:
             {
-                var variableExpr = (VariableExpr)expression;
+                var nameExpr = (NameExpr)expression;
 
-                if (!interner.TryGetId(variableExpr.Name, out var id))
+                if (!interner.TryGetId(nameExpr.Name, out var id))
                 {
-                    errors.Add(new BindingError(fileName, $"Unknown identifier: {variableExpr.Name}"));
+                    errors.Add(new BindingError(fileName, $"Unknown identifier: {nameExpr.Name}"));
                     return new BoundInvalidExpr();
                 }
 
-                var localVariable = symbolTable.GetLocalVariableSymbol(variableExpr.Name);
+                var localVariable = symbolTable.GetLocalVariableSymbol(nameExpr.Name);
                 if (localVariable != null)
                 {
-                    return new BoundVariableExpr(localVariable);
+                    return new BoundNameExpr(localVariable);
                 }
 
-                var symbol = symbolTable.GetSymbol(variableExpr.Name);
+                if (symbolTable.TryGetMethod(nameExpr.Name, out var method))
+                {
+                    return new BoundNameExpr(method!);
+                }
+
+                if (symbolTable.TryGetFunction(nameExpr.Name, out var function))
+                {
+                    return new BoundNameExpr(function!);
+                }
+
+                var symbol = symbolTable.GetSymbol(nameExpr.Name);
                 // Captured variables are not allowed
                 if (symbol is VariableSymbol)
                 {
-                    errors.Add(new BindingError(fileName, $"Cannot reference {variableExpr.Name}"));
+                    errors.Add(new BindingError(fileName, $"Cannot reference {nameExpr.Name}"));
                     return new BoundInvalidExpr();
                 }
 
-                return new BoundVariableExpr(symbol!);
+                return new BoundNameExpr(symbol!);
             }
             case ExpressionKind.Grouping:
             {
@@ -284,33 +353,74 @@ public class SemanticBinder(SyntaxTree syntaxTree, TypeSystem typeSystem, Identi
 
                 var callee = callExpr.Callee;
                 while (callee is GroupingExpr p) callee = p.Expression;
-
-                if (callee is not VariableExpr variableExpr)
-                {
-                    errors.Add(new BindingError(fileName, $"Expression {callee.Kind} is not callable"));
-                    return new BoundInvalidExpr();
-                }
-
-                int nameId = interner.Intern(variableExpr.Name);
-                var overloads = symbolTable.GetFunctionOverloads(variableExpr.Name);
                 
-                var symbol = symbolTable.GetSymbol(variableExpr.Name);
-                if (symbol is not null)
-                {
-                    errors.Add(new BindingError(fileName, $"{interner[symbol.NameId]} is not callable"));
-                    return new BoundInvalidExpr();
-                }
+                var boundCallee = BindExpression(callee);
                 
-                if (overloads.Length == 0)
-                {
-                    errors.Add(new BindingError(fileName, $"{variableExpr.Name} is not a function"));
-                    return new BoundInvalidExpr();
-                }
-                
-                return new BoundCallExpr(nameId, overloads, boundArgs);
+                return new BoundCallExpr(boundCallee, boundArgs);
             }
             default: return new BoundInvalidExpr();
         }
+    }
+
+    BoundMethodDeclaration BindMethodDeclaration(MethodDeclaration methodDecl, TypeSymbol parentType)
+    {
+        TypeSymbol[] paramTypes = [.. methodDecl.Parameters.Select(p => BindTypeAnnotation(p.Type))];
+
+        if (!methodDecl.IsStatic && paramTypes.Length > 0)
+        {
+            paramTypes[0] = parentType;
+        }
+        
+        var returnType = BindTypeAnnotation(methodDecl.ReturnType);
+        
+        if (symbolTable.TryGetMethod(methodDecl.Name, out var signature))
+        {
+            var error = new BindingError(fileName, $"Method {methodDecl.Name} already exists.");
+            errors.Add(error);
+        }
+        
+        signature ??= symbolTable.RegisterMethod(methodDecl.Name, returnType, parentType, paramTypes, methodDecl.IsStatic);
+
+        var scope = symbolTable.BeginScope(signature!);
+        
+        ParameterSymbol? thisParameter = null;
+        List<ParameterSymbol> parameterSymbols;
+        if (methodDecl.IsStatic)
+        {
+            parameterSymbols = methodDecl.Parameters
+                .Select((p, i) => symbolTable.RegisterParameter(p.Name, paramTypes[i])).ToList();
+        }
+        else
+        {
+            var parentRef = methodDecl.Parameters.First();
+            thisParameter = symbolTable.RegisterParameter(parentRef.Name, parentType);
+
+            parameterSymbols = [thisParameter];
+            for (int i = 1; i < methodDecl.Parameters.Length; i++)
+            {
+                var p =  methodDecl.Parameters[i];
+                var parameterSymbol = symbolTable.RegisterParameter(p.Name, paramTypes[i]);
+                parameterSymbols.Add(parameterSymbol);
+            }
+        }
+
+        var boundStatements = BindStatementsWithDeclarations(methodDecl.Body.Statements);
+        BoundBlockStmt boundBody = new([.. boundStatements], scope);
+
+        symbolTable.EndScope();
+
+        return new BoundMethodDeclaration(signature!, parentType, [.. parameterSymbols], returnType, boundBody, thisParameter);
+    }
+
+    BoundFieldDeclaration BindField(FieldDeclaration fieldDecl, TypeSymbol parentType)
+    {
+        var declaredType = BindTypeAnnotation(fieldDecl.DeclaredType);
+
+        var boundExpression = BindExpression(fieldDecl.Initializer);
+
+        var symbol = symbolTable.RegisterField(fieldDecl.Name, declaredType, parentType);
+
+        return new BoundFieldDeclaration(boundExpression, symbol);
     }
 
     List<BoundStatement> BindStatementsWithDeclarations(List<Statement> statements)
@@ -339,8 +449,7 @@ public class SemanticBinder(SyntaxTree syntaxTree, TypeSystem typeSystem, Identi
 
     TypeSymbol BindTypeAnnotation(TypeAnnotation annotation)
     {
-        var symbol = symbolTable.GetType(annotation.Name);
-        if (symbol is not null) return symbol;
+        if (symbolTable.TryGetType(annotation.Name, out var typeSymbol)) return typeSymbol!;
         errors.Add(new BindingError(fileName, $"Unknown type: {annotation.Name}"));
         return typeSystem[TypeKind.Error];
     }
@@ -356,14 +465,6 @@ public class SemanticBinder(SyntaxTree syntaxTree, TypeSystem typeSystem, Identi
     void RegisterStd()
     {
         symbolTable.RegisterFunction("println", typeSystem[TypeKind.None], [typeSystem[TypeKind.String]]);
-
-        symbolTable.RegisterFunction("println", typeSystem[TypeKind.None], [typeSystem[TypeKind.Int64]]);
-
-        symbolTable.RegisterFunction("println", typeSystem[TypeKind.None], [typeSystem[TypeKind.Float64]]);
-
-        symbolTable.RegisterFunction("println", typeSystem[TypeKind.None], [typeSystem[TypeKind.Bool]]);
-
-        symbolTable.RegisterFunction("println", typeSystem[TypeKind.None], [typeSystem[TypeKind.None]]);
     }
 
     private void ReportTopLevelNotAllowed(Statement stmt)

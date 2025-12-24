@@ -29,7 +29,7 @@ public class RuntimeTests
         const string code = """
             let a = 10
             let b = 20
-            println(a + b)
+            println((a + b) as str)
         """;
 
         var runtime = new GlykonRuntime(code, nameof(Script_VariableCalculation));
@@ -172,7 +172,7 @@ public class RuntimeTests
     {
         const string code = """
                                 for i in 0..10 {
-                                    println(i)
+                                    println(i as str)
                                 }
                             """;
 
@@ -195,7 +195,7 @@ public class RuntimeTests
     {
         const string code = """
                                 for i in 0..=10 {
-                                    println(i)
+                                    println(i as str)
                                 }
                             """;
 
@@ -218,7 +218,7 @@ public class RuntimeTests
     {
         const string code = """
                                 for i in 0..10 by 2 {
-                                    println(i)
+                                    println(i as str)
                                 }
                             """;
 
@@ -241,7 +241,7 @@ public class RuntimeTests
     {
         const string code = """
                                 for i in 10..0 by -1 {
-                                    println(i)
+                                    println(i as str)
                                 }
                             """;
 
@@ -264,7 +264,7 @@ public class RuntimeTests
     {
         const string code = """
                                 for i in 10..=0 by -2 {
-                                    println(i)
+                                    println(i as str)
                                 }
                             """;
 
@@ -287,7 +287,7 @@ public class RuntimeTests
     {
         const string code = """
                                 for i in 0..10 by 0 {
-                                    println(i)
+                                    println(i as str)
                                 }
                             """;
 
@@ -303,7 +303,7 @@ public class RuntimeTests
     {
         const string code = """
                                 for i in 10..0 {
-                                    println(i)
+                                    println(i as str)
                                 }
                             """;
 
@@ -320,7 +320,7 @@ public class RuntimeTests
         const string code = """
                                 let step = 2
                                 for i in 0..10 by step {
-                                    println(i)
+                                    println(i as str)
                                 }
                             """;
 
@@ -344,7 +344,7 @@ public class RuntimeTests
         const string code = """
                                 let step = -2
                                 for i in 10..0 by step {
-                                    println(i)
+                                    println(i as str)
                                 }
                             """;
 

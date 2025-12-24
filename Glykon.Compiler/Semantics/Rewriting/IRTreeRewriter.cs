@@ -26,7 +26,7 @@ public abstract class IRTreeRewriter
             IRUnaryExpr u => RewriteUnary(u),
             IRBinaryExpr b => RewriteBinary(b),
             IRLogicalExpr l => RewriteLogical(l),
-            IRVariableExpr v => RewriteVariable(v),
+            IRNameExpr v => RewriteVariable(v),
             IRAssignmentExpr a => RewriteAssignment(a),
             IRRangeExpr r => RewriteRange(r),
             IRCallExpr c => RewriteCall(c),
@@ -133,9 +133,9 @@ public abstract class IRTreeRewriter
             : new IRBinaryExpr(logicalExpr.Operator, left, right, logicalExpr.Type);
     }
     
-    protected virtual IRExpression RewriteVariable(IRVariableExpr variableExpr)
+    protected virtual IRExpression RewriteVariable(IRNameExpr nameExpr)
     {
-        return variableExpr;
+        return nameExpr;
     }
     
     protected virtual IRExpression RewriteAssignment(IRAssignmentExpr a)
@@ -168,7 +168,7 @@ public abstract class IRTreeRewriter
             parameters[i] = a;
         }
 
-        return changed ? new IRCallExpr(c.Function, parameters) : c;
+        return changed ? new IRCallExpr(c.Callable, parameters) : c;
     }
     
     protected virtual IRExpression RewriteGrouping(IRGroupingExpr g)

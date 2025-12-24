@@ -9,8 +9,6 @@ public class FunctionSymbol(int nameId, int serialId, int qualifiedId, TypeSymbo
     public int QualifiedNameId { get; } = qualifiedId;
     public TypeSymbol[] Parameters { get; } = parameters;
 
-    public Scope? Scope { get; set; }
-
     public override bool Equals(object? obj)
     {
         if (obj is not FunctionSymbol sb) return false;

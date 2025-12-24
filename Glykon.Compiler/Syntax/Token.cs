@@ -26,7 +26,7 @@ public enum TokenKind : byte
     // Keywords
     Identifier, Class, Struct, Interface, Enum, Def, Let, Const,
     And, Not, Or,
-    If, Else, Elif, For, By, In, While, Return, Break, Continue,
+    If, Else, Elif, For, By, In, As, While, Return, Break, Continue,
 
     EOF
 }

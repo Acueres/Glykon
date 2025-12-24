@@ -1,3 +1,4 @@
+using System.Globalization;
 using Glykon.Compiler.Core;
 using Glykon.Compiler.Diagnostics.Errors;
 using Glykon.Compiler.Semantics.Binding;
@@ -92,9 +93,9 @@ public class ConstantFolder(IRTree irTree, TypeSystem typeSystem, IdentifierInte
             : new IRConstantDeclaration(foldedInitializer, c.Symbol);
     }
 
-    protected override IRExpression RewriteVariable(IRVariableExpr v)
+    protected override IRExpression RewriteVariable(IRNameExpr v)
     {
-        if (v.Symbol is ConstantSymbol c && !c.Value.IsNone)
+        if (v.Symbol is ConstantSymbol { Value.IsNone: false } c)
         {
             return new IRLiteralExpr(c.Value, v.Type);
         }
@@ -142,10 +143,37 @@ public class ConstantFolder(IRTree irTree, TypeSystem typeSystem, IdentifierInte
             {
                 return lit;
             }
+            
             // int to float
             if (cnv.Type.Kind == TypeKind.Float64 && lit.Value.Kind == ConstantKind.Int)
             {
                 return new IRLiteralExpr(ConstantValue.FromReal(lit.Value.Int), typeSystem[TypeKind.Float64]);
+            }
+            
+            // string conversions
+            if (cnv.Type.Kind == TypeKind.String)
+            {
+                var stringType = typeSystem[TypeKind.String];
+                // int to string
+                if (lit.Value.Kind == ConstantKind.Int)
+                {
+                    return new IRLiteralExpr(ConstantValue.FromString(lit.Value.Int.ToString()), stringType);
+                }
+                
+                // real to string
+                if (lit.Value.Kind == ConstantKind.Real)
+                {
+                    return new IRLiteralExpr(ConstantValue.FromString(lit.Value.Real.ToString(CultureInfo.InvariantCulture)), stringType);
+                }
+                
+                // boolean to string
+                if (lit.Value.Kind == ConstantKind.Bool)
+                {
+                    return new IRLiteralExpr(ConstantValue.FromString(lit.Value.Bool.ToString()), stringType);
+                }
+                
+                // string identity
+                if (lit.Value.Kind == ConstantKind.String) return lit;
             }
             
             var error = new ConstantFoldingError(filename,

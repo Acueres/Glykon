@@ -1,34 +1,44 @@
 ﻿using Glykon.Compiler.Core;
 using Glykon.Compiler.Semantics.Binding;
+using Glykon.Compiler.Semantics.Symbols;
 
 namespace Glykon.Compiler.Semantics.Types;
 
 public class TypeSystem(IdentifierInterner interner)
 {
-    readonly IdentifierInterner interner = interner;
     readonly Dictionary<int, TypeSymbol> types = [];
 
     int typeSerial = (int)TypeKind.SerialStart;
 
+    public TypeSymbol RegisterType(string name)
+    {
+        int typeNameId = interner.Intern(name);
+        int serialId = typeSerial++;
+        TypeSymbol type =
+            new TypeSymbol(serialId, typeNameId, TypeKind.Defined);
+        types.Add(serialId, type);
+        return type;
+    }
+
     public void BuildPrimitives()
     {
         int noneId = interner.Intern("none");
-        types.Add(noneId, new TypeSymbol((int)TypeKind.None, noneId, TypeKind.None));
+        types.Add((int)TypeKind.None, new TypeSymbol((int)TypeKind.None, noneId, TypeKind.None));
 
         int integerId = interner.Intern("int");
-        types.Add(integerId, new TypeSymbol((int)TypeKind.Int64, integerId, TypeKind.Int64));
+        types.Add((int)TypeKind.Int64, new TypeSymbol((int)TypeKind.Int64, integerId, TypeKind.Int64));
 
         int realId = interner.Intern("real");
-        types.Add(realId, new TypeSymbol((int)TypeKind.Float64, realId, TypeKind.Float64));
+        types.Add((int)TypeKind.Float64, new TypeSymbol((int)TypeKind.Float64, realId, TypeKind.Float64));
 
         int boolId = interner.Intern("bool");
-        types.Add(boolId, new TypeSymbol((int)TypeKind.Bool, boolId, TypeKind.Bool));
+        types.Add((int)TypeKind.Bool, new TypeSymbol((int)TypeKind.Bool, boolId, TypeKind.Bool));
 
         int stringId = interner.Intern("str");
-        types.Add(stringId, new TypeSymbol((int)TypeKind.String, stringId, TypeKind.String));
+        types.Add((int)TypeKind.String, new TypeSymbol((int)TypeKind.String, stringId, TypeKind.String));
         
         int errorId = interner.Intern("_error");
-        types.Add(errorId, new TypeSymbol((int)TypeKind.Error, stringId, TypeKind.Error));
+        types.Add((int)TypeKind.Error, new TypeSymbol((int)TypeKind.Error, errorId, TypeKind.Error));
     }
 
     // TODO: Add more numeric types
