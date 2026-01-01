@@ -7,7 +7,7 @@ public class IRClassDeclaration(
     IRMethodDeclaration[] methods,
     IRFieldDeclaration[] fields,
     IRConstantDeclaration[] constants,
-    IRStatement[] nested) : IRStatement
+    IRClassDeclaration[] nested) : IRStatement
 {
     public override IRStatementKind Kind => IRStatementKind.Class;
 
@@ -15,5 +15,5 @@ public class IRClassDeclaration(
     public IRMethodDeclaration[] Methods { get; } = methods;
     public IRFieldDeclaration[] Fields { get; } = fields;
     public IRConstantDeclaration[] Constants { get; } = constants;
-    public IRStatement[] Nested { get; } = nested;
+    public IRClassDeclaration[] Nested { get; } = nested;
 }

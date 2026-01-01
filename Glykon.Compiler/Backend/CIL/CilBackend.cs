@@ -19,8 +19,8 @@ public sealed class CilBackend(SemanticResult semanticResult, AssemblyName asmNa
     {
         var mob = ab.DefineDynamicModule(asmName.Name!);
 
-        var typeEmitter = new CilCompilationUnitEmitter(semanticResult.Ir, semanticResult.SymbolTable,
-            semanticResult.TypeSystem, interner, asmName.Name!);
+        var typeEmitter =
+            new CilCompilationUnitEmitter(semanticResult.Ir, semanticResult.SymbolTable, interner, asmName.Name!);
         var functions = typeEmitter.EmitAssembly(mob);
 
         var mainMb = functions
@@ -54,8 +54,9 @@ public sealed class CilBackend(SemanticResult semanticResult, AssemblyName asmNa
     {
         Directory.CreateDirectory(outputDir);
         var mob = ab.DefineDynamicModule(asmName.Name!);
-        var functions = new CilCompilationUnitEmitter(semanticResult.Ir, semanticResult.SymbolTable,
-            semanticResult.TypeSystem, interner, asmName.Name!).EmitAssembly(mob);
+        var functions =
+            new CilCompilationUnitEmitter(semanticResult.Ir, semanticResult.SymbolTable, interner, asmName.Name!)
+                .EmitAssembly(mob);
 
         var mainMb = functions.Select(f => f.Method)
             .First(m => m.Name == "main" && m.GetParameters().Length == 0);

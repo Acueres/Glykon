@@ -39,7 +39,7 @@ public readonly struct Token
 
     public string Text => Span!.Value.Text;
 
-    static readonly Token empty = new(TokenKind.Empty, 0);
+    private static readonly Token empty = new(TokenKind.Empty, 0);
     public static ref readonly Token Empty => ref empty;
 
     public bool IsEmpty => Kind == TokenKind.Empty;

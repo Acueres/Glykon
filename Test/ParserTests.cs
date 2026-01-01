@@ -181,7 +181,9 @@ namespace Tests
 
             FunctionDeclaration function = (FunctionDeclaration)syntaxTree.First();
             Assert.Equal("f", function.Name);
-            Assert.Equal("int", function.ReturnType.Name);
+
+            var name = (NameExpr)function.ReturnType.Expression;
+            Assert.Equal("int", name.Name);
             Assert.Equal(2, function.Parameters.Length);
             Assert.NotNull(function.Body);
             Assert.Single(function.Body.Statements);
@@ -216,7 +218,9 @@ namespace Tests
             VariableDeclaration stmt = (VariableDeclaration)syntaxTree.First();
             Assert.Equal("value", stmt.Name);
             Assert.NotNull(stmt.Initializer);
-            Assert.Equal("none", stmt.DeclaredType.Name);
+            
+            var name = (NameExpr)stmt.DeclaredType.Expression;
+            Assert.Equal("none", name.Name);
             Assert.Equal(42, ((LiteralExpr)stmt.Initializer).Value.Int);
         }
 
@@ -235,7 +239,9 @@ namespace Tests
             VariableDeclaration stmt = (VariableDeclaration)syntaxTree.First();
             Assert.Equal("value", stmt.Name);
             Assert.NotNull(stmt.Initializer);
-            Assert.Equal("int", stmt.DeclaredType.Name);
+            
+            var name = (NameExpr)stmt.DeclaredType.Expression;
+            Assert.Equal("int", name.Name);
             Assert.Equal(42, (stmt.Initializer as LiteralExpr).Value.Int);
         }
 
@@ -278,7 +284,9 @@ namespace Tests
             Assert.True(exprStmt.Expression is ConversionExpr);
             ConversionExpr conversionExpr = (ConversionExpr)exprStmt.Expression;
             Assert.Equal(ExpressionKind.Literal, conversionExpr.Expression.Kind);
-            Assert.Equal("str", conversionExpr.TargetType.Name);
+
+            var name = (NameExpr)conversionExpr.TargetType.Expression;
+            Assert.Equal("str", name.Name);
         }
 
         [Fact]
@@ -449,6 +457,97 @@ namespace Tests
             Assert.True((logicalAnd.Left as LiteralExpr).Value.Bool);
             Assert.NotNull(logicalAnd.Right);
             Assert.False((logicalAnd.Right as LiteralExpr).Value.Bool);
+        }
+        
+        [Fact]
+        public void QualifiedTypeAnnotationsInFunctionDeclaration()
+        {
+            const string src = """
+                               def f(v: Outer.Inner, w: A.B.C) -> Outer.Inner {
+                                   return v
+                               }
+                               """;
+
+            var (syntaxTree, _, lexErrors, errors) = Parse(src);
+
+            Assert.Empty(lexErrors);
+            Assert.Empty(errors);
+            Assert.Single(syntaxTree);
+
+            var function = (FunctionDeclaration)syntaxTree.Single();
+            Assert.Equal(2, function.Parameters.Length);
+
+            AssertTypePath(function.Parameters[0].Type.Expression, "Outer", "Inner");
+            AssertTypePath(function.Parameters[1].Type.Expression, "A", "B", "C");
+            AssertTypePath(function.ReturnType.Expression, "Outer", "Inner");
+        }
+
+        [Fact]
+        public void QualifiedTypeInConversionExpression()
+        {
+            const string src = """
+                               value as Outer.Inner
+                               """;
+
+            var (syntaxTree, _, lexErrors, errors) = Parse(src);
+
+            Assert.Empty(lexErrors);
+            Assert.Empty(errors);
+            Assert.Single(syntaxTree);
+
+            var exprStmt = Assert.IsType<ExpressionStmt>(syntaxTree.Single());
+            var conv = Assert.IsType<ConversionExpr>(exprStmt.Expression);
+
+            AssertTypePath(conv.TargetType.Expression, "Outer", "Inner");
+        }
+
+        private static void AssertTypePath(Expression expr, params string[] expected)
+        {
+            var actual = FlattenTypePath(expr).ToArray();
+            Assert.Equal(expected, actual);
+        }
+
+        private static List<string> FlattenTypePath(Expression expr)
+        {
+            var parts = new List<string>();
+
+            while (expr is MemberAccessExpr ma)
+            {
+                parts.Add(GetMemberName(ma));
+                expr = GetReceiver(ma);
+            }
+
+            var root = Assert.IsType<NameExpr>(expr);
+            parts.Add(root.Name);
+
+            parts.Reverse();
+            return parts;
+        }
+
+        private static Expression GetReceiver(MemberAccessExpr ma)
+        {
+            var t = ma.GetType();
+            var prop =
+                t.GetProperty("Receiver") ??
+                t.GetProperty("Expression") ??
+                t.GetProperty("Target") ??
+                t.GetProperties().FirstOrDefault(p => typeof(Expression).IsAssignableFrom(p.PropertyType));
+
+            Assert.NotNull(prop);
+            return (Expression)prop!.GetValue(ma)!;
+        }
+
+        private static string GetMemberName(MemberAccessExpr ma)
+        {
+            var t = ma.GetType();
+            var prop =
+                t.GetProperty("MemberName") ??
+                t.GetProperty("Name") ??
+                t.GetProperty("Member") ??
+                t.GetProperties().FirstOrDefault(p => p.PropertyType == typeof(string));
+
+            Assert.NotNull(prop);
+            return (string)prop!.GetValue(ma)!;
         }
     }
 }

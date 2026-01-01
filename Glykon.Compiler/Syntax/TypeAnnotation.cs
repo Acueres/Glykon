@@ -1,8 +1,10 @@
-﻿namespace Glykon.Compiler.Syntax;
+﻿using Glykon.Compiler.Syntax.Expressions;
 
-public class TypeAnnotation(string name)
+namespace Glykon.Compiler.Syntax;
+
+public class TypeAnnotation(Expression expression)
 {
-    public string Name { get; } = name;
+    public Expression Expression { get; } = expression;
 
-    public static TypeAnnotation None { get;  } = new("none");
+    public static TypeAnnotation None { get;  } = new(new NameExpr("none"));
 }

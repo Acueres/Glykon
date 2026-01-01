@@ -5,56 +5,124 @@ using Glykon.Compiler.Semantics.Binding;
 using Glykon.Compiler.Semantics.Symbols;
 using Glykon.Compiler.Semantics.IR;
 using Glykon.Compiler.Semantics.IR.Statements;
-using Glykon.Compiler.Semantics.Types;
 
 namespace Glykon.Compiler.Backend.CIL;
 
 public class CilCompilationUnitEmitter(
     IRTree irTree,
     SymbolTable symbolTable,
-    TypeSystem typeSystem,
     IdentifierInterner interner,
     string appName)
 {
+    private readonly ClrTypeRegistry typeRegistry = new();
+
     public FunctionInfo[] EmitAssembly(ModuleBuilder mob)
     {
         symbolTable.ResetScope();
 
-        TypeBuilder tb = mob.DefineType(appName,
+        TypeBuilder unitTb = mob.DefineType(appName,
             TypeAttributes.Class | TypeAttributes.NotPublic | TypeAttributes.Abstract | TypeAttributes.Sealed);
 
-        List<CilFunctionEmitter> functionEmitters = [];
-        Dictionary<FunctionSymbol, MethodInfo> stdFunctions = LoadStdLibrary();
-        List<FunctionInfo> definedFunctions = [];
+        List<IRFunctionDeclaration> functionDeclarations = [];
+        List<IRClassDeclaration> classDeclarations = [];
 
         foreach (var stmt in irTree)
         {
-            if (stmt is IRFunctionDeclaration f)
+            switch (stmt)
             {
-                CilFunctionEmitter mg = new(f, typeSystem, interner, tb);
-                functionEmitters.Add(mg);
-
-                var mb = mg.GetMethodBuilder();
-                stdFunctions[f.Signature] = mb;
-                definedFunctions.Add(new FunctionInfo(f.Signature, mb));
-            }
-            else if (stmt is IRClassDeclaration c)
-            {
-                
+                case IRFunctionDeclaration f:
+                    functionDeclarations.Add(f);
+                    break;
+                case IRClassDeclaration c:
+                    classDeclarations.Add(c);
+                    break;
             }
         }
+        
+        List<CilCallableEmitter> callableEmitters = [];
+        Dictionary<FunctionSymbol, MethodInfo> functions = LoadStdLibrary();
+        List<FunctionInfo> definedFunctions = [];
+        Dictionary<MethodSymbol, MethodInfo> methods = [];
+        Dictionary<FieldSymbol, FieldInfo> fields = [];
 
-        foreach (var mg in functionEmitters)
+        // Create top-level emitters
+        var typeEmitters = classDeclarations.Select(c => new CilTypeEmitter(c, mob, interner, typeRegistry)).ToArray();
+        
+        // Define all types (top-level and nested)
+        foreach (var typeEmitter in typeEmitters)
         {
-            mg.Emit(stdFunctions);
+            typeEmitter.DefineType();
+        }
+        
+        // Emit all fields
+        foreach (var typeEmitter in typeEmitters)
+        {
+            var definedFields = typeEmitter.EmitFields();
+            foreach (var (fieldInfo, fieldSymbol) in definedFields)
+            {
+                fields[fieldSymbol] = fieldInfo;
+            }
+        }
+        
+        // Define all methods
+        foreach (var typeEmitter in typeEmitters)
+        {
+            var methodEmitters = typeEmitter.DefineMethods();
+            foreach (var (methodEmitter, signature) in methodEmitters)
+            {
+                callableEmitters.Add(methodEmitter);
+                var mb = methodEmitter.GetMethodBuilder();
+                methods[signature] = mb;
+            }
         }
 
-        tb.CreateType();
+        // Define top-level functions
+        foreach (var f in functionDeclarations)
+        {
+            CilCallableEmitter emitter = new(f, typeRegistry, interner, unitTb);
+            callableEmitters.Add(emitter);
+            
+            var mb = emitter.GetMethodBuilder();
+            functions[f.Signature] = mb;
+            definedFunctions.Add(new FunctionInfo(f.Signature, mb));
+        }
+        
+        // Define all locals
+        List<CilCallableEmitter> localEmitters = [];
+        foreach (var locals in callableEmitters
+                     .Select(callable => callable.DefineLocals()))
+        {
+            foreach (var (local, signature) in locals)
+            {
+                localEmitters.Add(local);
+
+                var mb = local.GetMethodBuilder();
+                functions[signature] = mb;
+                definedFunctions.Add(new FunctionInfo(signature, mb));
+            }
+        }
+        
+        // Add locals to the emitter pile
+        callableEmitters.AddRange(localEmitters);
+        
+        // Emit callable bodies
+        foreach (var callableEmitter in callableEmitters)
+        {
+            callableEmitter.Emit(functions, methods, fields);
+        }
+        
+        // Create defined types
+        foreach (var typeEmitter in typeEmitters)
+        {
+            typeEmitter.CreateType();
+        }
+        
+        unitTb.CreateType();
 
         return [..definedFunctions];
     }
 
-    Dictionary<FunctionSymbol, MethodInfo> LoadStdLibrary()
+    private Dictionary<FunctionSymbol, MethodInfo> LoadStdLibrary()
     {
         Dictionary<FunctionSymbol, MethodInfo> stdFunctions = [];
 

@@ -4,7 +4,7 @@ namespace Glykon.Cli;
 
 internal static class Program
 {
-    static void Main(string[] args)
+    private static void Main(string[] args)
     {
         const string filename = "Test";
         const string src = """

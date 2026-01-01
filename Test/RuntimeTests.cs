@@ -13,8 +13,8 @@ public class RuntimeTests
     public void Script_HelloWorld_CapturesStdout()
     {
         const string code = """
-            println('Hello Glykon!')
-        """;
+                                println('Hello Glykon!')
+                            """;
 
         var runtime = new GlykonRuntime(code, nameof(Script_HelloWorld_CapturesStdout));
         var result = runtime.RunScript();
@@ -27,10 +27,10 @@ public class RuntimeTests
     public void Script_VariableCalculation()
     {
         const string code = """
-            let a = 10
-            let b = 20
-            println((a + b) as str)
-        """;
+                                let a = 10
+                                let b = 20
+                                println((a + b) as str)
+                            """;
 
         var runtime = new GlykonRuntime(code, nameof(Script_VariableCalculation));
         var result = runtime.RunScript();
@@ -38,18 +38,18 @@ public class RuntimeTests
         Assert.Null(result.Exception);
         Assert.Contains("30", result.Stdout);
     }
-    
+
     // Application Mode Tests (Requires Main)
 
     [Fact]
     public void App_InMemory_RunsMain()
     {
         const string code = """
-            def main() {
-                println('App Mode Active')
-            }
-        """;
-        
+                                def main() {
+                                    println('App Mode Active')
+                                }
+                            """;
+
         var runtime = new GlykonRuntime(code, nameof(App_InMemory_RunsMain));
         var result = runtime.RunAppInMemory();
 
@@ -61,31 +61,31 @@ public class RuntimeTests
     public void App_MissingMain_ThrowsCompilationError()
     {
         const string code = """
-            def not_main() { }
-        """;
+                                def not_main() { }
+                            """;
 
         var runtime = new GlykonRuntime(code, nameof(App_MissingMain_ThrowsCompilationError));
-        
+
         Assert.Throws<InvalidOperationException>(() => runtime.RunAppInMemory());
     }
-    
+
     // Separate Function Invocation Tests
 
     [Fact]
     public void Invoke_AddFunction_ReturnsResult()
     {
         const string code = """
-            def add(a: int, b: int) -> int {
-                return a + b
-            }
-            # Top level code is allowed in Script mode, but we ignore it and call 'add' directly
-            println('ignored')
-        """;
+                                def add(a: int, b: int) -> int {
+                                    return a + b
+                                }
+                                # Top level code is allowed in Script mode, but we ignore it and call 'add' directly
+                                println('ignored')
+                            """;
 
         var runtime = new GlykonRuntime(code, nameof(Invoke_AddFunction_ReturnsResult));
-        
+
         var compiled = runtime.CompileToMemory(LanguageMode.Script);
-        
+
         var result = runtime.InvokeByName(compiled, "add", null, 5, 7);
 
         Assert.Null(result.Exception);
@@ -96,14 +96,14 @@ public class RuntimeTests
     public void Invoke_FunctionCallsOtherFunction()
     {
         const string code = """
-            def wrapper(msg: str) {
-                log(msg)
-            }
-            def log(s: str) {
-                println('Log: ' + s)
-            }
-        """;
-        
+                                def wrapper(msg: str) {
+                                    log(msg)
+                                }
+                                def log(s: str) {
+                                    println('Log: ' + s)
+                                }
+                            """;
+
         var runtime = new GlykonRuntime(code, nameof(Invoke_FunctionCallsOtherFunction));
         var compiled = runtime.CompileToMemory(LanguageMode.Script);
 
@@ -112,45 +112,180 @@ public class RuntimeTests
         Assert.Null(result.Exception);
         Assert.Contains("Log: test", result.Stdout);
     }
-    
+
+    // Custom Types / Fields / Member Access / Methods
+
+    [Fact]
+    public void Script_CustomType_FieldInitializer_AndMemberAccess()
+    {
+        const string code = """
+                                class Point {
+                                    x: int = 5
+                                }
+
+                                let p = Point()
+                                println(p.x as str)
+                            """;
+
+        var runtime = new GlykonRuntime(code, nameof(Script_CustomType_FieldInitializer_AndMemberAccess));
+        var result = runtime.RunScript();
+
+        Assert.Null(result.Exception);
+        Assert.Equal("5" + Environment.NewLine, result.Stdout);
+    }
+
+    [Fact]
+    public void Script_CustomType_FieldAssignment_Works()
+    {
+        const string code = """
+                                class Point {
+                                    x: int
+                                }
+
+                                let p = Point()
+                                p.x = 7
+                                println(p.x as str)
+                            """;
+
+        var runtime = new GlykonRuntime(code, nameof(Script_CustomType_FieldAssignment_Works));
+        var result = runtime.RunScript();
+
+        Assert.Null(result.Exception);
+        Assert.Equal("7" + Environment.NewLine, result.Stdout);
+    }
+
+    [Fact]
+    public void Script_CustomType_InstanceMethod_UsesFields()
+    {
+        const string code = """
+                                class Counter {
+                                    value: int = 0
+
+                                    def inc() {
+                                        self.value = self.value + 1
+                                    }
+
+                                    def get() -> int {
+                                        return self.value
+                                    }
+                                }
+
+                                let c = Counter()
+                                c.inc()
+                                c.inc()
+                                c.inc()
+                                println(c.get() as str)
+                            """;
+
+        var runtime = new GlykonRuntime(code, nameof(Script_CustomType_InstanceMethod_UsesFields));
+        var result = runtime.RunScript();
+
+        Assert.Null(result.Exception);
+        Assert.Equal("3" + Environment.NewLine, result.Stdout);
+    }
+
+    [Fact]
+    public void Script_CustomType_MethodTakesCustomTypeParam()
+    {
+        const string code = """
+                                class B { value: int = 7 }
+
+                                class A {
+                                    def take(b: B) -> int {
+                                        return b.value
+                                    }
+                                }
+
+                                let a = A()
+                                let b = B()
+                                println(a.take(b) as str)
+                            """;
+
+        var runtime = new GlykonRuntime(code, nameof(Script_CustomType_MethodTakesCustomTypeParam));
+        var result = runtime.RunScript();
+
+        Assert.Null(result.Exception);
+        Assert.Equal("7" + Environment.NewLine, result.Stdout);
+    }
+
+    [Fact]
+    public void Script_CustomType_MethodReturnsCustomType()
+    {
+        const string code = """
+                                class B { value: int = 9 }
+
+                                class A {
+                                    def makeB() -> B {
+                                        return B()
+                                    }
+                                }
+
+                                let a = A()
+                                let b = a.makeB()
+                                println(b.value as str)
+                            """;
+
+        var runtime = new GlykonRuntime(code, nameof(Script_CustomType_MethodReturnsCustomType));
+        var result = runtime.RunScript();
+
+        Assert.Null(result.Exception);
+        Assert.Equal("9" + Environment.NewLine, result.Stdout);
+    }
+
+    [Fact]
+    public void Script_AssociatedConst_AccessibleOnType()
+    {
+        const string code = """
+                                class Math {
+                                    const pi: real = 3.14
+                                }
+
+                                println(Math.pi as str)
+                            """;
+
+        var runtime = new GlykonRuntime(code, nameof(Script_AssociatedConst_AccessibleOnType));
+        var result = runtime.RunScript();
+
+        Assert.Null(result.Exception);
+        Assert.Contains("3.14", result.Stdout);
+    }
+
     // Built Assembly Tests
 
     [Fact]
     public void Disk_BuildAndRun_Executable()
     {
         const string code = """
-            def main() {
-                println('From Disk')
-            }
-        """;
+                                def main() {
+                                    println('From Disk')
+                                }
+                            """;
         string testName = nameof(Disk_BuildAndRun_Executable);
         string outputDir = Path.Combine(Path.GetTempPath(), "GlykonTests", testName);
-        
+
         var runtime = new GlykonRuntime(code, testName);
         var buildResult = runtime.BuildApp(outputDir);
 
         Assert.True(File.Exists(buildResult.DllPath), "DLL should exist");
         Assert.True(File.Exists(buildResult.RuntimeConfigPath), "Runtime config should exist");
-        
+
         var (exitCode, stdout, stderr) = RunDotNetProcess(buildResult.DllPath);
 
         Assert.Equal(0, exitCode);
         Assert.Contains("From Disk", stdout);
-        
+
         if (Directory.Exists(outputDir)) Directory.Delete(outputDir, true);
     }
 
     [Fact]
     public void Disk_Execution_HandlesRuntimeErrors()
     {
-        // Assuming Glykon has a panic/throw mechanism or we cause a .NET exception (div by zero)
-        // If not, valid Glykon code that crashes.
         const string code = """
-            def main() {
-                 let zero = 0
-                 let x = 1 / zero
-            }
-        """;
+                                def main() {
+                                     let zero = 0
+                                     let x = 1 / zero
+                                }
+                            """;
         string testName = nameof(Disk_Execution_HandlesRuntimeErrors);
         string outputDir = Path.Combine(Path.GetTempPath(), "GlykonTests", testName);
 
@@ -159,13 +294,13 @@ public class RuntimeTests
         string dllPath = Path.Combine(outputDir, testName + ".dll");
 
         var (exitCode, stdout, stderr) = RunDotNetProcess(dllPath);
-        
+
         Assert.NotEqual(0, exitCode);
         Assert.NotEmpty(stderr);
 
         if (Directory.Exists(outputDir)) Directory.Delete(outputDir, true);
     }
-    
+
     // For loops tests
     [Fact]
     public void Script_For_AscendingExclusive_Prints0To9()
@@ -189,7 +324,7 @@ public class RuntimeTests
 
         Assert.Equal(expected, result.Stdout);
     }
-    
+
     [Fact]
     public void Script_For_AscendingInclusive_Prints0To10()
     {
@@ -212,7 +347,7 @@ public class RuntimeTests
 
         Assert.Equal(expected, result.Stdout);
     }
-    
+
     [Fact]
     public void Script_For_AscendingWithStep_PrintsEvenNumbers()
     {
@@ -235,7 +370,7 @@ public class RuntimeTests
 
         Assert.Equal(expected, result.Stdout);
     }
-    
+
     [Fact]
     public void Script_For_DescendingExclusiveWithNegativeStep_Prints10DownTo1()
     {
@@ -258,7 +393,7 @@ public class RuntimeTests
 
         Assert.Equal(expected, result.Stdout);
     }
-    
+
     [Fact]
     public void Script_For_DescendingInclusiveWithNegativeStep_Prints10DownTo0By2()
     {
@@ -268,7 +403,8 @@ public class RuntimeTests
                                 }
                             """;
 
-        var runtime = new GlykonRuntime(code, nameof(Script_For_DescendingInclusiveWithNegativeStep_Prints10DownTo0By2));
+        var runtime =
+            new GlykonRuntime(code, nameof(Script_For_DescendingInclusiveWithNegativeStep_Prints10DownTo0By2));
         var result = runtime.RunScript();
 
         Assert.Null(result.Exception);
@@ -297,7 +433,7 @@ public class RuntimeTests
         Assert.Null(result.Exception);
         Assert.Equal(string.Empty, result.Stdout);
     }
-    
+
     [Fact]
     public void Script_For_StartGreaterThanEnd_DefaultStep_ProducesNoOutput()
     {
@@ -313,7 +449,7 @@ public class RuntimeTests
         Assert.Null(result.Exception);
         Assert.Equal(string.Empty, result.Stdout);
     }
-    
+
     [Fact]
     public void Script_For_DynamicPositiveStep_Works()
     {
@@ -337,7 +473,7 @@ public class RuntimeTests
 
         Assert.Equal(expected, result.Stdout);
     }
-    
+
     [Fact]
     public void Script_For_DynamicNegativeStep_Works()
     {
@@ -376,9 +512,9 @@ public class RuntimeTests
             CreateNoWindow = true
         };
 
-        using var process = Process.Start(psi) 
-            ?? throw new InvalidOperationException("Failed to start dotnet process.");
-        
+        using var process = Process.Start(psi)
+                            ?? throw new InvalidOperationException("Failed to start dotnet process.");
+
         var stdout = process.StandardOutput.ReadToEnd();
         var stderr = process.StandardError.ReadToEnd();
         process.WaitForExit();

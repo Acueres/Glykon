@@ -5,7 +5,7 @@ public class ClassDeclaration(
     MethodDeclaration[] methods,
     FieldDeclaration[] fields,
     ConstantDeclaration[] constants,
-    Statement[] nested) : Statement
+    ClassDeclaration[] nested) : Statement
 {
     public override StatementKind Kind => StatementKind.Class;
 
@@ -13,5 +13,5 @@ public class ClassDeclaration(
     public MethodDeclaration[] Methods { get; } = methods;
     public FieldDeclaration[] Fields { get; } = fields;
     public ConstantDeclaration[] Constants { get; } = constants;
-    public Statement[] Nested { get; } = nested;
+    public ClassDeclaration[] Nested { get; } = nested;
 }

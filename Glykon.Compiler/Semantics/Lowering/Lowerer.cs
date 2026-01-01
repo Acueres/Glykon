@@ -37,7 +37,7 @@ public class Lowerer(IRTree ir, IdentifierInterner interner, TypeSystem ts, Symb
         return new IRBlockStmt(stmts, bodyBlock.Scope);
     }
 
-    IRWhileStmt LowerForToWhile(IRForStmt forStatement)
+    private IRWhileStmt LowerForToWhile(IRForStmt forStatement)
     {
         var range = forStatement.Range;
         
@@ -61,7 +61,7 @@ public class Lowerer(IRTree ir, IdentifierInterner interner, TypeSystem ts, Symb
         return new IRWhileStmt(loopCondition, new IRBlockStmt([..bodyStatements], body.Scope));
     }
 
-    IRExpression HandleForDirection(
+    private IRExpression HandleForDirection(
         IRRangeExpr range,
         IRExpression stepExpr,
         IRNameExpr iteratorName)
@@ -149,20 +149,24 @@ public class Lowerer(IRTree ir, IdentifierInterner interner, TypeSystem ts, Symb
         List<IRStatement> functions = [];
         List<IRStatement> constants = [];
         List<IRStatement> scriptStatements = [];
+        List<IRClassDeclaration> types = [];
 
         foreach (var stmt in stmts)
         {
-            if (stmt is IRFunctionDeclaration f)
+            switch (stmt)
             {
-                functions.Add(f);
-            }
-            else if (stmt is IRConstantDeclaration c)
-            {
-                constants.Add(c);
-            }
-            else
-            {
-                scriptStatements.Add(stmt);
+                case IRFunctionDeclaration f:
+                    functions.Add(f);
+                    break;
+                case IRConstantDeclaration c:
+                    constants.Add(c);
+                    break;
+                case IRClassDeclaration t:
+                    types.Add(t);
+                    break;
+                default:
+                    scriptStatements.Add(stmt);
+                    break;
             }
         }
 
@@ -188,6 +192,6 @@ public class Lowerer(IRTree ir, IdentifierInterner interner, TypeSystem ts, Symb
         
         functions.Add(mainDeclaration);
         
-        return [..constants, ..functions];
+        return [..constants, ..types, ..functions];
     }
 }

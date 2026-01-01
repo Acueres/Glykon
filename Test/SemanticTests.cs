@@ -77,6 +77,160 @@ public class SemanticTests : CompilerTestBase
         var semanticResult = Analyze(src, LanguageMode.Script);
         Assert.Empty(semanticResult.AllErrors);
     }
+    
+    [Fact]
+    public void InstanceMethodCall_WithCorrectArgs_Succeeds()
+    {
+        const string src = """
+                               class Vec {
+                                   def add(self, x: int) -> int { return x + 1 }
+                               }
+
+                               def use(v: Vec) -> int {
+                                   return v.add(41)
+                               }
+                           """;
+
+        var r = Analyze(src, LanguageMode.Script);
+        Assert.Empty(r.AllErrors);
+    }
+    
+    [Fact]
+    public void InstanceMethodCall_WrongArgType_Fails()
+    {
+        const string src = """
+                               class Vec {
+                                   def add(self, x: int) -> int { return x + 1 }
+                               }
+
+                               def use(v: Vec) -> int {
+                                   return v.add('no')
+                               }
+                           """;
+
+        var r = Analyze(src, LanguageMode.Script);
+        Assert.Single(r.AllErrors);
+    }
+    
+    [Fact]
+    public void MemberAccess_UnknownMember_Fails()
+    {
+        const string src = """
+                               class A { }
+
+                               def f(a: A) {
+                                   a.nope
+                               }
+                           """;
+
+        var r = Analyze(src, LanguageMode.Script);
+        Assert.Single(r.AllErrors);
+    }
+    
+    [Fact]
+    public void NestedType_QualifiedName_Resolves()
+    {
+        const string src = """
+                               class Outer {
+                                   class Inner { }
+                               }
+
+                               def f(x: Outer.Inner) { return }
+                           """;
+
+        var r = Analyze(src, LanguageMode.Script);
+        Assert.Empty(r.AllErrors);
+    }
+    
+    [Fact]
+    public void FieldInitializer_TypeMismatch_Fails()
+    {
+        const string src = """
+                               class A {
+                                   x: int = 'oops'
+                               }
+                           """;
+
+        var r = Analyze(src, LanguageMode.Script);
+        Assert.Single(r.AllErrors);
+    }
+    
+    [Fact]
+    public void AssociatedConst_TypeMismatch_Fails()
+    {
+        const string src = """
+                               class Math {
+                                   const pi: real = 'oops'
+                               }
+                           """;
+
+        var r = Analyze(src, LanguageMode.Script);
+        Assert.Single(r.AllErrors);
+    }
+    
+    [Fact]
+    public void MemberAccess_Field_Succeeds()
+    {
+        const string src = """
+                               class Point { x: int }
+
+                               def f(p: Point) -> int {
+                                   return p.x
+                               }
+                           """;
+
+        var r = Analyze(src, LanguageMode.Script);
+        Assert.Empty(r.AllErrors);
+    }
+    
+    [Fact]
+    public void FieldAssignment_TypeMismatch_Fails()
+    {
+        const string src = """
+                               class Point { x: int }
+
+                               def f(p: Point) {
+                                   p.x = 'oops'
+                               }
+                           """;
+
+        var r = Analyze(src, LanguageMode.Script);
+        Assert.Single(r.AllErrors);
+    }
+
+    [Fact]
+    public void InstanceMethodCall_Succeeds()
+    {
+        const string src = """
+                               class A {
+                                   def inc(self, x: int) -> int { return x + 1 }
+                               }
+
+                               def f(a: A) -> int {
+                                   return a.inc(41)
+                               }
+                           """;
+
+        var r = Analyze(src, LanguageMode.Script);
+        Assert.Empty(r.AllErrors);
+    }
+    
+    [Fact]
+    public void StaticMethodCall_Succeeds()
+    {
+        const string src = """
+                               class A {
+                                   def make(x: int) -> int { return x }
+                               }
+
+                               def f() -> int {
+                                   return A.make(1)
+                               }
+                           """;
+
+        var r = Analyze(src, LanguageMode.Script);
+        Assert.Empty(r.AllErrors);
+    }
 
     // Symbol table tests
 

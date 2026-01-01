@@ -10,7 +10,7 @@ using Glykon.Compiler.Semantics.Types;
 
 namespace Glykon.Compiler.Backend.CIL;
 
-public class CilCodeGenerator(ILGenerator il, TypeSystem typeSystem, CilEmitContext context)
+public class CilCodeGenerator(ILGenerator il, CilEmitContext context, ClrTypeRegistry typeRegistry)
 {
     private readonly Stack<Label> loopStart = [];
     private readonly Stack<Label> loopEnd = [];
@@ -22,8 +22,8 @@ public class CilCodeGenerator(ILGenerator il, TypeSystem typeSystem, CilEmitCont
             EmitStatement(statement);
         }
     }
-    
-    void EmitStatement(IRStatement statement)
+
+    private void EmitStatement(IRStatement statement)
     {
         switch (statement.Kind)
         {
@@ -46,12 +46,13 @@ public class CilCodeGenerator(ILGenerator il, TypeSystem typeSystem, CilEmitCont
                 EmitReturnStatement((IRReturnStmt)statement);
                 break;
             case IRStatementKind.Expression:
-                EmitExpression(((IRExpressionStmt)statement).Expression);
+                var expr = ((IRExpressionStmt)statement).Expression;
+                EmitExpression(expr);
                 break;
         }
     }
 
-    void EmitBlockStatement(IRBlockStmt blockStmt)
+    private void EmitBlockStatement(IRBlockStmt blockStmt)
     {
         foreach (var s in blockStmt.Statements)
         {
@@ -59,11 +60,11 @@ public class CilCodeGenerator(ILGenerator il, TypeSystem typeSystem, CilEmitCont
         }
     }
 
-    void EmitVariableDeclarationStatement(IRVariableDeclaration statement)
+    private void EmitVariableDeclarationStatement(IRVariableDeclaration statement)
     {
         VariableSymbol symbol = statement.Symbol;
 
-        Type type = IntrinsicClrTypeTranslator.Translate(symbol.Type);
+        Type type = typeRegistry.Resolve(symbol.Type);
 
         var lb = il.DeclareLocal(type);
         symbol.LocalIndex = lb.LocalIndex;
@@ -72,7 +73,7 @@ public class CilCodeGenerator(ILGenerator il, TypeSystem typeSystem, CilEmitCont
         il.Emit(OpCodes.Stloc, symbol.LocalIndex);
     }
 
-    void EmitReturnStatement(IRReturnStmt returnStmt)
+    private void EmitReturnStatement(IRReturnStmt returnStmt)
     {
         if (returnStmt.Value != null)
         {
@@ -90,7 +91,7 @@ public class CilCodeGenerator(ILGenerator il, TypeSystem typeSystem, CilEmitCont
         }
     }
 
-    void EmitIfStatement(IRIfStmt ifStmt)
+    private void EmitIfStatement(IRIfStmt ifStmt)
     {
         EmitExpression(ifStmt.Condition);
 
@@ -123,7 +124,7 @@ public class CilCodeGenerator(ILGenerator il, TypeSystem typeSystem, CilEmitCont
         }
     }
 
-    void EmitWhileStatement(IRWhileStmt whileStmt)
+    private void EmitWhileStatement(IRWhileStmt whileStmt)
     {
         var loopStartLabel = il.DefineLabel();
         var loopEndLabel = il.DefineLabel();
@@ -146,7 +147,7 @@ public class CilCodeGenerator(ILGenerator il, TypeSystem typeSystem, CilEmitCont
         loopEnd.Pop();
     }
 
-    void EmitJumpStatement(IRJumpStmt jumpStatement)
+    private void EmitJumpStatement(IRJumpStmt jumpStatement)
     {
         if (jumpStatement.IsBreak)
         {
@@ -158,7 +159,7 @@ public class CilCodeGenerator(ILGenerator il, TypeSystem typeSystem, CilEmitCont
         }
     }
 
-    void EmitExpression(IRExpression expression)
+    private void EmitExpression(IRExpression expression)
     {
         while (true)
         {
@@ -191,10 +192,38 @@ public class CilCodeGenerator(ILGenerator il, TypeSystem typeSystem, CilEmitCont
                     if (symbol is ConstantSymbol constant)
                     {
                         EmitPrimitive(constant.Value);
-                        break;
                     }
 
                     break;
+                }
+                case IRExpressionKind.MemberAccess:
+                {
+                    var expr = (IRMemberAccessExpr)expression;
+
+                    if (expr.MemberSymbol is FieldSymbol field)
+                    {
+                        var fi = context.Fields[field];
+
+                        // push object ref
+                        EmitExpression(expr.Receiver);
+                        // pops object ref, pushes field value
+                        il.Emit(OpCodes.Ldfld, fi);
+
+                        break;
+                    }
+
+                    if (expr.MemberSymbol is ConstantSymbol constant)
+                    {
+                        EmitPrimitive(constant.Value);
+                        break;
+                    }
+
+                    if (expr.MemberSymbol is MethodSymbol)
+                    {
+                        throw new NotSupportedException("Member access to a method must be lowered to a call before codegen.");
+                    }
+
+                    throw new NotSupportedException($"Unsupported member symbol: {expr.MemberSymbol.GetType().Name}");
                 }
                 case IRExpressionKind.Assignment:
                 {
@@ -210,27 +239,41 @@ public class CilCodeGenerator(ILGenerator il, TypeSystem typeSystem, CilEmitCont
 
                     break;
                 }
+                case IRExpressionKind.FieldAssignment:
+                {
+                    var expr = (IRFieldAssignmentExpr)expression;
+
+                    var fi = context.Fields[expr.Field];
+
+                    // object ref
+                    EmitExpression(expr.Receiver);
+                    // value
+                    EmitExpression(expr.Value);
+                    il.Emit(OpCodes.Stfld, fi);
+
+                    break;
+                }
                 case IRExpressionKind.Call:
                 {
-                    var expr = (IRCallExpr)expression;
+                    var call = (IRCallExpr)expression;
 
-                    foreach (var arg in expr.Parameters)
+                    var target = call.Callable switch
+                    {
+                        FunctionSymbol fn => context.Functions[fn],
+                        MethodSymbol  ms => context.Methods![ms],
+                        _ => throw new NotSupportedException($"Unsupported callable: {call.Callable.GetType().Name}")
+                    };
+
+                    foreach (var arg in call.Parameters)
                     {
                         EmitExpression(arg);
                     }
 
-                    MethodInfo methodInfo;
-                    if (expr.Callable is MethodSymbol method && context.Methods is not null)
-                    {
-                        methodInfo = context.Methods[method];
-                    }
-                    else
-                    {
-                        methodInfo = context.Functions[(FunctionSymbol)expr.Callable];
-                    }
-
-                    il.EmitCall(OpCodes.Call, methodInfo, []);
-
+                    // call vs callvirt
+                    // - static: Call
+                    // - instance: Callvirt
+                    var op = target.IsStatic ? OpCodes.Call : OpCodes.Callvirt;
+                    il.EmitCall(op, target, []);
                     break;
                 }
                 case IRExpressionKind.Unary:
@@ -418,7 +461,7 @@ public class CilCodeGenerator(ILGenerator il, TypeSystem typeSystem, CilEmitCont
         }
     }
 
-    void EmitPrimitive(in ConstantValue value)
+    private void EmitPrimitive(in ConstantValue value)
     {
         switch (value.Kind)
         {

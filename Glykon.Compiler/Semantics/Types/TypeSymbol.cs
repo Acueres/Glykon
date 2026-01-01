@@ -31,7 +31,7 @@ public class TypeSymbol(
     public ConstantSymbol[] Constants { get; set; } = [];
     public TypeSymbol[] NestedTypes { get; set; } = [];
 
-    private int SerialId { get; } = serialId;
+    public int SerialId { get; } = serialId;
 
     public void FinalizeType(MethodSymbol[] methods,
         FieldSymbol[] fields,

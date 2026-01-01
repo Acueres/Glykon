@@ -1,6 +1,8 @@
 using Glykon.Compiler.Core;
 using Glykon.Compiler.Diagnostics.Errors;
+using Glykon.Compiler.Semantics.IR.Expressions;
 using Glykon.Compiler.Semantics.IR.Statements;
+using Glykon.Compiler.Semantics.Symbols;
 using Glykon.Compiler.Semantics.Types;
 using Tests.Infrastructure;
 
@@ -15,7 +17,7 @@ public class TypeTests : CompilerTestBase
         var semanticResult = Analyze(src, LanguageMode.Script, file);
         return [..semanticResult.AllErrors];
     }
-    
+
     [Fact]
     public void VariableTypeInference()
     {
@@ -29,12 +31,12 @@ public class TypeTests : CompilerTestBase
         var semanticResult = Analyze(src, LanguageMode.Script);
         var irTree = semanticResult.Ir;
         var interner = semanticResult.Interner;
-        
+
         Assert.Empty(semanticResult.AllErrors);
         Assert.NotEmpty(irTree);
 
         var f = GetFunction(irTree.Single());
-        
+
         Assert.Equal(2, f.Body.Statements.Length);
         Assert.Equal(IRStatementKind.Variable, f.Body.Statements[1].Kind);
         var stmt = (IRVariableDeclaration)f.Body.Statements[1];
@@ -53,13 +55,13 @@ public class TypeTests : CompilerTestBase
                                        let res = (2 + 2 * 'text')
                            """;
         var semanticResult = Analyze(src, LanguageMode.Script);
-        
+
         Assert.Single(semanticResult.AllErrors);
 
         var f = GetFunction(semanticResult.Ir.Single());
         Assert.Single(f.Body.Statements);
     }
-    
+
     [Fact]
     public void CastLiteral()
     {
@@ -67,14 +69,14 @@ public class TypeTests : CompilerTestBase
                                        42 as str
                            """;
         var semanticResult = Analyze(src, LanguageMode.Script);
-        
+
         Assert.Empty(semanticResult.AllErrors);
-        
+
         var f = GetFunction(semanticResult.Ir.Single());
         var exprStmt = GetExprStmt(f.Body.Statements.Single());
         Assert.Equal(TypeKind.String, exprStmt.Expression.Type.Kind);
     }
-    
+
     [Fact]
     public void CastVariable()
     {
@@ -84,7 +86,7 @@ public class TypeTests : CompilerTestBase
                                        f as int
                            """;
         var semanticResult = Analyze(src, LanguageMode.Script);
-        
+
         Assert.Empty(semanticResult.AllErrors);
 
         var f = GetFunction(semanticResult.Ir.Single());
@@ -94,14 +96,14 @@ public class TypeTests : CompilerTestBase
 
     // Literals, unary & binary
     [Fact]
-    public void UnaryAndLiteralSuccess() 
+    public void UnaryAndLiteralSuccess()
     {
         const string code = """
-            let i = 5
-            let r = -i
-            let f = true
-            let g = not f
-        """;
+                                let i = 5
+                                let r = -i
+                                let f = true
+                                let g = not f
+                            """;
         Assert.Empty(Check(code, nameof(UnaryAndLiteralSuccess)));
     }
 
@@ -109,9 +111,9 @@ public class TypeTests : CompilerTestBase
     public void UnaryTypeMismatch()
     {
         const string code = """
-            let s = 'text'
-            let oops = -s      # string cannot be negated
-        """;
+                                let s = 'text'
+                                let oops = -s      # string cannot be negated
+                            """;
         Assert.Single(Check(code, nameof(UnaryTypeMismatch)));
     }
 
@@ -119,9 +121,9 @@ public class TypeTests : CompilerTestBase
     public void BinaryArithmeticSuccess()
     {
         const string code = """
-            let a = 2 + 3 * 4
-            let b = a / 2 - 1
-        """;
+                                let a = 2 + 3 * 4
+                                let b = a / 2 - 1
+                            """;
         Assert.Empty(Check(code, nameof(BinaryArithmeticSuccess)));
     }
 
@@ -129,8 +131,8 @@ public class TypeTests : CompilerTestBase
     public void BinaryArithmeticTypeMismatch()
     {
         const string code = """
-            let x = 10 + 'str'   # int + string is illegal
-        """;
+                                let x = 10 + 'str'   # int + string is illegal
+                            """;
         Assert.Single(Check(code, nameof(BinaryArithmeticTypeMismatch)));
     }
 
@@ -138,13 +140,13 @@ public class TypeTests : CompilerTestBase
     public void LogicalAndComparisonChecks()
     {
         const string ok = """
-            let a = (2 < 3) and true
-        """;
+                              let a = (2 < 3) and true
+                          """;
         Assert.Empty(Check(ok, nameof(LogicalAndComparisonChecks)));
 
         const string bad = """
-            let b = (2 < 3) and 4 # rhs not bool
-        """;
+                               let b = (2 < 3) and 4 # rhs not bool
+                           """;
         Assert.Single(Check(bad, nameof(LogicalAndComparisonChecks) + "_bad"));
     }
 
@@ -153,8 +155,8 @@ public class TypeTests : CompilerTestBase
     public void ExplicitVariableTypeMatch()
     {
         const string code = """
-            let i: int = 42
-        """;
+                                let i: int = 42
+                            """;
         Assert.Empty(Check(code, nameof(ExplicitVariableTypeMatch)));
     }
 
@@ -162,8 +164,8 @@ public class TypeTests : CompilerTestBase
     public void ExplicitVariableTypeMismatch()
     {
         const string code = """
-            let s: str = 123
-        """;
+                                let s: str = 123
+                            """;
         Assert.Single(Check(code, nameof(ExplicitVariableTypeMismatch)));
     }
 
@@ -171,11 +173,11 @@ public class TypeTests : CompilerTestBase
     public void ConstantTypeMismatch()
     {
         const string code = """
-            const Pi: real = 'oops'  # const must match declared type
-        """;
+                                const Pi: real = 'oops'  # const must match declared type
+                            """;
         Assert.Single(Check(code, nameof(ConstantTypeMismatch)));
     }
-    
+
     // Variable and constant assignments
     [Fact]
     public void AssignValueToVariable()
@@ -186,7 +188,7 @@ public class TypeTests : CompilerTestBase
                             """;
         Assert.Empty(Check(code, nameof(AssignValueToVariable)));
     }
-    
+
     [Fact]
     public void AssignValueToImmutableVariable()
     {
@@ -196,7 +198,7 @@ public class TypeTests : CompilerTestBase
                             """;
         Assert.Single((Check(code, nameof(AssignValueToImmutableVariable))));
     }
-    
+
     [Fact]
     public void AssignValueToConstant()
     {
@@ -213,22 +215,22 @@ public class TypeTests : CompilerTestBase
     public void IfWhileConditionMustBeBool()
     {
         const string code = """
-            if 0 { let a = 1 }
-            while 'text' { break }
-        """;
+                                if 0 { let a = 1 }
+                                while 'text' { break }
+                            """;
         Assert.Equal(2, Check(code, nameof(IfWhileConditionMustBeBool)).Count());
     }
 
     // Function returns
-    
+
     [Fact]
     public void FunctionReturnTypeMatch()
     {
         const string code = """
-            def add(a: int, b: int) -> int {
-                return a + b
-            }
-        """;
+                                def add(a: int, b: int) -> int {
+                                    return a + b
+                                }
+                            """;
         Assert.Empty(Check(code, nameof(FunctionReturnTypeMatch)));
     }
 
@@ -236,10 +238,10 @@ public class TypeTests : CompilerTestBase
     public void FunctionReturnTypeMismatch()
     {
         const string code = """
-            def bad() -> int {
-                return 'str'
-            }
-        """;
+                                def bad() -> int {
+                                    return 'str'
+                                }
+                            """;
         Assert.Single(Check(code, nameof(FunctionReturnTypeMismatch)));
     }
 
@@ -247,10 +249,10 @@ public class TypeTests : CompilerTestBase
     public void VoidFunctionReturningValue()
     {
         const string code = """
-            def nope() {
-                return 1
-            }
-        """;
+                                def nope() {
+                                    return 1
+                                }
+                            """;
         Assert.Single(Check(code, nameof(VoidFunctionReturningValue)));
     }
 
@@ -258,13 +260,184 @@ public class TypeTests : CompilerTestBase
     public void ReturnWithoutValueFromTypedFunction_ShouldFail_WithTypeError()
     {
         const string code = """
-            def get_value() -> int {
-                return
-            }
-        """;
+                                def get_value() -> int {
+                                    return
+                                }
+                            """;
         var errors = Check(code, nameof(ReturnWithoutValueFromTypedFunction_ShouldFail_WithTypeError));
-        
+
         Assert.Single(errors);
         Assert.All(errors, e => Assert.IsType<TypeError>(e));
+    }
+
+    // Types
+    [Fact]
+    public void MemberAccess_HasFieldType()
+    {
+        const string src = """
+                               class Point { x: int }
+
+                               def f(p: Point) -> int {
+                                   return p.x
+                               }
+                           """;
+
+        var r = Analyze(src, LanguageMode.Script);
+        Assert.Empty(r.AllErrors);
+
+        var f = GetFunction(
+            r.Ir.Single(s => s is IRFunctionDeclaration func && r.Interner[func.Signature.NameId] == "f"));
+        var ret = (IRReturnStmt)f.Body.Statements.Single(s => s.Kind == IRStatementKind.Return);
+        Assert.Equal(TypeKind.Int64, ret.Value!.Type.Kind);
+    }
+
+    [Fact]
+    public void VariableInference_FromMemberAccess()
+    {
+        const string src = """
+                               class Point { x: int }
+
+                               def f(p: Point) {
+                                   let y = p.x
+                               }
+                           """;
+
+        var r = Analyze(src, LanguageMode.Script);
+        Assert.Empty(r.AllErrors);
+
+        var f = GetFunction(
+            r.Ir.Single(s => s is IRFunctionDeclaration func && r.Interner[func.Signature.NameId] == "f"));
+        var decl = (IRVariableDeclaration)f.Body.Statements.Single(s => s.Kind == IRStatementKind.Variable);
+        Assert.Equal(TypeKind.Int64, decl.Symbol.Type.Kind);
+    }
+
+    [Fact]
+    public void FieldAssignment_TypeMismatch_Fails()
+    {
+        const string src = """
+                               class Point { x: int }
+
+                               def f(p: Point) {
+                                   p.x = 'oops'
+                               }
+                           """;
+
+        var errors = Check(src, nameof(FieldAssignment_TypeMismatch_Fails));
+        Assert.Single(errors);
+    }
+
+    [Fact]
+    public void MethodCall_ReturnTypePropagates()
+    {
+        const string src = """
+                               class A {
+                                   def get() -> int { return 7 }
+                               }
+
+                               def f(a: A) -> int {
+                                   return a.get()
+                               }
+                           """;
+
+        var r = Analyze(src, LanguageMode.Script);
+        Assert.Empty(r.AllErrors);
+
+        var f = GetFunction(
+            r.Ir.Single(s => s is IRFunctionDeclaration func && r.Interner[func.Signature.NameId] == "f"));
+        var ret = (IRReturnStmt)f.Body.Statements.Single(s => s.Kind == IRStatementKind.Return);
+        Assert.Equal(TypeKind.Int64, ret.Value!.Type.Kind);
+    }
+
+    [Fact]
+    public void IRMemberAccess_FieldType_IsInt()
+    {
+        const string src = """
+                               class Point { x: int }
+
+                               def f(p: Point) -> int {
+                                   return p.x
+                               }
+                           """;
+
+        var r = Analyze(src, LanguageMode.Script);
+        Assert.Empty(r.AllErrors);
+
+        var f = GetFunction(
+            r.Ir.Single(s => s is IRFunctionDeclaration func && r.Interner[func.Signature.NameId] == "f"));
+        var ret = (IRReturnStmt)f.Body.Statements.Single(s => s.Kind == IRStatementKind.Return);
+
+        Assert.Equal(TypeKind.Int64, ret.Value!.Type.Kind);
+    }
+
+    [Fact]
+    public void VariableInference_FromCustomTypedField_UsesCustomType()
+    {
+        const string src = """
+                               class Node { next: Node }
+
+                               def f(n: Node) {
+                                   let x = n.next
+                               }
+                           """;
+
+        var r = Analyze(src, LanguageMode.Script);
+        Assert.Empty(r.AllErrors);
+
+        var f = GetFunction(
+            r.Ir.Single(s => s is IRFunctionDeclaration func && r.Interner[func.Signature.NameId] == "f"));
+        var decl = (IRVariableDeclaration)f.Body.Statements.Single(s => s.Kind == IRStatementKind.Variable);
+
+        var typeName = r.Interner[decl.Symbol.Type.NameId];
+        Assert.Equal("Node", typeName);
+    }
+
+    [Fact]
+    public void IRCall_InstanceMethod_InsertsReceiverAsFirstArg()
+    {
+        const string src = """
+                               class A { def m(self, x: int) -> int { return x } }
+
+                               def f(a: A) -> int {
+                                   return a.m(1)
+                               }
+                           """;
+
+        var r = Analyze(src, LanguageMode.Script);
+        Assert.Empty(r.AllErrors);
+
+        var f = GetFunction(
+            r.Ir.Single(s => s is IRFunctionDeclaration func && r.Interner[func.Signature.NameId] == "f"));
+        var ret = (IRReturnStmt)f.Body.Statements.Single(s => s.Kind == IRStatementKind.Return);
+
+        var call = (IRCallExpr)ret.Value!;
+        Assert.IsType<MethodSymbol>(call.Callable);
+
+        Assert.True(call.Parameters.Length >= 1);
+        Assert.Equal(IRExpressionKind.Name, call.Parameters[0].Kind); // receiver is "a"
+    }
+
+    [Fact]
+    public void IRCall_StaticMethod_DoesNotInsertReceiver()
+    {
+        const string src = """
+                               class A { def make(x: int) -> int { return x } }
+
+                               def f() -> int {
+                                   return A.make(1)
+                               }
+                           """;
+
+        var r = Analyze(src, LanguageMode.Script);
+        Assert.Empty(r.AllErrors);
+
+        var f = GetFunction(
+            r.Ir.Single(s => s is IRFunctionDeclaration func && r.Interner[func.Signature.NameId] == "f"));
+        var ret = (IRReturnStmt)f.Body.Statements.Single(s => s.Kind == IRStatementKind.Return);
+
+        var call = (IRCallExpr)ret.Value!;
+        Assert.IsType<MethodSymbol>(call.Callable);
+
+        // Only the explicit arg should be present (no receiver injection)
+        Assert.Single(call.Parameters);
     }
 }

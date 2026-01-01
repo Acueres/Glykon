@@ -5,12 +5,12 @@ namespace Glykon.Compiler.Syntax;
 
 public class Lexer(SourceText source, string fileName)
 {
-    bool AtEnd => currentCharIndex >= source.Length;
+    private bool AtEnd => currentCharIndex >= source.Length;
 
-    readonly List<Token> tokens = [];
-    readonly List<IGlykonError> errors = [];
-    int line = 0;
-    int currentCharIndex = 0;
+    private readonly List<Token> tokens = [];
+    private readonly List<IGlykonError> errors = [];
+    private int line = 0;
+    private int currentCharIndex = 0;
 
     public LexResult Lex()
     {
@@ -38,7 +38,7 @@ public class Lexer(SourceText source, string fileName)
         return new LexResult(tokens.ToArray(), [..errors]);
     }
 
-    Token GetNextToken()
+    private Token GetNextToken()
     {
         char character = Advance();
 
@@ -150,7 +150,7 @@ public class Lexer(SourceText source, string fileName)
         return Token.Empty;
     }
 
-    Token ScanIdentifier()
+    private Token ScanIdentifier()
     {
         int identifierStart = currentCharIndex - 1;
 
@@ -166,7 +166,7 @@ public class Lexer(SourceText source, string fileName)
         return new(TokenKind.Identifier, line, identifier);
     }
 
-    Token ScanNumber(bool isReal = false)
+    private Token ScanNumber(bool isReal = false)
     {
         int numberStart = currentCharIndex - 1;
 
@@ -192,7 +192,7 @@ public class Lexer(SourceText source, string fileName)
         return new(type, line, number);
     }
 
-    Token ScanString(char openingQuote)
+    private Token ScanString(char openingQuote)
     {
         bool multiline = Match(openingQuote, 2);
         int currentLine = line;
@@ -227,7 +227,7 @@ public class Lexer(SourceText source, string fileName)
         return result;
     }
 
-    Token ScanEndOfLine()
+    private Token ScanEndOfLine()
     {
         Token last = tokens.LastOrDefault();
 
@@ -242,14 +242,14 @@ public class Lexer(SourceText source, string fileName)
         return new(TokenKind.Semicolon, line);
     }
 
-    bool Match(char token)
+    private bool Match(char token)
     {
         if (AtEnd || Peek() != token) return false;
         currentCharIndex++;
         return true;
     }
 
-    bool Match(char token, int offset)
+    private bool Match(char token, int offset)
     {
         for (int i = 0; i < offset; i++)
         {
@@ -261,14 +261,14 @@ public class Lexer(SourceText source, string fileName)
         return true;
     }
 
-    char Peek(int offset = 0)
+    private char Peek(int offset = 0)
     {
         int nextCharPos = currentCharIndex + offset;
         char c = AtEnd || nextCharPos >= source.Length ? '\0' : source[nextCharPos];
         return c;
     }
 
-    (char, int) PeekNextSignificant()
+    private (char, int) PeekNextSignificant()
     {
         int i = currentCharIndex;
 
@@ -287,7 +287,7 @@ public class Lexer(SourceText source, string fileName)
         return ('\0', -1);
     }
 
-    bool IsLongChainingToken(char c, int index)
+    private bool IsLongChainingToken(char c, int index)
     {
         // Check for end of source
         if (index == -1) return false;
@@ -338,25 +338,25 @@ public class Lexer(SourceText source, string fileName)
         return false;
     }
 
-    char Advance()
+    private char Advance()
     {
         return source[currentCharIndex++];
     }
 
-    static bool IsAllowedIdentifierStartCharacter(char c)
+    private static bool IsAllowedIdentifierStartCharacter(char c)
     {
         return char.IsLetter(c) || c == '_' || c == '@';
     }
 
-    static bool IsAllowedIdentifierCharacter(char c)
+    private static bool IsAllowedIdentifierCharacter(char c)
     {
         return c == '_' || char.IsLetterOrDigit(c);
     }
 
-    readonly static Dictionary<string, TokenKind> keywords;
+    private readonly static Dictionary<string, TokenKind> keywords;
 
-    readonly static HashSet<TokenKind> terminatorExceptions;
-    readonly static HashSet<char> chainingChars;
+    private readonly static HashSet<TokenKind> terminatorExceptions;
+    private readonly static HashSet<char> chainingChars;
 
     static Lexer()
     {

@@ -9,7 +9,7 @@ public class BoundMethodDeclaration(
     ParameterSymbol[] parameters,
     TypeSymbol returnType,
     BoundBlockStmt body,
-    ParameterSymbol? thisParameter) : BoundStatement
+    bool isStatic) : BoundStatement
 {
     public override BoundStatementKind Kind => BoundStatementKind.Method;
 
@@ -18,5 +18,5 @@ public class BoundMethodDeclaration(
     public ParameterSymbol[] Parameters { get; } = parameters;
     public TypeSymbol ReturnType { get; } = returnType;
     public BoundBlockStmt Body { get; } = body;
-    public ParameterSymbol? ThisParameter { get; } = thisParameter;
+    public bool IsStatic { get; } = isStatic;
 }

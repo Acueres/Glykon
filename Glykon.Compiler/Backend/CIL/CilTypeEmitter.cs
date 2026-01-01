@@ -2,46 +2,109 @@ using System.Reflection;
 using System.Reflection.Emit;
 using Glykon.Compiler.Semantics.Binding;
 using Glykon.Compiler.Semantics.IR.Statements;
+using Glykon.Compiler.Semantics.Symbols;
+using Glykon.Compiler.Semantics.Types;
 
 namespace Glykon.Compiler.Backend.CIL;
 
-public class CilTypeEmitter(IRClassDeclaration classDeclaration, IdentifierInterner interner)
+public class CilTypeEmitter
 {
-    public void EmitType(ModuleBuilder mob)
+    private readonly TypeBuilder tb;
+    
+    private readonly IdentifierInterner interner;
+    private readonly ClrTypeRegistry typeRegistry;
+
+    private readonly TypeSymbol type;
+    private readonly IRClassDeclaration[] nested;
+    private readonly IRFieldDeclaration[] fields;
+    private readonly IRMethodDeclaration[] methods;
+    
+    private readonly List<CilTypeEmitter> nestedEmitters = [];
+    
+    public CilTypeEmitter(IRClassDeclaration classDeclaration, ModuleBuilder mob, IdentifierInterner interner, ClrTypeRegistry typeRegistry) : this(
+        interner, typeRegistry, classDeclaration.Type, classDeclaration.Nested, classDeclaration.Fields, classDeclaration.Methods)
     {
-        TypeBuilder tb = mob.DefineType(interner[classDeclaration.Type.NameId],
+        tb = mob.DefineType(interner[classDeclaration.Type.NameId],
             TypeAttributes.Class | TypeAttributes.Public | TypeAttributes.Sealed);
+    }
 
-        var nested = classDeclaration.Nested.Select(n => new CilTypeEmitter((IRClassDeclaration)n, interner)).ToArray();
+    public CilTypeEmitter(IRClassDeclaration classDeclaration, TypeBuilder parentType, IdentifierInterner interner, ClrTypeRegistry typeRegistry) :
+        this(interner, typeRegistry, classDeclaration.Type, classDeclaration.Nested, classDeclaration.Fields, classDeclaration.Methods)
+    {
+        tb = parentType.DefineNestedType(interner[classDeclaration.Type.NameId],
+            TypeAttributes.Class | TypeAttributes.NestedPublic | TypeAttributes.Sealed);
+    }
 
-        foreach (var type in nested)
+    private CilTypeEmitter(IdentifierInterner interner, ClrTypeRegistry typeRegistry, TypeSymbol type,
+        IRClassDeclaration[] nested, IRFieldDeclaration[] fields, IRMethodDeclaration[] methods)
+    {
+        this.interner = interner;
+        this.typeRegistry = typeRegistry;
+        this.type = type;
+        this.nested = nested;
+        this.fields = fields;
+        this.methods = methods;
+    }
+
+    private TypeBuilder GetTypeBuilder() => tb;
+
+    public void CreateType()
+    {
+        foreach (var nestedEmitter in nestedEmitters)
         {
-            type.EmitType(tb);
+            nestedEmitter.CreateType();
         }
         
-        var fields = classDeclaration.Fields.Select(f => EmitField(f, tb)).ToArray();
+        tb.CreateType();
+    }
+
+    public void DefineType()
+    {
+        typeRegistry.Register(type, tb);
+        DefineNested();
     }
     
-    private void EmitType(TypeBuilder parentType)
+    private void DefineNested()
     {
-        TypeBuilder tb = parentType.DefineNestedType(interner[classDeclaration.Type.NameId],
-            TypeAttributes.Class | TypeAttributes.Public | TypeAttributes.Sealed);
-
-        var nested = classDeclaration.Nested.Select(n => new CilTypeEmitter((IRClassDeclaration)n, interner)).ToArray();
-
-        foreach (var type in nested)
+        foreach (var nestedDecl in nested)
         {
-            type.EmitType(tb);
+            var emitter = new CilTypeEmitter(nestedDecl, tb, interner, typeRegistry);
+            nestedEmitters.Add(emitter);
+            emitter.DefineType();
         }
-        
-        var fields = classDeclaration.Fields.Select(f => EmitField(f, tb)).ToArray();
     }
 
-    private FieldInfo EmitField(IRFieldDeclaration field, TypeBuilder tb)
+    public (CilCallableEmitter, MethodSymbol)[] DefineMethods()
     {
-        string fieldName = interner[field.Symbol.NameId];
-        var type = IntrinsicClrTypeTranslator.Translate(field.Symbol.Type);
-        var fieldInfo = tb.DefineField(fieldName, type, FieldAttributes.Private);
-        return fieldInfo;
+        List<(CilCallableEmitter, MethodSymbol)> callableEmitters = [];
+        foreach (var nestedTypeMethods in nestedEmitters
+                     .Select(nestedDecl => nestedDecl.DefineMethods()))
+        {
+            callableEmitters.AddRange(nestedTypeMethods);
+        }
+
+        callableEmitters.AddRange(methods.Select(method =>
+            (new CilCallableEmitter(method, typeRegistry, interner, tb), method.Signature)));
+
+        return callableEmitters.ToArray();
+    }
+
+    public (FieldInfo, FieldSymbol)[] EmitFields()
+    {
+        List<(FieldInfo, FieldSymbol)> fieldData = [];
+        foreach (var field in fields)
+        {
+            string fieldName = interner[field.Symbol.NameId];
+            var fieldType = typeRegistry.Resolve(field.Symbol.Type);
+            var fieldInfo = tb.DefineField(fieldName, fieldType, FieldAttributes.Public);
+            fieldData.Add((fieldInfo, field.Symbol));
+        }
+
+        foreach (var nestedEmitter in nestedEmitters)
+        {
+            fieldData.AddRange(nestedEmitter.EmitFields());
+        }
+        
+        return fieldData.ToArray();
     }
 }

@@ -10,11 +10,11 @@ public abstract class Symbol(int nameId, TypeSymbol type)
     public override bool Equals(object? obj)
     {
         if (obj is not Symbol other) return false;
-        return other.NameId == NameId;
+        return other.NameId == NameId && other.Type == Type;
     }
 
     public override int GetHashCode()
     {
-        return HashCode.Combine(NameId, Type.NameId);
+        return HashCode.Combine(NameId, Type.SerialId);
     }
 }

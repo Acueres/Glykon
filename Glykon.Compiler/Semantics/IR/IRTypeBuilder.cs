@@ -1,5 +1,4 @@
-﻿using Glykon.Compiler.Core;
-using Glykon.Compiler.Diagnostics.Errors;
+﻿using Glykon.Compiler.Diagnostics.Errors;
 using Glykon.Compiler.Semantics.Binding;
 using Glykon.Compiler.Semantics.Binding.BoundExpressions;
 using Glykon.Compiler.Semantics.Binding.BoundStatements;
@@ -31,7 +30,7 @@ public class IRTypeBuilder(
         return (irTree, [..errors]);
     }
 
-    IRStatement BuildStatement(BoundStatement stmt)
+    private IRStatement BuildStatement(BoundStatement stmt)
     {
         switch (stmt.Kind)
         {
@@ -41,7 +40,7 @@ public class IRTypeBuilder(
 
                 var constants = classDecl.Constants.Select(BuildStatement).OfType<IRConstantDeclaration>().ToArray();
                 var fields = classDecl.Fields.Select(BuildFieldDeclaration).ToArray();
-                var nested = classDecl.Nested.Select(BuildStatement).ToArray();
+                var nested = classDecl.Nested.Select(BuildStatement).OfType<IRClassDeclaration>().ToArray();
                 var methods = classDecl.Methods.Select(BuildMethodDeclaration).ToArray();
 
                 return new IRClassDeclaration(classDecl.Type, methods, fields, constants, nested);
@@ -149,14 +148,18 @@ public class IRTypeBuilder(
             {
                 var returnStmt = (BoundReturnStmt)stmt;
 
-                if (returnStmt.ContainingFunction is null) return new IRInvalidStmt();
+                if (returnStmt.ContainerSymbol is null) return new IRInvalidStmt();
                 
-                var returnType = returnStmt.ContainingFunction.Type;
+                var returnType = returnStmt.ContainerSymbol.Type;
                 var value = returnStmt.Value is null ? null : BuildExpression(returnStmt.Value);
 
-                if (value is not null && TypeSystem.CanImplicitlyConvert(value.Type, returnType))
+                if (value is not null)
                 {
-                    value = new IRConversionExpr(value, returnType);
+                    if (value.Kind ==  IRExpressionKind.Invalid) return new IRInvalidStmt();
+                    if (TypeSystem.CanImplicitlyConvert(value.Type, returnType))
+                    {
+                        value = new IRConversionExpr(value, returnType);
+                    }
                 }
                 
                 CheckReturnStatementType(value, returnType);
@@ -177,7 +180,7 @@ public class IRTypeBuilder(
         }
     }
 
-    IRFieldDeclaration BuildFieldDeclaration(BoundFieldDeclaration fieldDec)
+    private IRFieldDeclaration BuildFieldDeclaration(BoundFieldDeclaration fieldDec)
     {
         IRExpression? initializer = null;
         if (fieldDec.Initializer is not null)
@@ -198,15 +201,16 @@ public class IRTypeBuilder(
         return new IRFieldDeclaration(initializer, fieldDec.Symbol);
     }
 
-    IRMethodDeclaration BuildMethodDeclaration(BoundMethodDeclaration methodDec)
+    private IRMethodDeclaration BuildMethodDeclaration(BoundMethodDeclaration methodDec)
     {
         var irStatements = methodDec.Body.Statements.Select(BuildStatement).ToArray();
         IRBlockStmt irBody = new([.. irStatements], methodDec.Body.Scope);
+        
         return new IRMethodDeclaration(methodDec.Symbol, methodDec.ParentType, methodDec.Parameters,
-            methodDec.ReturnType, irBody, methodDec.ThisParameter);
+            methodDec.ReturnType, irBody, methodDec.IsStatic);
     }
 
-    IRExpression BuildExpression(BoundExpression expression)
+    private IRExpression BuildExpression(BoundExpression expression)
     {
         switch (expression.Kind)
         {
@@ -465,8 +469,8 @@ public class IRTypeBuilder(
             default: return invalidExpr;
         }
     }
-    
-    IRExpression CoerceOrError(IRExpression value, TypeSymbol targetType, string targetName)
+
+    private IRExpression CoerceOrError(IRExpression value, TypeSymbol targetType, string targetName)
     {
         if (value.Type == targetType)
             return value;
@@ -478,8 +482,8 @@ public class IRTypeBuilder(
             $"Type mismatch assigning to {targetName}: expected {interner[targetType.NameId]}, got {interner[value.Type.NameId]}"));
         return invalidExpr;
     }
-    
-    IRExpression[]? CoerceArgs(IRExpression[] args, TypeSymbol[] paramTypes, int calleeNameId)
+
+    private IRExpression[]? CoerceArgs(IRExpression[] args, TypeSymbol[] paramTypes, int calleeNameId)
     {
         if (args.Length != paramTypes.Length)
         {
@@ -519,7 +523,7 @@ public class IRTypeBuilder(
         return coerced;
     }
 
-    void CheckConstantType(IRExpression initializer, TypeSymbol declaredType)
+    private void CheckConstantType(IRExpression initializer, TypeSymbol declaredType)
     {
         var initializerType = initializer.Type;
         if (initializerType != declaredType)
@@ -530,7 +534,7 @@ public class IRTypeBuilder(
         }
     }
 
-    void CheckUnaryExpression(IRUnaryExpr unaryExpr)
+    private void CheckUnaryExpression(IRUnaryExpr unaryExpr)
     {
         var operandType = unaryExpr.Type;
 
@@ -547,7 +551,7 @@ public class IRTypeBuilder(
         }
     }
 
-    void CheckLogicalExpression(IRLogicalExpr logicalExpr)
+    private void CheckLogicalExpression(IRLogicalExpr logicalExpr)
     {
         var leftType = logicalExpr.Left.Type;
         var rightType = logicalExpr.Right.Type;
@@ -559,7 +563,7 @@ public class IRTypeBuilder(
         }
     }
 
-    void CheckCondition(IRExpression condition)
+    private void CheckCondition(IRExpression condition)
     {
         var conditionType = condition.Type;
         if (conditionType.Kind != TypeKind.Bool)
@@ -569,7 +573,7 @@ public class IRTypeBuilder(
         }
     }
 
-    void CheckReturnStatementType(IRExpression? expression, TypeSymbol expected)
+    private void CheckReturnStatementType(IRExpression? expression, TypeSymbol expected)
     {
         TypeError error;
         switch (expression)
@@ -591,7 +595,7 @@ public class IRTypeBuilder(
         errors.Add(error);
     }
 
-    bool PromoteNumericPair(ref IRExpression l, ref IRExpression r, out TypeSymbol? common)
+    private bool PromoteNumericPair(ref IRExpression l, ref IRExpression r, out TypeSymbol? common)
     {
         if (!l.Type.IsNumeric || !r.Type.IsNumeric)
         {
@@ -605,7 +609,7 @@ public class IRTypeBuilder(
         return true;
     }
 
-    bool PromoteForEquality(ref IRExpression l, ref IRExpression r)
+    private bool PromoteForEquality(ref IRExpression l, ref IRExpression r)
     {
         if (l.Type.IsNumeric && r.Type.IsNumeric) return PromoteNumericPair(ref l, ref r, out _);
         if (l.Type.Kind == TypeKind.Bool && r.Type.Kind == TypeKind.Bool) return true;
@@ -613,7 +617,7 @@ public class IRTypeBuilder(
         return false;
     }
 
-    IRExpression BinaryInvalid(BinaryOp op, IRExpression l, IRExpression r)
+    private IRExpression BinaryInvalid(BinaryOp op, IRExpression l, IRExpression r)
     {
         errors.Add(new TypeError(fileName,
             $"Operator {op} cannot be applied between types '{interner[l.Type.NameId]}' and '{interner[r.Type.NameId]}'"));

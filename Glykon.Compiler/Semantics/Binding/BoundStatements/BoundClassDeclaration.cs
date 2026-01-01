@@ -7,7 +7,7 @@ public class BoundClassDeclaration(
     BoundMethodDeclaration[] methods,
     BoundFieldDeclaration[] fields,
     BoundConstantDeclaration[] constants,
-    BoundStatement[] nested) : BoundStatement
+    BoundClassDeclaration[] nested) : BoundStatement
 {
     public override BoundStatementKind Kind => BoundStatementKind.Class;
 
@@ -15,5 +15,5 @@ public class BoundClassDeclaration(
     public BoundMethodDeclaration[] Methods { get; } = methods;
     public BoundFieldDeclaration[] Fields { get; } = fields;
     public BoundConstantDeclaration[] Constants { get; } = constants;
-    public BoundStatement[] Nested { get; } = nested;
+    public BoundClassDeclaration[] Nested { get; } = nested;
 }

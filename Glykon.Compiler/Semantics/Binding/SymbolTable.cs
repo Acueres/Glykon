@@ -6,13 +6,13 @@ namespace Glykon.Compiler.Semantics.Binding;
 
 public class SymbolTable
 {
-    readonly Scope top = new();
-    readonly List<Scope> scopes;
-    readonly IdentifierInterner interner;
+    private readonly Scope top = new();
+    private readonly List<Scope> scopes;
+    private readonly IdentifierInterner interner;
 
-    Scope current;
+    private Scope current;
 
-    int functionSerial;
+    private int functionSerial;
 
     public SymbolTable(IdentifierInterner interner)
     {
@@ -21,9 +21,23 @@ public class SymbolTable
         this.interner = interner;
     }
 
-    public FunctionSymbol? GetCurrentFunction()
+    public bool TryGetCurrentContainer(out Symbol? containerSymbol)
     {
-        return current.ContainingFunction;
+        containerSymbol = null;
+
+        if (current.ContainingFunction is not null)
+        {
+            containerSymbol = current.ContainingFunction;
+            return true;
+        }
+
+        if (current.ContainingMethod is not null)
+        {
+            containerSymbol = current.ContainingMethod;
+            return true;
+        }
+
+        return false;
     }
     
     public Symbol? GetSymbol(string name)
@@ -31,15 +45,6 @@ public class SymbolTable
         if (!interner.TryGetId(name, out var id)) return null;
         return current.GetSymbol(id);
     }
-    
-    public Symbol? GetAllowedSymbol(string name)
-    {
-        if (!interner.TryGetId(name, out var id)) return null;
-        
-        var localSymbol = current.GetVariable(id);
-        return localSymbol ?? current.GetSymbol(id);
-    }
-    
 
     public VariableSymbol? GetLocalVariableSymbol(string name)
     {
@@ -123,10 +128,10 @@ public class SymbolTable
         return variable;
     }
     
-    public FieldSymbol RegisterField(string name, TypeSymbol type, TypeSymbol parentType)
+    public FieldSymbol RegisterField(string name, TypeSymbol parentType, TypeSymbol type)
     {
         int symbolIndex = interner.Intern(name);
-        FieldSymbol field = current.AddField(symbolIndex, type, parentType);
+        FieldSymbol field = current.AddField(symbolIndex, parentType, type);
         return field;
     }
 
@@ -168,13 +173,13 @@ public class SymbolTable
         current = top;
     }
 
-    string ComputeQualifiedName(string localName)
+    private string ComputeQualifiedName(string localName)
     {
         var stack = GetContainingFunctionStack();
         return stack.Count == 0 ? localName : string.Join('.', stack.Append(localName));
     }
 
-    List<string> GetContainingFunctionStack()
+    private List<string> GetContainingFunctionStack()
     {
         Scope currentScope = current;
         List<string> stack = [];

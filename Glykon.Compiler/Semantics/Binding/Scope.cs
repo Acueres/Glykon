@@ -21,12 +21,12 @@ public class Scope
     public FunctionSymbol? ContainingFunction { get; }
     public MethodSymbol? ContainingMethod { get; }
 
-    readonly Dictionary<int, Symbol> symbols = [];
-    readonly Dictionary<int, FunctionSymbol> functions = [];
-    readonly Dictionary<int, MethodSymbol> methods = [];
-    readonly Dictionary<int, TypeSymbol> types = [];
+    private readonly Dictionary<int, Symbol> symbols = [];
+    private readonly Dictionary<int, FunctionSymbol> functions = [];
+    private readonly Dictionary<int, MethodSymbol> methods = [];
+    private readonly Dictionary<int, TypeSymbol> types = [];
 
-    int parameterCount;
+    private int parameterCount;
 
     public Scope(Scope parent, ScopeKind scopeKind)
     {
@@ -128,9 +128,9 @@ public class Scope
         return variable;
     }
     
-    public FieldSymbol AddField(int id, TypeSymbol type, TypeSymbol parentType)
+    public FieldSymbol AddField(int id, TypeSymbol parentType, TypeSymbol type)
     {
-        FieldSymbol symbol = new(id, type, parentType);
+        FieldSymbol symbol = new(id, parentType, type);
         symbols.Add(id, symbol);
         return symbol;
     }

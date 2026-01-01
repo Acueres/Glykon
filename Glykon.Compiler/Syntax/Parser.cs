@@ -9,12 +9,12 @@ namespace Glykon.Compiler.Syntax;
 
 public class Parser(LexResult lexResult, string filename)
 {
-    bool AtEnd => tokenIndex >= tokens.Length;
+    private bool AtEnd => tokenIndex >= tokens.Length;
 
-    readonly Token[] tokens = lexResult.Tokens;
-    readonly List<Statement> statements = [];
-    readonly List<IGlykonError> errors = [];
-    int tokenIndex;
+    private readonly Token[] tokens = lexResult.Tokens;
+    private readonly List<Statement> statements = [];
+    private readonly List<IGlykonError> errors = [];
+    private int tokenIndex;
 
     public ParseResult Parse()
     {
@@ -36,7 +36,7 @@ public class Parser(LexResult lexResult, string filename)
         return new ParseResult(syntaxTree, lexResult.Tokens, lexResult.Errors, [..errors]);
     }
 
-    Statement ParseDeclaration()
+    private Statement ParseDeclaration()
     {
         if (Match(TokenKind.Const))
         {
@@ -61,7 +61,7 @@ public class Parser(LexResult lexResult, string filename)
         return ParseStatement();
     }
 
-    ClassDeclaration ParseClassDeclaration()
+    private ClassDeclaration ParseClassDeclaration()
     {
         Token className = Consume(TokenKind.Identifier, "Expect class name");
         Consume(TokenKind.BraceLeft, "Body must be declared");
@@ -69,7 +69,7 @@ public class Parser(LexResult lexResult, string filename)
         List<MethodDeclaration> methods = [];
         List<FieldDeclaration> fields = [];
         List<ConstantDeclaration> constants = [];
-        List<Statement> nested = [];
+        List<ClassDeclaration> nested = [];
 
         while (Current.Kind != TokenKind.BraceRight && !AtEnd)
         {
@@ -100,7 +100,7 @@ public class Parser(LexResult lexResult, string filename)
         return new ClassDeclaration(className.Text, [..methods], [..fields], [..constants], [..nested]);
     }
 
-    MethodDeclaration ParseMethodDeclaration()
+    private MethodDeclaration ParseMethodDeclaration()
     {
         var func = ParseFunctionDeclaration(isMethod: true);
         bool isStatic = func.Parameters.Length == 0 || func.Parameters.First().Type != TypeAnnotation.None;
@@ -113,7 +113,7 @@ public class Parser(LexResult lexResult, string filename)
         );
     }
 
-    FieldDeclaration ParseFieldDeclaration()
+    private FieldDeclaration ParseFieldDeclaration()
     {
         Token identifierToken = Consume(TokenKind.Identifier, "Expect field name");
         
@@ -132,7 +132,7 @@ public class Parser(LexResult lexResult, string filename)
         return new FieldDeclaration(initializer, name, declaredType);
     }
 
-    FunctionDeclaration ParseFunctionDeclaration(bool isMethod = false)
+    private FunctionDeclaration ParseFunctionDeclaration(bool isMethod = false)
     {
         string name = isMethod ? "method" : "function";
         Token functionName = Consume(TokenKind.Identifier, $"Expect {name} name");
@@ -158,8 +158,8 @@ public class Parser(LexResult lexResult, string filename)
 
         return new FunctionDeclaration(functionName.Text, [..parameters], returnType, body);
     }
-    
-    VariableDeclaration ParseVariableDeclaration()
+
+    private VariableDeclaration ParseVariableDeclaration()
     {
         bool immutable = Match(TokenKind.Const);
         
@@ -190,7 +190,7 @@ public class Parser(LexResult lexResult, string filename)
         return new VariableDeclaration(initializer, name, declaredType, immutable);
     }
 
-    ConstantDeclaration ParseConstantDeclaration()
+    private ConstantDeclaration ParseConstantDeclaration()
     {
         Token token = Consume(TokenKind.Identifier, "Expect constant name");
 
@@ -207,7 +207,7 @@ public class Parser(LexResult lexResult, string filename)
         return new(initializer, name, declaredType);
     }
 
-    List<Parameter> ParseParameters(bool methodParams = false)
+    private List<Parameter> ParseParameters(bool methodParams = false)
     {
         List<Parameter> parameters = [];
         do
@@ -240,7 +240,7 @@ public class Parser(LexResult lexResult, string filename)
         return parameters;
     }
 
-    Statement ParseStatement()
+    private Statement ParseStatement()
     {
         if (Match(TokenKind.Return))
         {
@@ -282,7 +282,7 @@ public class Parser(LexResult lexResult, string filename)
         return new ExpressionStmt(expr);
     }
 
-    BlockStmt ParseBlockStatement()
+    private BlockStmt ParseBlockStatement()
     {
         List<Statement> stmts = [];
 
@@ -297,7 +297,7 @@ public class Parser(LexResult lexResult, string filename)
         return new BlockStmt(stmts);
     }
 
-    IfStmt ParseIfStatement()
+    private IfStmt ParseIfStatement()
     {
         Expression condition = ParseLogicalOr();
 
@@ -325,7 +325,7 @@ public class Parser(LexResult lexResult, string filename)
         return new IfStmt(condition, body, elseStmt);
     }
 
-    WhileStmt ParseWhileStatement()
+    private WhileStmt ParseWhileStatement()
     {
         Expression condition = ParseLogicalOr();
 
@@ -338,7 +338,7 @@ public class Parser(LexResult lexResult, string filename)
         return new WhileStmt(condition, body);
     }
 
-    ForStmt ParseForStatement()
+    private ForStmt ParseForStatement()
     {
         Token identifierToken = Consume(TokenKind.Identifier, "Expect variable name");
 
@@ -354,7 +354,7 @@ public class Parser(LexResult lexResult, string filename)
         return new ForStmt(iter, range, body);
     }
 
-    ReturnStmt ParseReturnStatement()
+    private ReturnStmt ParseReturnStatement()
     {
         Token token = Previous;
         if (Match(TokenKind.Semicolon) || Current.Kind == TokenKind.BraceRight)
@@ -374,7 +374,7 @@ public class Parser(LexResult lexResult, string filename)
         return ParseAssignment();
     }
 
-    Expression ParseAssignment()
+    private Expression ParseAssignment()
     {
         Expression expr = ParseLogicalOr();
 
@@ -400,7 +400,7 @@ public class Parser(LexResult lexResult, string filename)
         return expr;
     }
 
-    Expression ParseLogicalOr()
+    private Expression ParseLogicalOr()
     {
         Expression expr = ParseLogicalAnd();
 
@@ -414,7 +414,7 @@ public class Parser(LexResult lexResult, string filename)
         return expr;
     }
 
-    Expression ParseLogicalAnd()
+    private Expression ParseLogicalAnd()
     {
         Expression expr = ParseEquality();
 
@@ -428,7 +428,7 @@ public class Parser(LexResult lexResult, string filename)
         return expr;
     }
 
-    Expression ParseEquality()
+    private Expression ParseEquality()
     {
         Expression expr = ParseComparison();
 
@@ -442,7 +442,7 @@ public class Parser(LexResult lexResult, string filename)
         return expr;
     }
 
-    Expression ParseComparison()
+    private Expression ParseComparison()
     {
         Expression expr = ParseTerm();
 
@@ -456,7 +456,7 @@ public class Parser(LexResult lexResult, string filename)
         return expr;
     }
 
-    Expression ParseTerm()
+    private Expression ParseTerm()
     {
         Expression expr = ParseFactor();
 
@@ -470,7 +470,7 @@ public class Parser(LexResult lexResult, string filename)
         return expr;
     }
 
-    Expression ParseFactor()
+    private Expression ParseFactor()
     {
         Expression expr = ParseUnary();
 
@@ -484,7 +484,7 @@ public class Parser(LexResult lexResult, string filename)
         return expr;
     }
 
-    Expression ParseUnary()
+    private Expression ParseUnary()
     {
         if (Match(TokenKind.Not, TokenKind.Minus))
         {
@@ -496,7 +496,7 @@ public class Parser(LexResult lexResult, string filename)
         return ParsePostfix();
     }
 
-    Expression ParsePostfix()
+    private Expression ParsePostfix()
     {
         Expression expr = ParsePrimary();
 
@@ -522,7 +522,7 @@ public class Parser(LexResult lexResult, string filename)
         return expr;
     }
 
-    CallExpr CompleteCall(Expression callee)
+    private CallExpr CompleteCall(Expression callee)
     {
         List<Expression> args = [];
         if (Current.Kind != TokenKind.ParenthesisRight)
@@ -542,7 +542,7 @@ public class Parser(LexResult lexResult, string filename)
         return new CallExpr(callee, closingParenthesis, args);
     }
 
-    Expression ParsePrimary()
+    private Expression ParsePrimary()
     {
         if (Match(TokenKind.None, TokenKind.LiteralTrue, TokenKind.LiteralFalse,
                 TokenKind.LiteralInt, TokenKind.LiteralReal, TokenKind.LiteralString))
@@ -568,7 +568,7 @@ public class Parser(LexResult lexResult, string filename)
         throw error.Exception();
     }
 
-    LiteralExpr ParseLiteral()
+    private LiteralExpr ParseLiteral()
     {
         if (Previous.Kind == TokenKind.LiteralTrue)
         {
@@ -602,7 +602,7 @@ public class Parser(LexResult lexResult, string filename)
         }
     }
     
-    RangeExpr ParseRange()
+    private RangeExpr ParseRange()
     {
         var start = ParseTerm();
 
@@ -628,26 +628,31 @@ public class Parser(LexResult lexResult, string filename)
         return new RangeExpr(start, end, step, isInclusive);
     }
 
-    TypeAnnotation ParseTypeDeclaration()
+    private TypeAnnotation ParseTypeDeclaration()
     {
-        var returnTypeToken = Advance();
-        CheckTypeDeclaration(returnTypeToken);
-        return new TypeAnnotation(returnTypeToken.Text);
+        Expression typeExpr = ParseTypeRef();
+        return new TypeAnnotation(typeExpr);
     }
 
-    void CheckTypeDeclaration(in Token declaredTypeToken)
+    private Expression ParseTypeRef()
     {
-        if (declaredTypeToken.Kind != TokenKind.Identifier)
+        var first = Consume(TokenKind.Identifier, "Expect type name");
+        Expression expr = new NameExpr(first.Text);
+        
+        while (Match(TokenKind.Dot))
         {
-            errors.Add(new ParseError(declaredTypeToken, filename, "Type declaration must be an identifier"));
+            var part = Consume(TokenKind.Identifier, "Expect identifier after '.' in type name");
+            expr = new MemberAccessExpr(expr, part.Text);
         }
+
+        return expr;
     }
 
     /// <summary>
     /// Handle cases where a semicolon is optional, before a '}'*/
     /// </summary>
     /// <param name="errorMessage"></param>
-    void TerminateStatement(string errorMessage)
+    private void TerminateStatement(string errorMessage)
     {
         if (Current.Kind != TokenKind.BraceRight)
         {
@@ -655,7 +660,7 @@ public class Parser(LexResult lexResult, string filename)
         }
     }
 
-    void Synchronize()
+    private void Synchronize()
     {
         if (Current.Kind == TokenKind.Semicolon)
         {
@@ -687,7 +692,7 @@ public class Parser(LexResult lexResult, string filename)
         }
     }
 
-    Token Consume(TokenKind symbol, string message)
+    private Token Consume(TokenKind symbol, string message)
     {
         if (Current.Kind == symbol) return Advance();
         ParseError error = new(Current, filename, message);
@@ -695,12 +700,12 @@ public class Parser(LexResult lexResult, string filename)
         throw error.Exception();
     }
 
-    ref Token Advance()
+    private ref Token Advance()
     {
         return ref tokens[tokenIndex++];
     }
 
-    ref readonly Token Peek(int offset)
+    private ref readonly Token Peek(int offset)
     {
         int peekIndex = tokenIndex + offset;
         if (peekIndex < 0 || peekIndex >= tokens.Length)
@@ -710,11 +715,11 @@ public class Parser(LexResult lexResult, string filename)
         return ref tokens[peekIndex];
     }
 
-    ref readonly Token Next => ref Peek(1);
-    ref readonly Token Current => ref Peek(0);
-    ref readonly Token Previous => ref Peek(-1);
+    private ref readonly Token Next => ref Peek(1);
+    private ref readonly Token Current => ref Peek(0);
+    private ref readonly Token Previous => ref Peek(-1);
 
-    bool Match(params TokenKind[] values)
+    private bool Match(params TokenKind[] values)
     {
         if (values.All(value => Current.Kind != value)) return false;
         Advance();

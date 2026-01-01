@@ -4,10 +4,10 @@ using Glykon.Compiler.Syntax;
 
 namespace Glykon.Compiler.Semantics.Binding.BoundStatements;
 
-public class BoundReturnStmt(BoundExpression? value, FunctionSymbol containingFunction, Token token) : BoundStatement
+public class BoundReturnStmt(BoundExpression? value, Symbol containerSymbol, Token token) : BoundStatement
 {
     public override BoundStatementKind Kind => BoundStatementKind.Return;
     public BoundExpression? Value { get; } = value;
-    public FunctionSymbol  ContainingFunction { get; } = containingFunction;
+    public Symbol? ContainerSymbol { get; } = containerSymbol;
     public Token Token { get; } = token;
 }

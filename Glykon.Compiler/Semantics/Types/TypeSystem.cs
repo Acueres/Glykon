@@ -6,9 +6,9 @@ namespace Glykon.Compiler.Semantics.Types;
 
 public class TypeSystem(IdentifierInterner interner)
 {
-    readonly Dictionary<int, TypeSymbol> types = [];
+    private readonly Dictionary<int, TypeSymbol> types = [];
 
-    int typeSerial = (int)TypeKind.SerialStart;
+    private int typeSerial = (int)TypeKind.SerialStart;
 
     public TypeSymbol RegisterType(string name)
     {
