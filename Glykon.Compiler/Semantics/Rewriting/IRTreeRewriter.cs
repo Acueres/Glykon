@@ -30,6 +30,7 @@ public abstract class IRTreeRewriter
             IRLogicalExpr l => RewriteLogical(l),
             IRNameExpr v => RewriteName(v),
             IRAssignmentExpr a => RewriteAssignment(a),
+            IRFieldAssignmentExpr f => RewriteFieldAssignment(f),
             IRRangeExpr r => RewriteRange(r),
             IRCallExpr c => RewriteCall(c),
             IRGroupingExpr g => RewriteGrouping(g),
@@ -175,7 +176,15 @@ public abstract class IRTreeRewriter
         var value = VisitExpr(a.Value);
         return ReferenceEquals(value, a.Value)
             ? a
-            : new IRAssignmentExpr(value, a.Symbol);
+            : new IRAssignmentExpr(value, a.Symbol, a.Type);
+    }
+
+    private IRFieldAssignmentExpr RewriteFieldAssignment(IRFieldAssignmentExpr a)
+    {
+        var value = VisitExpr(a.Value);
+        return ReferenceEquals(value, a.Value)
+            ? a
+            : new IRFieldAssignmentExpr(a.Receiver, a.Field, value, a.Type);
     }
     
     private IRRangeExpr RewriteRange(IRRangeExpr r)

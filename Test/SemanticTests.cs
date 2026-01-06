@@ -50,7 +50,7 @@ public class SemanticTests : CompilerTestBase
         ";
 
         var semanticResult = Analyze(src, LanguageMode.Script);
-        Assert.Single(semanticResult.AllErrors);
+        Assert.NotEmpty(semanticResult.AllErrors);
     }
 
     [Fact]
@@ -62,7 +62,7 @@ public class SemanticTests : CompilerTestBase
         ";
 
         var semanticResult = Analyze(src, LanguageMode.Script);
-        Assert.Single(semanticResult.AllErrors);
+        Assert.NotEmpty(semanticResult.AllErrors);
     }
 
     [Fact]

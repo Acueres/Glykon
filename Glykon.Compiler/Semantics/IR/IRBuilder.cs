@@ -173,7 +173,16 @@ public class IRBuilder(
             {
                 var expression = (BoundExpressionStmt)stmt;
                 var irExpression = BuildExpression(expression.Expression);
-                return new IRExpressionStmt(irExpression);
+
+                if (irExpression.Type.Kind == TypeKind.None) return new IRExpressionStmt(irExpression);
+
+                if (irExpression.Type.Kind != TypeKind.Error)
+                {
+                    errors.Add(new TypeError(fileName, "Non-void expression used as a statement."));
+                }
+
+                return new IRInvalidStmt();
+
             }
             case BoundStatementKind.Jump:
             {
@@ -404,7 +413,7 @@ public class IRBuilder(
                         return invalidExpr;
                     }
 
-                    return new IRAssignmentExpr(value, varSym);
+                    return new IRAssignmentExpr(value, varSym, typeSystem[TypeKind.None]);
                 }
 
                 // Field assignment
@@ -419,7 +428,7 @@ public class IRBuilder(
                         return invalidExpr;
                     }
 
-                    return new IRFieldAssignmentExpr(ma.Receiver, field, value);
+                    return new IRFieldAssignmentExpr(ma.Receiver, field, value, typeSystem[TypeKind.None]);
                 }
 
                 return NotAssignable("Invalid assignment expression.");

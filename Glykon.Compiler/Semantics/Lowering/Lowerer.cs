@@ -52,7 +52,7 @@ public class Lowerer(IRTree ir, IdentifierInterner interner, TypeSystem ts, Symb
 
         IRExpression loopCondition = HandleForDirection(range, stepExpr, iteratorVariable);
         var nextIterator = new IRBinaryExpr(BinaryOp.Add, iteratorVariable, stepExpr, ts[TypeKind.Int64]);
-        var iteratorIncrement = new IRAssignmentExpr(nextIterator, iteratorVariable.Symbol);
+        var iteratorIncrement = new IRAssignmentExpr(nextIterator, iteratorVariable.Symbol, ts[TypeKind.None]);
 
         var body = (IRBlockStmt)forStatement.Body;
         var bodyStatements = body.Statements.ToList();

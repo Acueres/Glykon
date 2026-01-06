@@ -66,7 +66,7 @@ public class TypeTests : CompilerTestBase
     public void CastLiteral()
     {
         const string src = """
-                                       42 as str
+                                       println(42 as str)
                            """;
         var semanticResult = Analyze(src, LanguageMode.Script);
 
@@ -74,7 +74,9 @@ public class TypeTests : CompilerTestBase
 
         var f = GetFunction(semanticResult.Ir.Single());
         var exprStmt = GetExprStmt(f.Body.Statements.Single());
-        Assert.Equal(TypeKind.String, exprStmt.Expression.Type.Kind);
+        var call = GetCall(exprStmt.Expression);
+        var cast = call.Parameters.Single();
+        Assert.Equal(TypeKind.String, cast.Type.Kind);
     }
 
     [Fact]
@@ -83,15 +85,15 @@ public class TypeTests : CompilerTestBase
         const string src = """
 
                                        let f = 2.74
-                                       f as int
+                                       let i = f as int
                            """;
         var semanticResult = Analyze(src, LanguageMode.Script);
 
         Assert.Empty(semanticResult.AllErrors);
 
         var f = GetFunction(semanticResult.Ir.Single());
-        var exprStmt = GetExprStmt(f.Body.Statements[1]);
-        Assert.Equal(TypeKind.Int64, exprStmt.Expression.Type.Kind);
+        var varDec = GetVar(f.Body.Statements[1]);
+        Assert.Equal(TypeKind.Int64, varDec.Initializer.Type.Kind);
     }
 
     // Literals, unary & binary
@@ -220,9 +222,45 @@ public class TypeTests : CompilerTestBase
                             """;
         Assert.Equal(2, Check(code, nameof(IfWhileConditionMustBeBool)).Count());
     }
+    
+    // Expression statements
+    
+    [Fact]
+    public void NonVoidExpressionStatement_Fails()
+    {
+        const string src = """
+                               class A { x: int }
+                               def f() {
+                                   new A { x: 1 }
+                               }
+                           """;
+
+        var r = Analyze(src, LanguageMode.Script);
+        Assert.NotEmpty(r.AllErrors);
+    }
+    
+    [Fact]
+    public void VoidCallExpressionStatement_Succeeds()
+    {
+        const string src = """
+                               class A {
+                                   x: int = 0
+                                   def inc(self) { self.x = self.x + 1 }
+                               }
+
+                               def f(a: A) {
+                                   a.inc()
+                               }
+                           """;
+
+        var r = Analyze(src, LanguageMode.Script);
+        Assert.Empty(r.AllErrors);
+    }
+    
+    
 
     // Function returns
-
+    
     [Fact]
     public void FunctionReturnTypeMatch()
     {
