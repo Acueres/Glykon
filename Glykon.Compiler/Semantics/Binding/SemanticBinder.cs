@@ -15,7 +15,7 @@ public class SemanticBinder(
     TypeSystem typeSystem,
     IdentifierInterner interner,
     LanguageMode mode,
-    string fileName)
+    string filename)
 {
     private readonly SymbolTable symbolTable = new(interner);
     private readonly List<IGlykonError> errors = [];
@@ -81,23 +81,45 @@ public class SemanticBinder(
             {
                 var classDecl = (ClassDeclaration)stmt;
 
-                var type = typeSystem.RegisterType(classDecl.Name);
-                if (symbolTable.TryGetType(classDecl.Name, out _))
+                TypeSymbol type;
+                if (symbolTable.TryGetType(classDecl.Name, out type!))
                 {
-                    errors.Add(new BindingError(fileName, $"Type '{classDecl.Name}' already defined."));
+                    errors.Add(new BindingError(filename, $"Type '{classDecl.Name}' already defined."));
                 }
                 else
                 {
+                    type = typeSystem.RegisterType(classDecl.Name);
                     symbolTable.RegisterType(type);
                 }
 
                 symbolTable.BeginScope(ScopeKind.Type);
 
+                Dictionary<int, TypeMemberKind> memberKinds = [];
+                
+                var nested = classDecl.Nested.Select(BindStatement).OfType<BoundClassDeclaration>().ToArray();
+                foreach (var nestedType in nested)
+                {
+                    ClaimMemberName(nestedType.Type.NameId, TypeMemberKind.NestedType);
+                }
+                
                 var constants = classDecl.Constants.Select(BindStatement).OfType<BoundConstantDeclaration>()
                     .ToArray();
+                foreach (var constant in constants)
+                {
+                    ClaimMemberName(constant.Symbol.NameId, TypeMemberKind.Constant);
+                }
+                
                 var fields = classDecl.Fields.Select(f => BindField(f, type)).ToArray();
-                var nested = classDecl.Nested.Select(BindStatement).OfType<BoundClassDeclaration>().ToArray();
+                foreach (var field in fields)
+                {
+                    ClaimMemberName(field.Symbol.NameId, TypeMemberKind.Field);
+                }
+                
                 var methods = classDecl.Methods.Select(m => BindMethodDeclaration(m, type)).ToArray();
+                foreach (var method in methods)
+                {
+                    ClaimMemberName(method.Symbol.NameId, TypeMemberKind.Method);
+                }
 
                 symbolTable.EndScope();
 
@@ -107,6 +129,19 @@ public class SemanticBinder(
                     nested.Select(decl => decl.Type).ToArray());
 
                 return new BoundClassDeclaration(type, methods, fields, constants, nested);
+                
+                void ClaimMemberName(int nameId, TypeMemberKind kind)
+                {
+                    if (memberKinds.TryGetValue(nameId, out var existing))
+                    {
+                        errors.Add(new BindingError(filename,
+                            $"Name '{interner[nameId]}' is already used for a {existing} in type '{classDecl.Name}'."));
+                    }
+                    else
+                    {
+                        memberKinds[nameId] = kind;
+                    }
+                }
             }
             case StatementKind.Block:
             {
@@ -271,7 +306,7 @@ public class SemanticBinder(
                 AssignmentExpr assignmentExpr = (AssignmentExpr)expression;
 
                 var target = BindExpression(assignmentExpr.Target);
-                BoundExpression value = BindExpression(assignmentExpr.Right);
+                BoundExpression value = BindExpression(assignmentExpr.Value);
 
                 if (target is BoundNameExpr variableExpr)
                 {
@@ -283,7 +318,7 @@ public class SemanticBinder(
                     return new BoundAssignmentExpr(memberAccessExpr, value);
                 }
 
-                var error = new BindingError(fileName, "Invalid assignment target.");
+                var error = new BindingError(filename, "Invalid assignment target.");
                 errors.Add(error);
                 return new BoundInvalidExpr();
             }
@@ -323,7 +358,7 @@ public class SemanticBinder(
 
                 if (!interner.TryGetId(nameExpr.Name, out var id))
                 {
-                    errors.Add(new BindingError(fileName, $"Unknown identifier: {nameExpr.Name}"));
+                    errors.Add(new BindingError(filename, $"Unknown identifier: {nameExpr.Name}"));
                     return new BoundInvalidExpr();
                 }
 
@@ -351,9 +386,9 @@ public class SemanticBinder(
 
                 var symbol = symbolTable.GetSymbol(nameExpr.Name);
                 // Captured variables are not allowed
-                if (symbol is not VariableSymbol) return new BoundNameExpr(symbol!);
+                if (symbol is not null && symbol is not VariableSymbol) return new BoundNameExpr(symbol!);
 
-                errors.Add(new BindingError(fileName, $"Cannot reference {nameExpr.Name}"));
+                errors.Add(new BindingError(filename, $"Cannot reference {nameExpr.Name}"));
                 return new BoundInvalidExpr();
 
             }
@@ -375,6 +410,75 @@ public class SemanticBinder(
 
                 return new BoundCallExpr(boundCallee, boundArgs);
             }
+            case ExpressionKind.Initializer:
+            {
+                var init = (InitializerExpr)expression;
+                var type = BindTypeAnnotation(init.TypeName);
+
+                if (type.Kind != TypeKind.Defined)
+                {
+                    errors.Add(new TypeError(filename, $"'{type}' is not constructible."));
+                    return new BoundInvalidExpr();
+                }
+
+                var fieldMap = type.Fields.ToDictionary(f => f.NameId);
+                var constSet = type.Constants.Select(c => c.NameId).ToHashSet();
+                var methodSet = type.Methods.Select(m => m.NameId).ToHashSet();
+                var nestedSet = type.NestedTypes.Select(t => t.NameId).ToHashSet();
+
+                List<BoundInitializer> boundInits = [];
+                HashSet<int> seen = [];
+                HashSet<int> seenAssignedFields = [];
+
+                foreach (var i in init.Initializers)
+                {
+                    var nameId = interner.Intern(i.Name);
+
+                    if (!seen.Add(nameId))
+                    {
+                        errors.Add(new BindingError(filename, $"Duplicate initializer '{interner[nameId]}'."));
+                        continue;
+                    }
+
+                    if (constSet.Contains(nameId))
+                    {
+                        errors.Add(new BindingError(filename, $"Cannot assign to constant '{interner[nameId]}'."));
+                        continue;
+                    }
+
+                    if (methodSet.Contains(nameId))
+                    {
+                        errors.Add(new BindingError(filename, $"Cannot assign to method '{interner[nameId]}'."));
+                        continue;
+                    }
+
+                    if (nestedSet.Contains(nameId))
+                    {
+                        errors.Add(new BindingError(filename, $"Cannot assign to nested '{interner[nameId]}'."));
+                        continue;
+                    }
+
+                    if (!fieldMap.TryGetValue(nameId, out var field))
+                    {
+                        errors.Add(new BindingError(filename, $"Field '{interner[nameId]}' doesn't exist on type {interner[type.NameId]}."));
+                        continue;
+                    }
+                    
+                    seenAssignedFields.Add(nameId);
+                    var value = BindExpression(i.Value);
+                    boundInits.Add(new BoundInitializer(field, value));
+                }
+
+                // missing required
+                var required = type.Fields.Where(f => f.Required).Select(f => f.NameId).ToHashSet();
+                var missing = required.Except(seenAssignedFields);
+                foreach (var id in missing)
+                {
+                    errors.Add(new BindingError(filename, $"Missing required field '{interner[id]}'."));
+                }
+
+                return new BoundInitializerExpr(type, boundInits.ToArray());
+            }
             default: return new BoundInvalidExpr();
         }
     }
@@ -390,11 +494,7 @@ public class SemanticBinder(
 
         var returnType = BindTypeAnnotation(methodDecl.ReturnType);
 
-        if (symbolTable.TryGetMethod(methodDecl.Name, out var signature))
-        {
-            var error = new BindingError(fileName, $"Method {methodDecl.Name} already exists.");
-            errors.Add(error);
-        }
+        symbolTable.TryGetMethod(methodDecl.Name, out var signature);
 
         signature ??=
             symbolTable.RegisterMethod(methodDecl.Name, returnType, parentType, paramTypes, methodDecl.IsStatic);
@@ -436,7 +536,8 @@ public class SemanticBinder(
 
         var boundExpression = BindExpression(fieldDecl.Initializer);
 
-        var symbol = symbolTable.RegisterField(fieldDecl.Name, parentType, declaredType);
+        var symbol = new FieldSymbol(interner.Intern(fieldDecl.Name), parentType, declaredType,
+            required: fieldDecl.Initializer is null);
 
         return new BoundFieldDeclaration(boundExpression, symbol);
     }
@@ -469,7 +570,7 @@ public class SemanticBinder(
     {
         if (!TryFlattenTypePath(annotation.Expression, out var parts))
         {
-            errors.Add(new BindingError(fileName, $"Invalid type annotation: {annotation.Expression}"));
+            errors.Add(new BindingError(filename, $"Invalid type annotation: {annotation.Expression}"));
             return typeSystem[TypeKind.Error];
         }
 
@@ -481,14 +582,14 @@ public class SemanticBinder(
                 return typeSymbol!;
             }
 
-            errors.Add(new BindingError(fileName, $"Unknown type: {parts[0]}"));
+            errors.Add(new BindingError(filename, $"Unknown type: {parts[0]}"));
             return typeSystem[TypeKind.Error];
         }
 
         // Qualified name
         if (!symbolTable.TryGetType(parts[0], out var current))
         {
-            errors.Add(new BindingError(fileName, $"Unknown type: {parts[0]}"));
+            errors.Add(new BindingError(filename, $"Unknown type: {parts[0]}"));
             return typeSystem[TypeKind.Error];
         }
 
@@ -498,7 +599,7 @@ public class SemanticBinder(
 
             if (!TryResolveNestedType(current!, segment, out var nested))
             {
-                errors.Add(new BindingError(fileName, $"Unknown type: {string.Join('.', parts)}"));
+                errors.Add(new BindingError(filename, $"Unknown type: {string.Join('.', parts)}"));
                 return typeSystem[TypeKind.Error];
             }
 
@@ -576,6 +677,6 @@ public class SemanticBinder(
             _ => "Top-level statements are not allowed in application mode."
         };
 
-        errors.Add(new BindingError(fileName, msg));
+        errors.Add(new BindingError(filename, msg));
     }
 }

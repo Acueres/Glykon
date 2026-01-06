@@ -123,7 +123,7 @@ public class RuntimeTests
                                     x: int = 5
                                 }
 
-                                let p = Point()
+                                let p = new Point {}
                                 println(p.x as str)
                             """;
 
@@ -142,7 +142,7 @@ public class RuntimeTests
                                     x: int
                                 }
 
-                                let p = Point()
+                                let p = new Point { x: 5 }
                                 p.x = 7
                                 println(p.x as str)
                             """;
@@ -161,16 +161,16 @@ public class RuntimeTests
                                 class Counter {
                                     value: int = 0
 
-                                    def inc() {
+                                    def inc(self) {
                                         self.value = self.value + 1
                                     }
 
-                                    def get() -> int {
+                                    def get(self) -> int {
                                         return self.value
                                     }
                                 }
 
-                                let c = Counter()
+                                let c = new Counter {}
                                 c.inc()
                                 c.inc()
                                 c.inc()
@@ -196,8 +196,8 @@ public class RuntimeTests
                                     }
                                 }
 
-                                let a = A()
-                                let b = B()
+                                let a = new A {}
+                                let b = new B {}
                                 println(a.take(b) as str)
                             """;
 
@@ -216,11 +216,11 @@ public class RuntimeTests
 
                                 class A {
                                     def makeB() -> B {
-                                        return B()
+                                        return new B {}
                                     }
                                 }
 
-                                let a = A()
+                                let a = new A {}
                                 let b = a.makeB()
                                 println(b.value as str)
                             """;
@@ -248,6 +248,148 @@ public class RuntimeTests
 
         Assert.Null(result.Exception);
         Assert.Contains("3.14", result.Stdout);
+    }
+    
+    [Fact]
+    public void Script_ObjectInit_DefaultsAndOverride_Works()
+    {
+        const string code = """
+                                class A {
+                                    x: int = 5
+                                    y: int = 7
+                                }
+
+                                let a = new A { y: 10 }
+                                println(a.x as str)
+                                println(a.y as str)
+                            """;
+
+        var runtime = new GlykonRuntime(code, nameof(Script_ObjectInit_DefaultsAndOverride_Works));
+        var result = runtime.RunScript();
+
+        Assert.Null(result.Exception);
+        Assert.Equal("5" + Environment.NewLine + "10" + Environment.NewLine, result.Stdout);
+    }
+    
+    [Fact]
+    public void Script_ObjectInit_DefaultFromAssociatedConst_Works()
+    {
+        const string code = """
+                                class A {
+                                    const k: int = 4
+                                    x: int = k
+                                }
+
+                                let a = new A {}
+                                println(a.x as str)
+                            """;
+
+        var runtime = new GlykonRuntime(code, nameof(Script_ObjectInit_DefaultFromAssociatedConst_Works));
+        var result = runtime.RunScript();
+
+        Assert.Null(result.Exception);
+        Assert.Equal("4" + Environment.NewLine, result.Stdout);
+    }
+    
+    [Fact]
+    public void Script_ObjectInit_ChainedInnerObject_Works()
+    {
+        const string code = """
+                                class B { v: int = 2 }
+                                class A { b: B }
+
+                                let a = new A { b: new B { v: 11 } }
+                                println(a.b.v as str)
+                            """;
+
+        var runtime = new GlykonRuntime(code, nameof(Script_ObjectInit_ChainedInnerObject_Works));
+        var result = runtime.RunScript();
+
+        Assert.Null(result.Exception);
+        Assert.Equal("11" + Environment.NewLine, result.Stdout);
+    }
+    
+    [Fact]
+    public void Script_ObjectInit_UsedInIfCondition_Works()
+    {
+        const string code = """
+                                class P { x: int }
+
+                                if new P { x: 0 }.x == 0 {
+                                    println('ok')
+                                } else {
+                                    println('bad')
+                                }
+                            """;
+
+        var runtime = new GlykonRuntime(code, nameof(Script_ObjectInit_UsedInIfCondition_Works));
+        var result = runtime.RunScript();
+
+        Assert.Null(result.Exception);
+        Assert.Equal("ok" + Environment.NewLine, result.Stdout);
+    }
+    
+    [Fact]
+    public void Script_NestedType_ObjectInit_Works()
+    {
+        const string code = """
+                                class Outer {
+                                    class Inner {
+                                        x: int = 2
+                                    }
+                                }
+
+                                let i = new Outer.Inner {}
+                                println(i.x as str)
+                            """;
+
+        var runtime = new GlykonRuntime(code, nameof(Script_NestedType_ObjectInit_Works));
+        var result = runtime.RunScript();
+
+        Assert.Null(result.Exception);
+        Assert.Equal("2" + Environment.NewLine, result.Stdout);
+    }
+    
+    [Fact]
+    public void Script_MethodReceiverName_CanBeThis()
+    {
+        const string code = """
+                                class A {
+                                    x: int = 3
+
+                                    def get(this) -> int {
+                                        return this.x
+                                    }
+                                }
+
+                                let a = new A {}
+                                println(a.get() as str)
+                            """;
+
+        var runtime = new GlykonRuntime(code, nameof(Script_MethodReceiverName_CanBeThis));
+        var result = runtime.RunScript();
+
+        Assert.Null(result.Exception);
+        Assert.Equal("3" + Environment.NewLine, result.Stdout);
+    }
+    
+    [Fact]
+    public void Script_FieldDefault_ImplicitConversion_IntToReal_Works()
+    {
+        const string code = """
+                                class A {
+                                    x: real = 3
+                                }
+
+                                let a = new A {}
+                                println(a.x as str)
+                            """;
+
+        var runtime = new GlykonRuntime(code, nameof(Script_FieldDefault_ImplicitConversion_IntToReal_Works));
+        var result = runtime.RunScript();
+
+        Assert.Null(result.Exception);
+        Assert.Contains("3", result.Stdout);
     }
 
     // Built Assembly Tests

@@ -5,6 +5,7 @@ using Glykon.Compiler.Semantics.Binding;
 using Glykon.Compiler.Semantics.Symbols;
 using Glykon.Compiler.Semantics.IR;
 using Glykon.Compiler.Semantics.IR.Statements;
+using Glykon.Compiler.Semantics.Types;
 
 namespace Glykon.Compiler.Backend.CIL;
 
@@ -54,11 +55,21 @@ public class CilCompilationUnitEmitter(
             typeEmitter.DefineType();
         }
         
+        Dictionary<TypeSymbol, ConstructorInfo> constructors = [];
+        // Define constructors for all types
+        foreach (var typeEmitter in typeEmitters)
+        {
+            foreach (var (type, constructor) in typeEmitter.DefineConstructors())
+            {
+                constructors[type] = constructor;
+            }
+        }
+        
         // Emit all fields
         foreach (var typeEmitter in typeEmitters)
         {
             var definedFields = typeEmitter.EmitFields();
-            foreach (var (fieldInfo, fieldSymbol) in definedFields)
+            foreach (var (fieldSymbol, fieldInfo) in definedFields)
             {
                 fields[fieldSymbol] = fieldInfo;
             }
@@ -68,7 +79,7 @@ public class CilCompilationUnitEmitter(
         foreach (var typeEmitter in typeEmitters)
         {
             var methodEmitters = typeEmitter.DefineMethods();
-            foreach (var (methodEmitter, signature) in methodEmitters)
+            foreach (var (signature, methodEmitter) in methodEmitters)
             {
                 callableEmitters.Add(methodEmitter);
                 var mb = methodEmitter.GetMethodBuilder();
@@ -108,7 +119,7 @@ public class CilCompilationUnitEmitter(
         // Emit callable bodies
         foreach (var callableEmitter in callableEmitters)
         {
-            callableEmitter.Emit(functions, methods, fields);
+            callableEmitter.Emit(functions, methods, fields, constructors);
         }
         
         // Create defined types

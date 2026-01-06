@@ -6,5 +6,5 @@ public class TypeAnnotation(Expression expression)
 {
     public Expression Expression { get; } = expression;
 
-    public static TypeAnnotation None { get;  } = new(new NameExpr("none"));
+    public static TypeAnnotation None { get; } = new(new NameExpr("none"));
 }

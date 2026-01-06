@@ -12,7 +12,8 @@ public enum ExpressionKind : byte
     MemberAccess,
     Logical,
     Conversion,
-    Range
+    Range,
+    Initializer
 }
 
 public abstract class Expression

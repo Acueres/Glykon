@@ -90,7 +90,9 @@ public sealed class CilCallableEmitter
     }
 
     public void Emit(Dictionary<FunctionSymbol, MethodInfo> functions,
-        Dictionary<MethodSymbol, MethodInfo> methods, Dictionary<FieldSymbol, FieldInfo> fields)
+        Dictionary<MethodSymbol, MethodInfo> methods,
+        Dictionary<FieldSymbol, FieldInfo> fields,
+        Dictionary<TypeSymbol, ConstructorInfo> constructors)
     {
         DefineParameterMetadata();
         
@@ -114,6 +116,8 @@ public sealed class CilCallableEmitter
         {
             Functions = functions,
             Methods = methods,
+            Fields =  fields,
+            Constructors = constructors,
             ReturnLabel = returnLabel,
             ReturnLocal = returnLocal
         };

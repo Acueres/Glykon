@@ -1,4 +1,3 @@
-using System.Reflection;
 using System.Reflection.Emit;
 
 using Glykon.Compiler.Core;
@@ -348,7 +347,6 @@ public class CilCodeGenerator(ILGenerator il, CilEmitContext context, ClrTypeReg
 
                     break;
                 }
-
                 case IRExpressionKind.Logical:
                 {
                     var expr = (IRLogicalExpr)expression;
@@ -445,6 +443,28 @@ public class CilCodeGenerator(ILGenerator il, CilEmitContext context, ClrTypeReg
                                 break;
                             }
                         }
+                    }
+
+                    break;
+                }
+                case IRExpressionKind.Initializer:
+                {
+                    var init = (IRInitializerExpr)expression;
+                    
+                    if (!context.Constructors.TryGetValue(init.Type, out var ctor))
+                    {
+                        throw new InvalidOperationException($"Type '{typeRegistry.Resolve(init.Type)}' has no parameterless constructor.");
+                    }
+                    
+                    il.Emit(OpCodes.Newobj, ctor);
+                    
+                    foreach (var i in init.Initializers)
+                    {
+                        var fi = context.Fields[i.Field];
+
+                        il.Emit(OpCodes.Dup);
+                        EmitExpression(i.Value); 
+                        il.Emit(OpCodes.Stfld, fi);
                     }
 
                     break;

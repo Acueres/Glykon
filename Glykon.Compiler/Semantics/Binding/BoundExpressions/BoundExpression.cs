@@ -13,7 +13,8 @@ public enum BoundExpressionKind : byte
     MemberAccess,
     Logical,
     Conversion,
-    Range
+    Range,
+    Initializer
 }
 
 public abstract class BoundExpression

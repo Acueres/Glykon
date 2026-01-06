@@ -368,6 +368,78 @@ public class TypeTests : CompilerTestBase
 
         Assert.Equal(TypeKind.Int64, ret.Value!.Type.Kind);
     }
+    
+    [Fact]
+    public void FieldDefault_RefersToSelf_Fails()
+    {
+        const string code = """
+                                class A {
+                                    b: int = self.a
+                                    a: int = 5
+                                }
+                            """;
+
+        Assert.NotEmpty(Check(code, nameof(FieldDefault_RefersToSelf_Fails)));
+    }
+    
+    [Fact]
+    public void FieldDefault_RefersToThis_Fails()
+    {
+        const string code = """
+                                class A {
+                                    b: int = this.a
+                                    a: int = 5
+                                }
+                            """;
+
+        Assert.NotEmpty(Check(code, nameof(FieldDefault_RefersToThis_Fails)));
+    }
+    
+    [Fact]
+    public void FieldDefault_RefersToOtherFieldByName_Fails()
+    {
+        const string code = """
+                                class A {
+                                    a: int = 5
+                                    b: int = a
+                                }
+                            """;
+
+        Assert.NotEmpty(Check(code, nameof(FieldDefault_RefersToOtherFieldByName_Fails)));
+    }
+
+    [Fact]
+    public void Method_ThisParameter_AllowsMemberAccess()
+    {
+        const string code = """
+                                class A {
+                                    a: int
+
+                                    def m(this) -> int {
+                                        return this.a
+                                    }
+                                }
+                            """;
+
+        Assert.Empty(Check(code, nameof(Method_ThisParameter_AllowsMemberAccess)));
+    }
+    
+    
+    [Fact]
+    public void Method_ThisParameter_DoesNotIntroduceSelf()
+    {
+        const string code = """
+                                class A {
+                                    a: int
+
+                                    def m(this) -> int {
+                                        return self.a
+                                    }
+                                }
+                            """;
+
+        Assert.NotEmpty(Check(code, nameof(Method_ThisParameter_DoesNotIntroduceSelf)));
+    }
 
     [Fact]
     public void VariableInference_FromCustomTypedField_UsesCustomType()

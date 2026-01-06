@@ -1,6 +1,5 @@
 ﻿using Glykon.Compiler.Core;
 using Glykon.Compiler.Semantics.Binding;
-using Glykon.Compiler.Semantics.IR.Statements;
 using Glykon.Compiler.Semantics.Types;
 using Tests.Infrastructure;
 
@@ -78,6 +77,132 @@ public class SemanticTests : CompilerTestBase
         Assert.Empty(semanticResult.AllErrors);
     }
     
+    // Type declaration tests
+    [Fact]
+    public void TypeDecl_DuplicateTypeName_Fails()
+    {
+        const string src = """
+                               class A { }
+                               class A { }
+                           """;
+
+        var r = Analyze(src, LanguageMode.Script);
+        Assert.Single(r.AllErrors);
+    }
+
+    [Fact]
+    public void TypeDecl_FieldAndMethodNameCollision_Fails()
+    {
+        const string src = """
+                               class A {
+                                   x: int
+                                   def x() { return }
+                               }
+                           """;
+
+        var r = Analyze(src, LanguageMode.Script);
+        Assert.Single(r.AllErrors);
+    }
+    
+    [Fact]
+    public void TypeDecl_FieldAndConstNameCollision_Fails()
+    {
+        const string src = """
+                               class A {
+                                   x: int
+                                   const x: real = 3.14
+                               }
+                           """;
+
+        var r = Analyze(src, LanguageMode.Script);
+        Assert.Single(r.AllErrors);
+    }
+    
+    [Fact]
+    public void TypeDecl_MethodAndConstNameCollision_Fails()
+    {
+        const string src = """
+                               class A {
+                                   const m: real = 3.14
+                                   def m() { return }
+                               }
+                           """;
+
+        var r = Analyze(src, LanguageMode.Script);
+        Assert.Single(r.AllErrors);
+    }
+    
+    [Fact]
+    public void TypeDecl_NestedTypeAndFieldNameCollision_Fails()
+    {
+        const string src = """
+                               class Outer {
+                                   x: int
+                                   class x { }
+                               }
+                           """;
+
+        var r = Analyze(src, LanguageMode.Script);
+        Assert.Single(r.AllErrors);
+    }
+    
+    [Fact]
+    public void TypeDecl_DuplicateFieldName_Fails()
+    {
+        const string src = """
+                               class A {
+                                   x: int
+                                   x: int = 1
+                               }
+                           """;
+
+        var r = Analyze(src, LanguageMode.Script);
+        Assert.Single(r.AllErrors);
+    }
+    
+    [Fact]
+    public void TypeDecl_DuplicateConstName_Fails()
+    {
+        const string src = """
+                               class A {
+                                   const pi: real = 3.14
+                                   const pi: real = 3.14
+                               }
+                           """;
+
+        var r = Analyze(src, LanguageMode.Script);
+        Assert.Single(r.AllErrors);
+    }
+    
+    [Fact]
+    public void TypeDecl_DuplicateNestedTypeName_Fails()
+    {
+        const string src = """
+                               class Outer {
+                                   class Inner { }
+                                   class Inner { }
+                               }
+                           """;
+
+        var r = Analyze(src, LanguageMode.Script);
+        Assert.Equal(2, r.AllErrors.Count());
+    }
+    
+    [Fact]
+    public void TypeDecl_DuplicateMethodName_Fails()
+    {
+        const string src = """
+                               class A {
+                                   def m() { return }
+                                   def m() { return }
+                               }
+                           """;
+
+        var r = Analyze(src, LanguageMode.Script);
+        Assert.Single(r.AllErrors);
+    }
+    
+    // Type instance tests
     [Fact]
     public void InstanceMethodCall_WithCorrectArgs_Succeeds()
     {
@@ -230,6 +355,180 @@ public class SemanticTests : CompilerTestBase
 
         var r = Analyze(src, LanguageMode.Script);
         Assert.Empty(r.AllErrors);
+    }
+    
+    // Object initializer tests
+    [Fact]
+    public void InitObject_UnknownField_Fails()
+    {
+        const string src = """
+                               class A { i: int }
+
+                               def f() {
+                                   let a = new A { nope: 1, i: 1 }
+                               }
+                           """;
+
+        var r = Analyze(src, LanguageMode.Script);
+        Assert.Single(r.AllErrors);
+    }
+    
+    [Fact]
+    public void InitObject_DuplicateField_Fails()
+    {
+        const string src = """
+                               class A { i: int }
+
+                               def f() {
+                                   let a = new A { i: 1, i: 2 }
+                               }
+                           """;
+
+        var r = Analyze(src, LanguageMode.Script);
+        Assert.Single(r.AllErrors);
+    }
+    
+    [Fact]
+    public void InitObject_AssigningConst_Fails()
+    {
+        const string src = """
+                               class A {
+                                   i: int = 1
+                                   const pi: real = 3.14
+                               }
+
+                               def f() {
+                                   let a = new A { pi: 1.0 }
+                               }
+                           """;
+
+        var r = Analyze(src, LanguageMode.Script);
+        Assert.Single(r.AllErrors);
+    }
+    
+    [Fact]
+    public void InitObject_AssigningMethodName_Fails()
+    {
+        const string src = """
+                               class A {
+                                   i: int
+                                   def m() { return }
+                               }
+
+                               def f() {
+                                   let a = new A { m: 1, i: 1 }
+                               }
+                           """;
+
+        var r = Analyze(src, LanguageMode.Script);
+        Assert.Single(r.AllErrors);
+    }
+    
+    [Fact]
+    public void InitObject_MissingRequiredField_Fails()
+    {
+        const string src = """
+                               class A { i: int }
+
+                               def f() {
+                                   let a = new A { }
+                               }
+                           """;
+
+        var r = Analyze(src, LanguageMode.Script);
+        Assert.Single(r.AllErrors);
+    }
+
+    [Fact]
+    public void InitObject_FieldTypeMismatch_Fails()
+    {
+        const string src = """
+                               class A { i: int }
+
+                               def f() {
+                                   let a = new A { i: 'oops' }
+                               }
+                           """;
+
+        var r = Analyze(src, LanguageMode.Script);
+        Assert.Single(r.AllErrors);
+    }
+    
+    [Fact]
+    public void InitObject_CustomTypedField_Succeeds()
+    {
+        const string src = """
+                               class B { }
+                               class A { b: B }
+
+                               def f(x: B) {
+                                   let a = new A { b: x }
+                               }
+                           """;
+
+        var r = Analyze(src, LanguageMode.Script);
+        Assert.Empty(r.AllErrors);
+    }
+    
+    [Fact]
+    public void InitObject_NonConstructibleType_Fails()
+    {
+        const string src = """
+                               def f() {
+                                   let x = new int { }
+                               }
+                           """;
+
+        var r = Analyze(src, LanguageMode.Script);
+        Assert.Single(r.AllErrors);
+    }
+    
+    [Fact]
+    public void InitObject_Partial_UsesDefaultsForOmittedFields()
+    {
+        const string src = """
+                               class A {
+                                   x: int = 1
+                                   y: int
+                               }
+
+                               def f() {
+                                   let a = new A { y: 2 }
+                               }
+                           """;
+
+        var r = Analyze(src, LanguageMode.Script);
+        Assert.Empty(r.AllErrors);
+    }
+    
+    [Fact]
+    public void InitObject_ExplicitValue_OverridesDefault()
+    {
+        const string src = """
+                               class A {
+                                   x: int = 1
+                               }
+
+                               def f() {
+                                   let a = new A { x: 5 }
+                               }
+                           """;
+
+        var r = Analyze(src, LanguageMode.Script);
+        Assert.Empty(r.AllErrors);
+    }
+    
+    [Fact]
+    public void FieldDefault_TypeMismatch_Fails()
+    {
+        const string src = """
+                               class A {
+                                   x: int = 'oops'
+                               }
+                           """;
+
+        var r = Analyze(src, LanguageMode.Script);
+        Assert.Single(r.AllErrors);
     }
 
     // Symbol table tests

@@ -1,3 +1,4 @@
+using Glykon.Compiler.Semantics.IR;
 using Glykon.Compiler.Semantics.IR.Expressions;
 using Glykon.Compiler.Semantics.IR.Statements;
 
@@ -33,6 +34,7 @@ public abstract class IRTreeRewriter
             IRCallExpr c => RewriteCall(c),
             IRGroupingExpr g => RewriteGrouping(g),
             IRConversionExpr cnv => RewriteConversion(cnv),
+            IRInitializerExpr init => RewriteInitializerExpr(init),
             _ => e
         };
 
@@ -73,11 +75,10 @@ public abstract class IRTreeRewriter
     private IRClassDeclaration RewriteClassDeclaration(IRClassDeclaration c)
     {
         var methods = RewriteArray(c.Methods, RewriteMethodDeclaration, out var methodsChanged);
-        var fields = RewriteArray(c.Fields, RewriteFieldDeclaration, out var fieldsChanged);
         var constants = RewriteArray(c.Constants, RewriteConstantDeclaration, out var constantsChanged);
         var nested = RewriteArray(c.Nested, RewriteClassDeclaration, out var nestedChanged);
 
-        if (!methodsChanged && !fieldsChanged && !constantsChanged && !nestedChanged)
+        if (!methodsChanged && !constantsChanged && !nestedChanged)
         {
             return c;
         }
@@ -85,7 +86,7 @@ public abstract class IRTreeRewriter
         return new IRClassDeclaration(
             c.Type,
             methodsChanged ? methods : c.Methods,
-            fieldsChanged ? fields : c.Fields,
+            c.Fields,
             constantsChanged ? constants : c.Constants,
             nestedChanged ? nested : c.Nested
         );
@@ -97,14 +98,6 @@ public abstract class IRTreeRewriter
         return ReferenceEquals(body, m.Body)
             ? m
             : new IRMethodDeclaration(m.Signature, m.ParentType, m.Parameters, m.ReturnType, body, m.IsStatic);
-    }
-
-    private IRFieldDeclaration RewriteFieldDeclaration(IRFieldDeclaration f)
-    {
-        if (f.Initializer is null) return f;
-        
-        var initializer = VisitExpr(f.Initializer);
-        return ReferenceEquals(initializer, f.Initializer) ? f : new IRFieldDeclaration(initializer, f.Symbol);
     }
 
     protected virtual IRStatement RewriteIf(IRIfStmt ifStmt)
@@ -225,7 +218,24 @@ public abstract class IRTreeRewriter
             ? cnv
             : new IRConversionExpr(expr, cnv.Type);
     }
-    
+
+    private IRInitializerExpr RewriteInitializerExpr(IRInitializerExpr init)
+    {
+        var initializers = RewriteArray(init.Initializers, RewriteInitializer, out var initializersChanged);
+
+        if (!initializersChanged) return init;
+        
+        return new IRInitializerExpr(init.Type, initializers);
+    }
+
+    private IRInitializer RewriteInitializer(IRInitializer initializer)
+    {
+        var value = VisitExpr(initializer.Value);
+        return ReferenceEquals(value, initializer.Value)
+            ? initializer
+            : new IRInitializer(initializer.Field, value);
+    }
+
     private static T[] RewriteArray<T>(T[] items, Func<T, T> rewrite, out bool changed) where T : class
     {
         T[]? newItems = null;

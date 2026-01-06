@@ -1,5 +1,4 @@
-﻿using Glykon.Compiler.Core;
-using Glykon.Compiler.Semantics.Symbols;
+﻿using Glykon.Compiler.Semantics.Symbols;
 using Glykon.Compiler.Semantics.Types;
 
 namespace Glykon.Compiler.Semantics.Binding;
@@ -7,7 +6,6 @@ namespace Glykon.Compiler.Semantics.Binding;
 public class SymbolTable
 {
     private readonly Scope top = new();
-    private readonly List<Scope> scopes;
     private readonly IdentifierInterner interner;
 
     private Scope current;
@@ -16,7 +14,6 @@ public class SymbolTable
 
     public SymbolTable(IdentifierInterner interner)
     {
-        scopes = [top];
         current = top;
         this.interner = interner;
     }
@@ -127,13 +124,6 @@ public class SymbolTable
         VariableSymbol variable = current.AddVariable(symbolIndex, immutable, type);
         return variable;
     }
-    
-    public FieldSymbol RegisterField(string name, TypeSymbol parentType, TypeSymbol type)
-    {
-        int symbolIndex = interner.Intern(name);
-        FieldSymbol field = current.AddField(symbolIndex, parentType, type);
-        return field;
-    }
 
     public void RegisterType(TypeSymbol type)
     {
@@ -145,27 +135,27 @@ public class SymbolTable
     public Scope BeginScope(ScopeKind scopeKind)
     {
         current = new Scope(current, scopeKind);
-        scopes.Add(current);
         return current;
     }
 
     public Scope BeginScope(FunctionSymbol containingFunction)
     {
         current = new Scope(current, containingFunction);
-        scopes.Add(current);
         return current;
     }
     
     public Scope BeginScope(MethodSymbol containingMethod)
     {
         current = new Scope(current, containingMethod);
-        scopes.Add(current);
         return current;
     }
 
     public void EndScope()
     {
-        current = current.Parent;
+        if (current.Parent is not null)
+        {
+            current = current.Parent;
+        }
     }
 
     public void ResetScope()
@@ -181,10 +171,10 @@ public class SymbolTable
 
     private List<string> GetContainingFunctionStack()
     {
-        Scope currentScope = current;
+        Scope? currentScope = current;
         List<string> stack = [];
 
-        while (currentScope != null)
+        while (currentScope is not null)
         {
             if (currentScope is { Kind: ScopeKind.Function, ContainingFunction: not null })
             {

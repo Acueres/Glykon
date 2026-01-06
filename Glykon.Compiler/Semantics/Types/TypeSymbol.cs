@@ -26,10 +26,10 @@ public class TypeSymbol(
     public bool IsNone => Kind == TypeKind.None;
     public bool IsError => Kind == TypeKind.Error;
 
-    public MethodSymbol[] Methods { get; set; } = [];
-    public FieldSymbol[] Fields { get; set; } = [];
-    public ConstantSymbol[] Constants { get; set; } = [];
-    public TypeSymbol[] NestedTypes { get; set; } = [];
+    public MethodSymbol[] Methods { get; private set; } = [];
+    public FieldSymbol[] Fields { get; private set; } = [];
+    public ConstantSymbol[] Constants { get; private set; } = [];
+    public TypeSymbol[] NestedTypes { get; private set; } = [];
 
     public int SerialId { get; } = serialId;
 

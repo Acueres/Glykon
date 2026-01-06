@@ -126,7 +126,7 @@ public class Parser(LexResult lexResult, string filename)
             initializer = ParseLogicalOr();
         }
 
-        TerminateStatement("Expect ';' after field declaration");
+        TerminateStatement("Expect ';' after field declaration", initializer);
 
         string name = identifierToken.Text;
         return new FieldDeclaration(initializer, name, declaredType);
@@ -184,7 +184,7 @@ public class Parser(LexResult lexResult, string filename)
             throw error.Exception();
         }
 
-        TerminateStatement("Expect ';' after variable declaration");
+        TerminateStatement("Expect ';' after variable declaration", initializer);
 
         string name = identifierToken.Text;
         return new VariableDeclaration(initializer, name, declaredType, immutable);
@@ -201,7 +201,7 @@ public class Parser(LexResult lexResult, string filename)
         Consume(TokenKind.Assignment, "Expect constant value");
         Expression initializer = ParseLogicalOr();
 
-        TerminateStatement("Expect ';' after constant declaration");
+        TerminateStatement("Expect ';' after constant declaration", initializer);
 
         string name = token.Text;
         return new(initializer, name, declaredType);
@@ -277,7 +277,7 @@ public class Parser(LexResult lexResult, string filename)
 
         Expression expr = ParseExpression();
 
-        TerminateStatement("Expect ';' after expression");
+        TerminateStatement("Expect ';' after expression", expr);
 
         return new ExpressionStmt(expr);
     }
@@ -364,7 +364,7 @@ public class Parser(LexResult lexResult, string filename)
 
         Expression value = ParseLogicalOr();
 
-        TerminateStatement("Expect ';' after return value");
+        TerminateStatement("Expect ';' after return value", value);
 
         return new ReturnStmt(value, token);
     }
@@ -402,86 +402,86 @@ public class Parser(LexResult lexResult, string filename)
 
     private Expression ParseLogicalOr()
     {
-        Expression expr = ParseLogicalAnd();
+        Expression left = ParseLogicalAnd();
 
         while (Match(TokenKind.Or))
         {
             Token oper = Previous;
             Expression right = ParseLogicalAnd();
-            expr = new LogicalExpr(oper, expr, right);
+            left = new LogicalExpr(oper, left, right);
         }
 
-        return expr;
+        return left;
     }
 
     private Expression ParseLogicalAnd()
     {
-        Expression expr = ParseEquality();
+        Expression left = ParseEquality();
 
         while (Match(TokenKind.And))
         {
             Token oper = Previous;
             Expression right = ParseEquality();
-            expr = new LogicalExpr(oper, expr, right);
+            left = new LogicalExpr(oper, left, right);
         }
 
-        return expr;
+        return left;
     }
 
     private Expression ParseEquality()
     {
-        Expression expr = ParseComparison();
+        Expression left = ParseComparison();
 
         while (Match(TokenKind.Equal, TokenKind.NotEqual))
         {
             Token oper = Previous;
             Expression right = ParseComparison();
-            expr = new BinaryExpr(oper, expr, right);
+            left = new BinaryExpr(oper, left, right);
         }
 
-        return expr;
+        return left;
     }
 
     private Expression ParseComparison()
     {
-        Expression expr = ParseTerm();
+        Expression left = ParseTerm();
 
         while (Match(TokenKind.Greater, TokenKind.GreaterEqual, TokenKind.Less, TokenKind.LessEqual))
         {
             Token oper = Previous;
             Expression right = ParseTerm();
-            expr = new BinaryExpr(oper, expr, right);
+            left = new BinaryExpr(oper, left, right);
         }
 
-        return expr;
+        return left;
     }
 
     private Expression ParseTerm()
     {
-        Expression expr = ParseFactor();
+        Expression left = ParseFactor();
 
         while (Match(TokenKind.Plus, TokenKind.Minus))
         {
             Token oper = Previous;
             Expression right = ParseFactor();
-            expr = new BinaryExpr(oper, expr, right);
+            left = new BinaryExpr(oper, left, right);
         }
 
-        return expr;
+        return left;
     }
 
     private Expression ParseFactor()
     {
-        Expression expr = ParseUnary();
+        Expression left = ParseUnary();
 
         while (Match(TokenKind.Slash, TokenKind.Star))
         {
             Token oper = Previous;
             Expression right = ParseUnary();
-            expr = new BinaryExpr(oper, expr, right);
+            left = new BinaryExpr(oper, left, right);
         }
 
-        return expr;
+        return left;
     }
 
     private Expression ParseUnary()
@@ -563,9 +563,41 @@ public class Parser(LexResult lexResult, string filename)
             return new GroupingExpr(expr);
         }
 
+        if (Match(TokenKind.New))
+        {
+            return ParseInitObject();
+        }
+
         ParseError error = new(Current, filename, "Expect expression");
         errors.Add(error);
         throw error.Exception();
+    }
+    
+    private InitializerExpr ParseInitObject()
+    {
+        var expr = ParsePostfix();
+        TypeAnnotation typeName = new(expr);
+        
+        Consume(TokenKind.BraceLeft, "Expect '{' after type name.");
+
+        List<Initializer> initializers = [];
+        if (Current.Kind != TokenKind.BraceRight)
+        {
+            while (true)
+            {
+                Token name = Consume(TokenKind.Identifier, "Expect field name");
+                Consume(TokenKind.Colon, "Expect ':' after field name.");
+                var value = ParseLogicalOr();
+                initializers.Add(new Initializer(name.Text, value));
+
+                if (!Match(TokenKind.Comma)) break;
+
+                if (Current.Kind == TokenKind.BraceRight) break;
+            }
+        }
+        
+        Consume(TokenKind.BraceRight, "Expect '}' after object initializer");
+        return new InitializerExpr(typeName, initializers.ToArray());
     }
 
     private LiteralExpr ParseLiteral()
@@ -647,13 +679,11 @@ public class Parser(LexResult lexResult, string filename)
 
         return expr;
     }
-
-    /// <summary>
-    /// Handle cases where a semicolon is optional, before a '}'*/
-    /// </summary>
-    /// <param name="errorMessage"></param>
-    private void TerminateStatement(string errorMessage)
+    
+    private void TerminateStatement(string errorMessage, Expression? expr = null)
     {
+        if (expr is not null && expr.Kind == ExpressionKind.Initializer) return;
+        
         if (Current.Kind != TokenKind.BraceRight)
         {
             Consume(TokenKind.Semicolon, errorMessage);

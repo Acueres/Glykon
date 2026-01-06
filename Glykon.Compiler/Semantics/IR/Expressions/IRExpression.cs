@@ -16,7 +16,8 @@ public enum IRExpressionKind : byte
     MemberAccess,
     Logical,
     Conversion,
-    Range
+    Range,
+    Initializer
 }
 
 public abstract class IRExpression(TypeSymbol type)

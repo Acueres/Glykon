@@ -353,10 +353,9 @@ public class Lexer(SourceText source, string fileName)
         return c == '_' || char.IsLetterOrDigit(c);
     }
 
-    private readonly static Dictionary<string, TokenKind> keywords;
-
-    private readonly static HashSet<TokenKind> terminatorExceptions;
-    private readonly static HashSet<char> chainingChars;
+    private static readonly Dictionary<string, TokenKind> keywords;
+    private static readonly HashSet<TokenKind> terminatorExceptions;
+    private static readonly HashSet<char> chainingChars;
 
     static Lexer()
     {
@@ -365,6 +364,7 @@ public class Lexer(SourceText source, string fileName)
             { "class", TokenKind.Class },
             { "struct", TokenKind.Struct },
             { "interface", TokenKind.Interface },
+            { "new", TokenKind.New },
             { "enum", TokenKind.Enum },
             { "def", TokenKind.Def },
             { "let", TokenKind.Let },
@@ -439,6 +439,7 @@ public class Lexer(SourceText source, string fileName)
             TokenKind.Enum,
             TokenKind.Let,
             TokenKind.Const,
+            TokenKind.New,
             
             // Control-flow keywords
             TokenKind.If,

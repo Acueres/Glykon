@@ -1,5 +1,4 @@
-﻿using Glykon.Compiler.Core;
-using Glykon.Compiler.Semantics.Symbols;
+﻿using Glykon.Compiler.Semantics.Symbols;
 using Glykon.Compiler.Semantics.Types;
 
 namespace Glykon.Compiler.Semantics.Binding;
@@ -61,7 +60,7 @@ public class Scope
     {
         FunctionSymbol symbol = new(symbolId, serialId, qualifiedId, returnType, parameters);
 
-        functions.Add(symbolId, symbol);
+        functions.TryAdd(symbolId, symbol);
 
         return symbol;
     }
@@ -81,7 +80,7 @@ public class Scope
     {
         MethodSymbol symbol = new(symbolId, returnType, parentType, parameters, isStatic);
 
-        methods.Add(symbolId, symbol);
+        methods.TryAdd(symbolId, symbol);
 
         return symbol;
     }
@@ -99,21 +98,21 @@ public class Scope
     public ConstantSymbol RegisterConstant(int id, TypeSymbol type)
     {
         ConstantSymbol symbol = new(id, type);
-        symbols.Add(id, symbol);
+        symbols.TryAdd(id, symbol);
         return symbol;
     }
 
     public ParameterSymbol AddParameter(int id, TypeSymbol type)
     {
         ParameterSymbol symbol = new(id, type, parameterCount++);
-        symbols.Add(id, symbol);
+        symbols.TryAdd(id, symbol);
         return symbol;
     }
 
     public VariableSymbol AddVariable(int id, bool immutable, TypeSymbol type)
     {
         VariableSymbol symbol = new(id, immutable, type);
-        symbols.Add(id, symbol);
+        symbols.TryAdd(id, symbol);
         return symbol;
     }
 
@@ -127,27 +126,10 @@ public class Scope
         
         return variable;
     }
-    
-    public FieldSymbol AddField(int id, TypeSymbol parentType, TypeSymbol type)
-    {
-        FieldSymbol symbol = new(id, parentType, type);
-        symbols.Add(id, symbol);
-        return symbol;
-    }
-
-    public FieldSymbol? GetField(int id)
-    {
-        if (!symbols.TryGetValue(id, out var symbol) || symbol is not FieldSymbol field)
-        {
-            return Parent?.GetField(id);
-        }
-        
-        return field;
-    }
 
     public void AddType(int id, TypeSymbol type)
     {
-        types.Add(id, type);
+        types.TryAdd(id, type);
     }
 
     public TypeSymbol? GetType(int id)

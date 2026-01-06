@@ -1,5 +1,6 @@
 using System.Reflection;
 using System.Reflection.Emit;
+
 using Glykon.Compiler.Semantics.Binding;
 using Glykon.Compiler.Semantics.IR.Statements;
 using Glykon.Compiler.Semantics.Symbols;
@@ -46,8 +47,6 @@ public class CilTypeEmitter
         this.methods = methods;
     }
 
-    private TypeBuilder GetTypeBuilder() => tb;
-
     public void CreateType()
     {
         foreach (var nestedEmitter in nestedEmitters)
@@ -74,9 +73,9 @@ public class CilTypeEmitter
         }
     }
 
-    public (CilCallableEmitter, MethodSymbol)[] DefineMethods()
+    public (MethodSymbol, CilCallableEmitter)[] DefineMethods()
     {
-        List<(CilCallableEmitter, MethodSymbol)> callableEmitters = [];
+        List<(MethodSymbol, CilCallableEmitter)> callableEmitters = [];
         foreach (var nestedTypeMethods in nestedEmitters
                      .Select(nestedDecl => nestedDecl.DefineMethods()))
         {
@@ -84,20 +83,52 @@ public class CilTypeEmitter
         }
 
         callableEmitters.AddRange(methods.Select(method =>
-            (new CilCallableEmitter(method, typeRegistry, interner, tb), method.Signature)));
+            (method.Signature, new CilCallableEmitter(method, typeRegistry, interner, tb))));
 
         return callableEmitters.ToArray();
     }
 
-    public (FieldInfo, FieldSymbol)[] EmitFields()
+    public (TypeSymbol, ConstructorBuilder)[] DefineConstructors()
     {
-        List<(FieldInfo, FieldSymbol)> fieldData = [];
+        var ctor = EmitDefaultCtor(tb);
+        
+        List<(TypeSymbol, ConstructorBuilder)> constructors = [(type, ctor)];
+        foreach (var nestedEmitter in nestedEmitters)
+        {
+            var nestedConstructors = nestedEmitter.DefineConstructors();
+            constructors.AddRange(nestedConstructors);
+        }
+        
+        return constructors.ToArray();
+    }
+
+    private static ConstructorBuilder EmitDefaultCtor(TypeBuilder tb)
+    {
+        var attrs =
+            MethodAttributes.Public |
+            MethodAttributes.HideBySig |
+            MethodAttributes.SpecialName |
+            MethodAttributes.RTSpecialName;
+
+        var ctor = tb.DefineConstructor(attrs, CallingConventions.Standard, Type.EmptyTypes);
+
+        var il = ctor.GetILGenerator();
+        il.Emit(OpCodes.Ldarg_0);
+        il.Emit(OpCodes.Call, typeof(object).GetConstructor(Type.EmptyTypes)!);
+        il.Emit(OpCodes.Ret);
+
+        return ctor;
+    }
+
+    public (FieldSymbol, FieldInfo)[] EmitFields()
+    {
+        List<(FieldSymbol, FieldInfo)> fieldData = [];
         foreach (var field in fields)
         {
             string fieldName = interner[field.Symbol.NameId];
             var fieldType = typeRegistry.Resolve(field.Symbol.Type);
             var fieldInfo = tb.DefineField(fieldName, fieldType, FieldAttributes.Public);
-            fieldData.Add((fieldInfo, field.Symbol));
+            fieldData.Add((field.Symbol, fieldInfo));
         }
 
         foreach (var nestedEmitter in nestedEmitters)

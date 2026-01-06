@@ -4,5 +4,5 @@ public class AssignmentExpr(Expression target, Expression value) : Expression
 {
     public override ExpressionKind Kind => ExpressionKind.Assignment;
     public Expression Target { get; } = target;
-    public Expression Right { get; } = value;
+    public Expression Value { get; } = value;
 }

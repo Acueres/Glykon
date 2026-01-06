@@ -11,7 +11,7 @@ using Glykon.Compiler.Syntax;
 
 namespace Glykon.Compiler.Semantics.IR;
 
-public class IRTypeBuilder(
+public class IRBuilder(
     BoundTree boundTree,
     TypeSystem typeSystem,
     IdentifierInterner interner,
@@ -19,9 +19,12 @@ public class IRTypeBuilder(
 {
     private readonly List<IGlykonError> errors = [];
     private readonly IRExpression invalidExpr = new IRInvalidExpr(typeSystem[TypeKind.Error]);
+    private readonly Dictionary<FieldSymbol, IRExpression> fieldDefaultValues = [];
 
     public (IRTree, IGlykonError[]) Build()
     {
+        PrecomputeFieldDefaultValues();
+        
         List<IRStatement> irStatements = new(boundTree.Length);
         irStatements.AddRange(boundTree.Select(BuildStatement));
 
@@ -39,7 +42,7 @@ public class IRTypeBuilder(
                 var classDecl = (BoundClassDeclaration)stmt;
 
                 var constants = classDecl.Constants.Select(BuildStatement).OfType<IRConstantDeclaration>().ToArray();
-                var fields = classDecl.Fields.Select(BuildFieldDeclaration).ToArray();
+                var fields = classDecl.Fields.Select(f => new IRFieldDeclaration(f.Symbol)).ToArray();
                 var nested = classDecl.Nested.Select(BuildStatement).OfType<IRClassDeclaration>().ToArray();
                 var methods = classDecl.Methods.Select(BuildMethodDeclaration).ToArray();
 
@@ -83,7 +86,7 @@ public class IRTypeBuilder(
                 var iter = BuildStatement(forStmt.Iterator);
                 var range = BuildExpression(forStmt.Range);
                 var body = BuildStatement(forStmt.Body);
-                
+
                 return new IRForStmt((IRVariableDeclaration)iter, (IRRangeExpr)range, body);
             }
             case BoundStatementKind.Variable:
@@ -115,11 +118,12 @@ public class IRTypeBuilder(
             {
                 var constantStmt = (BoundConstantDeclaration)stmt;
                 var declaredType = constantStmt.Symbol.Type;
-                
+
                 var initializer = BuildExpression(constantStmt.Initializer);
 
-                if (initializer.Kind == IRExpressionKind.Invalid) return new IRConstantDeclaration(initializer, constantStmt.Symbol);
-                    if (!declaredType.IsPrimitive)
+                if (initializer.Kind == IRExpressionKind.Invalid)
+                    return new IRConstantDeclaration(initializer, constantStmt.Symbol);
+                if (!declaredType.IsPrimitive)
                 {
                     TypeError error = new(fileName,
                         $"Wrong constant type: {interner[declaredType.NameId]}. Must be compile-time");
@@ -149,19 +153,19 @@ public class IRTypeBuilder(
                 var returnStmt = (BoundReturnStmt)stmt;
 
                 if (returnStmt.ContainerSymbol is null) return new IRInvalidStmt();
-                
+
                 var returnType = returnStmt.ContainerSymbol.Type;
                 var value = returnStmt.Value is null ? null : BuildExpression(returnStmt.Value);
 
                 if (value is not null)
                 {
-                    if (value.Kind ==  IRExpressionKind.Invalid) return new IRInvalidStmt();
+                    if (value.Kind == IRExpressionKind.Invalid) return new IRInvalidStmt();
                     if (TypeSystem.CanImplicitlyConvert(value.Type, returnType))
                     {
                         value = new IRConversionExpr(value, returnType);
                     }
                 }
-                
+
                 CheckReturnStatementType(value, returnType);
                 return new IRReturnStmt(value, returnStmt.Token);
             }
@@ -180,32 +184,90 @@ public class IRTypeBuilder(
         }
     }
 
-    private IRFieldDeclaration BuildFieldDeclaration(BoundFieldDeclaration fieldDec)
+    private void PrecomputeFieldDefaultValues()
     {
-        IRExpression? initializer = null;
-        if (fieldDec.Initializer is not null)
+        foreach (var stmt in boundTree)
         {
-            initializer = BuildExpression(fieldDec.Initializer);
-            if (TypeSystem.CanImplicitlyConvert(initializer.Type, fieldDec.Symbol.Type))
+            PrecomputeInStatement(stmt);
+        }
+    }
+
+    private void PrecomputeInStatement(BoundStatement stmt)
+    {
+        switch (stmt.Kind)
+        {
+            case BoundStatementKind.Class:
             {
-                initializer = new IRConversionExpr(initializer, fieldDec.Symbol.Type);
+                var c = (BoundClassDeclaration)stmt;
+                
+                foreach (var n in c.Nested)
+                    PrecomputeInStatement(n);
+
+                foreach (var f in c.Fields)
+                    PrecomputeFieldDefault(f);
+
+                break;
             }
-            else if (initializer.Type != fieldDec.Symbol.Type)
+            
+            case BoundStatementKind.Block:
             {
-                TypeError error = new(fileName,
-                    $"Type mismatch between {interner[fieldDec.Symbol.Type.NameId]} and {interner[initializer.Type.NameId]}");
-                errors.Add(error);
+                var b = (BoundBlockStmt)stmt;
+                foreach (var s in b.Statements)
+                    PrecomputeInStatement(s);
+                break;
+            }
+
+            case BoundStatementKind.If:
+            {
+                var i = (BoundIfStmt)stmt;
+                PrecomputeInStatement(i.ThenStatement);
+                if (i.ElseStatement is not null)
+                    PrecomputeInStatement(i.ElseStatement);
+                break;
+            }
+
+            case BoundStatementKind.While:
+            {
+                var w = (BoundWhileStmt)stmt;
+                PrecomputeInStatement(w.Body);
+                break;
+            }
+
+            case BoundStatementKind.For:
+            {
+                var f = (BoundForStmt)stmt;
+                PrecomputeInStatement(f.Iterator);
+                PrecomputeInStatement(f.Body);
+                break;
             }
         }
+    }
 
-        return new IRFieldDeclaration(initializer, fieldDec.Symbol);
+    private void PrecomputeFieldDefault(BoundFieldDeclaration fieldDec)
+    {
+        if (fieldDec.Initializer is null)
+        {
+            return;
+        }
+
+        var ir = BuildExpression(fieldDec.Initializer);
+        if (ir.Kind == IRExpressionKind.Invalid)
+        {
+            return;
+        }
+
+        ir = CoerceOrError(ir, fieldDec.Symbol.Type);
+        if (ir.Kind == IRExpressionKind.Invalid)
+            return;
+        
+        fieldDefaultValues[fieldDec.Symbol] = ir;
     }
 
     private IRMethodDeclaration BuildMethodDeclaration(BoundMethodDeclaration methodDec)
     {
         var irStatements = methodDec.Body.Statements.Select(BuildStatement).ToArray();
         IRBlockStmt irBody = new([.. irStatements], methodDec.Body.Scope);
-        
+
         return new IRMethodDeclaration(methodDec.Symbol, methodDec.ParentType, methodDec.Parameters,
             methodDec.ReturnType, irBody, methodDec.IsStatic);
     }
@@ -232,7 +294,7 @@ public class IRTypeBuilder(
 
                 var type = unaryExpr.Operator.Kind == TokenKind.Not ? typeSystem[TypeKind.Bool] : operand.Type;
                 var op = TokenOpMap.ToUnaryOp(unaryExpr.Operator.Kind);
-                    
+
                 var irUnary = new IRUnaryExpr(op, operand, type);
                 CheckUnaryExpression(irUnary);
                 return irUnary;
@@ -248,11 +310,11 @@ public class IRTypeBuilder(
                 {
                     return invalidExpr;
                 }
-                
+
                 // Handle string concatenation
                 if (op == BinaryOp.Add && left.Type.Kind == TypeKind.String && right.Type.Kind == TypeKind.String)
                 {
-                    
+
                     return new IRBinaryExpr(op, left, right, typeSystem[TypeKind.String]);
                 }
 
@@ -262,7 +324,7 @@ public class IRTypeBuilder(
                     {
                         return BinaryInvalid(op, left, right);
                     }
-                    
+
                     return new IRBinaryExpr(op, left, right, type!);
                 }
 
@@ -295,7 +357,7 @@ public class IRTypeBuilder(
                 var logicalExpr = (BoundLogicalExpr)expression;
                 var left = BuildExpression(logicalExpr.Left);
                 var right = BuildExpression(logicalExpr.Right);
-                
+
                 var op = TokenOpMap.ToBinaryOp(logicalExpr.Operator.Kind);
 
                 var irLogical = new IRLogicalExpr(op, left, right, typeSystem[TypeKind.Bool]);
@@ -336,7 +398,7 @@ public class IRTypeBuilder(
                         return NotAssignable("Can't assign to an immutable variable.");
                     }
 
-                    value = CoerceOrError(value, varSym.Type, interner[varSym.NameId]);
+                    value = CoerceOrError(value, varSym.Type);
                     if (value.Kind == IRExpressionKind.Invalid)
                     {
                         return invalidExpr;
@@ -351,17 +413,17 @@ public class IRTypeBuilder(
                     if (ma.MemberSymbol is not FieldSymbol field)
                         return NotAssignable("Can only assign to fields.");
 
-                    value = CoerceOrError(value, field.Type, interner[field.NameId]);
+                    value = CoerceOrError(value, field.Type);
                     if (value.Kind == IRExpressionKind.Invalid)
                     {
                         return invalidExpr;
                     }
-                    
+
                     return new IRFieldAssignmentExpr(ma.Receiver, field, value);
                 }
 
                 return NotAssignable("Invalid assignment expression.");
-                
+
                 IRExpression NotAssignable(string msg)
                 {
                     errors.Add(new TypeError(fileName, msg));
@@ -371,7 +433,7 @@ public class IRTypeBuilder(
             case BoundExpressionKind.Range:
             {
                 var rangeExpr = (BoundRangeExpr)expression;
-                
+
                 var start = BuildExpression(rangeExpr.Start);
                 var end = BuildExpression(rangeExpr.End);
                 IRExpression? step = null;
@@ -387,7 +449,7 @@ public class IRTypeBuilder(
                     errors.Add(error);
                     return invalidExpr;
                 }
-                
+
                 return new IRRangeExpr(start, end, step, rangeExpr.IsInclusive);
             }
             case BoundExpressionKind.Name:
@@ -405,7 +467,7 @@ public class IRTypeBuilder(
                 {
                     return invalidExpr;
                 }
-                
+
                 var symbol = receiver.Type.Find(memberExpr.NameId);
                 if (symbol is null)
                 {
@@ -414,7 +476,7 @@ public class IRTypeBuilder(
                     errors.Add(error);
                     return invalidExpr;
                 }
-                
+
                 return new IRMemberAccessExpr(receiver, symbol);
             }
             case BoundExpressionKind.Grouping:
@@ -426,13 +488,13 @@ public class IRTypeBuilder(
             case BoundExpressionKind.Call:
             {
                 var callExpr = (BoundCallExpr)expression;
-                
+
                 var args = callExpr.Parameters.Select(BuildExpression).ToArray();
                 if (args.Any(a => a.Kind == IRExpressionKind.Invalid))
                 {
                     return invalidExpr;
                 }
-                
+
                 var callee = BuildExpression(callExpr.Callee);
                 if (callee.Kind == IRExpressionKind.Invalid)
                 {
@@ -451,10 +513,10 @@ public class IRTypeBuilder(
                 {
                     IRExpression[] actualArgs = method.IsStatic
                         ? args
-                        : [ ma.Receiver, .. args ];
+                        : [ma.Receiver, .. args];
 
                     var coerced = CoerceArgs(actualArgs, method.Parameters, method.NameId);
-                    return coerced is null ? invalidExpr : new IRCallExpr(method, coerced); 
+                    return coerced is null ? invalidExpr : new IRCallExpr(method, coerced);
                 }
 
                 errors.Add(new TypeError(fileName, "Expression is not callable."));
@@ -466,11 +528,40 @@ public class IRTypeBuilder(
                 var irExpression = BuildExpression(conversionExpr.Expression);
                 return new IRConversionExpr(irExpression, conversionExpr.TargetType);
             }
+            case BoundExpressionKind.Initializer:
+            {
+                var init = (BoundInitializerExpr)expression;
+
+                List<IRInitializer> irInits = [];
+                HashSet<FieldSymbol> initialized = [];
+                foreach (var i in init.Initializers)
+                {
+                    initialized.Add(i.Field);
+                    
+                    var v = BuildExpression(i.Value);
+                    v = CoerceOrError(v, i.Field.Type);
+                    if (v.Kind != IRExpressionKind.Invalid)
+                    {
+                        irInits.Add(new IRInitializer(i.Field, v));
+                    }
+                }
+                
+                foreach (var field in init.Type.Fields)
+                {
+                    if (initialized.Contains(field)) continue;
+                    if (fieldDefaultValues.TryGetValue(field, out var value))
+                    {
+                        irInits.Add(new IRInitializer(field, value));
+                    }
+                }
+
+                return new IRInitializerExpr(init.Type, irInits.ToArray());
+            }
             default: return invalidExpr;
         }
     }
 
-    private IRExpression CoerceOrError(IRExpression value, TypeSymbol targetType, string targetName)
+    private IRExpression CoerceOrError(IRExpression value, TypeSymbol targetType)
     {
         if (value.Type == targetType)
             return value;
@@ -479,7 +570,7 @@ public class IRTypeBuilder(
             return new IRConversionExpr(value, targetType);
 
         errors.Add(new TypeError(fileName,
-            $"Type mismatch assigning to {targetName}: expected {interner[targetType.NameId]}, got {interner[value.Type.NameId]}"));
+            $"Type mismatch assigning to {interner[targetType.NameId]}: expected {interner[targetType.NameId]}, got {interner[value.Type.NameId]}"));
         return invalidExpr;
     }
 

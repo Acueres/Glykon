@@ -432,9 +432,9 @@ namespace Tests
             var logicalAnd = (LogicalExpr)ast;
             Assert.Equal(TokenKind.And, logicalAnd.Operator.Kind);
             Assert.NotNull(logicalAnd.Left);
-            Assert.True((logicalAnd.Left as LiteralExpr).Value.Bool);
+            Assert.True(((LiteralExpr)logicalAnd.Left).Value.Bool);
             Assert.NotNull(logicalAnd.Right);
-            Assert.False((logicalAnd.Right as LiteralExpr).Value.Bool);
+            Assert.False(((LiteralExpr)logicalAnd.Right).Value.Bool);
         }
 
         [Fact]
@@ -454,9 +454,39 @@ namespace Tests
             var logicalAnd = (LogicalExpr)ast;
             Assert.Equal(TokenKind.Or, logicalAnd.Operator.Kind);
             Assert.NotNull(logicalAnd.Left);
-            Assert.True((logicalAnd.Left as LiteralExpr).Value.Bool);
+            Assert.True(((LiteralExpr)logicalAnd.Left).Value.Bool);
             Assert.NotNull(logicalAnd.Right);
-            Assert.False((logicalAnd.Right as LiteralExpr).Value.Bool);
+            Assert.False(((LiteralExpr)logicalAnd.Right).Value.Bool);
+        }
+
+        [Fact]
+        public void InitObject()
+        {
+            const string src = "let a = new A { field1: 1, field2: 2 }";
+            
+            var (syntaxTree, _, lexErrors, errors) = Parse(src);
+
+            Assert.Empty(lexErrors);
+            Assert.Empty(errors);
+            
+            var variableDeclaration = GetStmt<VariableDeclaration>(syntaxTree.Single());
+            Assert.Equal(ExpressionKind.Initializer, variableDeclaration.Initializer.Kind);
+
+            var initObj = (InitializerExpr)variableDeclaration.Initializer;
+            Assert.Equal(ExpressionKind.Name, initObj.TypeName.Expression.Kind);
+            
+            var name = (NameExpr)initObj.TypeName.Expression;
+            Assert.Equal("A", name.Name);
+            
+            Assert.Equal(2, initObj.Initializers.Length);
+            var first = initObj.Initializers[0];
+            var second = initObj.Initializers[1];
+            
+            Assert.Equal("field1", first.Name);
+            Assert.Equal("field2", second.Name);
+            
+            Assert.Equal(ExpressionKind.Literal, first.Value.Kind);
+            Assert.Equal(ExpressionKind.Literal, second.Value.Kind);
         }
         
         [Fact]
