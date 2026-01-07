@@ -322,6 +322,19 @@ public class SemanticTests : CompilerTestBase
         var r = Analyze(src, LanguageMode.Script);
         Assert.Single(r.AllErrors);
     }
+    
+    [Fact]
+    public void FieldDefault_TypeMismatch_Fails()
+    {
+        const string src = """
+                               class A {
+                                   x: int = 'oops'
+                               }
+                           """;
+
+        var r = Analyze(src, LanguageMode.Script);
+        Assert.Single(r.AllErrors);
+    }
 
     [Fact]
     public void InstanceMethodCall_Succeeds()
@@ -518,17 +531,54 @@ public class SemanticTests : CompilerTestBase
         Assert.Empty(r.AllErrors);
     }
     
+    // Constructors
     [Fact]
-    public void FieldDefault_TypeMismatch_Fails()
+    public void InitObject_ConstructorLowering_Succeeds()
     {
         const string src = """
                                class A {
-                                   x: int = 'oops'
+                                   x: int
+                                   
+                                   def init(x: int) -> A {
+                                        return new A { x: x }
+                                    }
                                }
+
+                               let a = A(1)
+                           """;
+        var r = Analyze(src, LanguageMode.Script);
+        Assert.Empty(r.AllErrors);
+    }
+
+    [Fact]
+    public void ConstructorResolution_InitIsInstance_Fails()
+    {
+        const string src = """
+                               class A {
+                                   x: int
+                                   def init(this, x: int) -> A { return new A { x: x } }
+                               }
+
+                               let a = A(1)
                            """;
 
         var r = Analyze(src, LanguageMode.Script);
-        Assert.Single(r.AllErrors);
+        Assert.NotEmpty(r.AllErrors);
+    }
+    
+    [Fact]
+    public void ConstructorResolution_DuplicateInit_Fails()
+    {
+        const string src = """
+                               class A {
+                                   def init(x: int) -> A { return new A { } }
+                                   def init(x: int) -> A { return new A { } }
+                               }
+                               let a = A(1)
+                           """;
+
+        var r = Analyze(src, LanguageMode.Script);
+        Assert.NotEmpty(r.AllErrors);
     }
 
     // Symbol table tests

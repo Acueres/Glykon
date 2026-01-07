@@ -330,6 +330,146 @@ public class RuntimeTests
     }
     
     [Fact]
+    public void Script_ObjectConstructorResolution_Works()
+    {
+        const string code = """
+                                class A {
+                                    f: int
+                                    
+                                    def init(f: int) -> A {
+                                        return new A { f: f }
+                                    }
+                                }
+
+                                let a = A(42)
+                                println(a.f as str)
+                            """;
+
+        var runtime = new GlykonRuntime(code, nameof(Script_ObjectConstructorResolution_Works));
+        var result = runtime.RunScript();
+
+        Assert.Null(result.Exception);
+        Assert.Equal("42" + Environment.NewLine, result.Stdout);
+    }
+    
+    [Fact]
+    public void Script_ObjectConstructorResolution_WrongReturnType_Errors()
+    {
+        const string code = """
+                                class B { x: int }
+                                class A {
+                                    f: int
+                                    
+                                    def init(f: int) -> B {
+                                        return new B { x: f }
+                                    }
+                                }
+
+                                let a = A(42)
+                                println(a.f as str)
+                            """;
+
+        var runtime = new GlykonRuntime(code, nameof(Script_ObjectConstructorResolution_WrongReturnType_Errors));
+        Assert.Throws<InvalidOperationException>(() => runtime.RunScript());
+    }
+    
+    [Fact]
+    public void Script_NestedType_ConstructorResolution_Works()
+    {
+        const string code = """
+                                class Outer {
+                                    class Inner {
+                                        v: int
+
+                                        def init(v: int) -> Inner {
+                                            return new Inner { v: v }
+                                        }
+                                    }
+                                }
+
+                                let x = Outer.Inner(7)
+                                println(x.v as str)
+                            """;
+
+        var runtime = new GlykonRuntime(code, nameof(Script_NestedType_ConstructorResolution_Works));
+        var result = runtime.RunScript();
+
+        Assert.Null(result.Exception);
+        Assert.Equal("7" + Environment.NewLine, result.Stdout);
+    }
+    
+    [Fact]
+    public void Script_ExplicitInitCall_Works()
+    {
+        const string code = """
+                                class A {
+                                    x: int
+
+                                    def init(x: int) -> A {
+                                        return new A { x: x }
+                                    }
+                                }
+
+                                let a = A.init(9)
+                                println(a.x as str)
+                            """;
+
+        var runtime = new GlykonRuntime(code, nameof(Script_ExplicitInitCall_Works));
+        var result = runtime.RunScript();
+
+        Assert.Null(result.Exception);
+        Assert.Equal("9" + Environment.NewLine, result.Stdout);
+    }
+    
+    [Fact]
+    public void Script_ConstructorCall_ArgCoercion_Works()
+    {
+        const string code = """
+                                class A {
+                                    x: real
+
+                                    def init(x: real) -> A {
+                                        return new A { x: x }
+                                    }
+                                }
+
+                                let a = A(3)         # int -> real coercion
+                                println(a.x as str)
+                            """;
+
+        var runtime = new GlykonRuntime(code, nameof(Script_ConstructorCall_ArgCoercion_Works));
+        var result = runtime.RunScript();
+
+        Assert.Null(result.Exception);
+        Assert.Contains("3", result.Stdout); // formatting "3" vs "3.0"
+    }
+    
+    [Fact]
+    public void Script_ConstructorCall_InMemberChain_Works()
+    {
+        const string code = """
+                                class A {
+                                    x: int
+                                    def init(x: int) -> A { return new A { x: x } }
+                                }
+
+                                if A(0).x == 0 {
+                                    println('ok')
+                                } else {
+                                    println('bad')
+                                }
+                            """;
+
+        var runtime = new GlykonRuntime(code, nameof(Script_ConstructorCall_InMemberChain_Works));
+        var result = runtime.RunScript();
+
+        Assert.Null(result.Exception);
+        Assert.Equal("ok" + Environment.NewLine, result.Stdout);
+    }
+    
+    
+    
+    [Fact]
     public void Script_NestedType_ObjectInit_Works()
     {
         const string code = """

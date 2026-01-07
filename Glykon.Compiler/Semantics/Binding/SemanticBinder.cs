@@ -101,6 +101,8 @@ public class SemanticBinder(
                 {
                     ClaimMemberName(nestedType.Type.NameId, TypeMemberKind.NestedType);
                 }
+
+                type.NestedTypes = nested.Select(decl => decl.Type).ToArray();
                 
                 var constants = classDecl.Constants.Select(BindStatement).OfType<BoundConstantDeclaration>()
                     .ToArray();
@@ -109,24 +111,25 @@ public class SemanticBinder(
                     ClaimMemberName(constant.Symbol.NameId, TypeMemberKind.Constant);
                 }
                 
+                type.Constants = constants.Select(c => c.Symbol).ToArray();
+                
                 var fields = classDecl.Fields.Select(f => BindField(f, type)).ToArray();
                 foreach (var field in fields)
                 {
                     ClaimMemberName(field.Symbol.NameId, TypeMemberKind.Field);
                 }
                 
+                type.Fields = fields.Select(f => f.Symbol).ToArray();
+                
                 var methods = classDecl.Methods.Select(m => BindMethodDeclaration(m, type)).ToArray();
                 foreach (var method in methods)
                 {
                     ClaimMemberName(method.Symbol.NameId, TypeMemberKind.Method);
                 }
+                
+                type.Methods = methods.Select(m => m.Symbol).ToArray();
 
                 symbolTable.EndScope();
-
-                type.FinalizeType(methods.Select(m => m.Symbol).ToArray(),
-                    fields.Select(f => f.Symbol).ToArray(),
-                    constants.Select(c => c.Symbol).ToArray(),
-                    nested.Select(decl => decl.Type).ToArray());
 
                 return new BoundClassDeclaration(type, methods, fields, constants, nested);
                 

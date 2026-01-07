@@ -26,23 +26,12 @@ public class TypeSymbol(
     public bool IsNone => Kind == TypeKind.None;
     public bool IsError => Kind == TypeKind.Error;
 
-    public MethodSymbol[] Methods { get; private set; } = [];
-    public FieldSymbol[] Fields { get; private set; } = [];
-    public ConstantSymbol[] Constants { get; private set; } = [];
-    public TypeSymbol[] NestedTypes { get; private set; } = [];
+    public MethodSymbol[] Methods { get; set; } = [];
+    public FieldSymbol[] Fields { get; set; } = [];
+    public ConstantSymbol[] Constants { get; set; } = [];
+    public TypeSymbol[] NestedTypes { get; set; } = [];
 
     public int SerialId { get; } = serialId;
-
-    public void FinalizeType(MethodSymbol[] methods,
-        FieldSymbol[] fields,
-        ConstantSymbol[] constants,
-        TypeSymbol[] nestedTypes)
-    {
-        Methods = methods;
-        Fields = fields;
-        Constants = constants;
-        NestedTypes = nestedTypes;
-    }
 
     public Symbol? Find(int nameId)
     {
@@ -51,6 +40,9 @@ public class TypeSymbol(
         
         var constant = Constants.FirstOrDefault(c => c.NameId == nameId);
         if (constant is not null) return constant;
+        
+        var nestedType = NestedTypes.FirstOrDefault(n => n.NameId == nameId);
+        if (nestedType is not null) return new TypeNameSymbol(nameId, nestedType);
         
         var method = Methods.FirstOrDefault(m => m.NameId == nameId);
         return method;

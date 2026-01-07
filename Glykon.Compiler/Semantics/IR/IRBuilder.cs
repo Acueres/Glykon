@@ -517,6 +517,24 @@ public class IRBuilder(
                     return coerced is null ? invalidExpr : new IRCallExpr(fn, coerced);
                 }
 
+                // Constructor call
+                if (callee is IRNameExpr { Symbol: TypeNameSymbol } or IRMemberAccessExpr
+                    {
+                        MemberSymbol: TypeNameSymbol
+                    })
+                {
+                    var ctor = callee.Type.Methods.FirstOrDefault(m =>
+                        m.IsStatic && interner[m.NameId] == "init" && m.Type == callee.Type);
+                    if (ctor is null)
+                    {
+                        errors.Add(new TypeError(fileName, $"Type {interner[callee.Type.NameId]} has no constructor."));
+                        return invalidExpr;
+                    }
+                    
+                    var coerced = CoerceArgs(args, ctor.Parameters, ctor.NameId);
+                    return coerced is null ? invalidExpr : new IRCallExpr(ctor, coerced);
+                }
+
                 // Method call
                 if (callee is IRMemberAccessExpr { MemberSymbol: MethodSymbol method } ma)
                 {
