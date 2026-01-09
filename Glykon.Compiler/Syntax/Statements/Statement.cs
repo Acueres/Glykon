@@ -8,7 +8,7 @@ public enum StatementKind : byte
     Constant,
     Function,
     Method,
-    Class,
+    Type,
     Field,
     Return,
     If,

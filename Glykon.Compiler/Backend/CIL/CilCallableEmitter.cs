@@ -21,12 +21,15 @@ public sealed class CilCallableEmitter
     private readonly ParameterSymbol[] parameters;
     private readonly List<IRFunctionDeclaration> locals = [];
     private readonly TypeSymbol returnType;
+    
+    public TypeSymbol? ParentType { get; }
+    public bool IsStatic { get; }
 
     public CilCallableEmitter(IRMethodDeclaration methodDeclaration,
         ClrTypeRegistry typeRegistry,
         IdentifierInterner interner,
         TypeBuilder tb) : this(tb, typeRegistry, interner, methodDeclaration.Body, methodDeclaration.Parameters,
-        methodDeclaration.ReturnType)
+        methodDeclaration.ReturnType, methodDeclaration.ParentType, methodDeclaration.IsStatic)
     {
         var parameterTypes = GetParameterTypes();
         var clrReturnType = GetReturnType();
@@ -47,7 +50,7 @@ public sealed class CilCallableEmitter
         ClrTypeRegistry typeRegistry,
         IdentifierInterner interner,
         TypeBuilder tb) : this(tb, typeRegistry, interner, functionDeclaration.Body, functionDeclaration.Parameters,
-        functionDeclaration.ReturnType)
+        functionDeclaration.ReturnType, parentType: null, isStatic: true)
     {
         var parameterTypes = GetParameterTypes();
         var clrReturnType = GetReturnType();
@@ -61,7 +64,7 @@ public sealed class CilCallableEmitter
     }
 
     private CilCallableEmitter(TypeBuilder tb, ClrTypeRegistry typeRegistry, IdentifierInterner interner,
-        IRBlockStmt body, ParameterSymbol[] parameters, TypeSymbol returnType)
+        IRBlockStmt body, ParameterSymbol[] parameters, TypeSymbol returnType, TypeSymbol? parentType, bool isStatic)
     {
         this.tb = tb;
         this.interner = interner;
@@ -70,6 +73,9 @@ public sealed class CilCallableEmitter
         this.body = body;
         this.parameters = parameters;
         this.returnType = returnType;
+
+        ParentType = parentType;
+        IsStatic = isStatic;
         
         CollectLocals(body);
     }
@@ -92,7 +98,8 @@ public sealed class CilCallableEmitter
     public void Emit(Dictionary<FunctionSymbol, MethodInfo> functions,
         Dictionary<MethodSymbol, MethodInfo> methods,
         Dictionary<FieldSymbol, FieldInfo> fields,
-        Dictionary<TypeSymbol, ConstructorInfo> constructors)
+        Dictionary<TypeSymbol, ConstructorInfo> constructors,
+        TypeSymbol? declaringType, bool isStatic)
     {
         DefineParameterMetadata();
         
@@ -118,6 +125,8 @@ public sealed class CilCallableEmitter
             Methods = methods,
             Fields =  fields,
             Constructors = constructors,
+            CurrentDeclaringType = declaringType,
+            CurrentIsStatic = isStatic,
             ReturnLabel = returnLabel,
             ReturnLocal = returnLocal
         };

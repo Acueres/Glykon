@@ -11,33 +11,39 @@ namespace Glykon.Compiler.Backend.CIL;
 public class CilTypeEmitter
 {
     private readonly TypeBuilder tb;
-    
+
     private readonly IdentifierInterner interner;
     private readonly ClrTypeRegistry typeRegistry;
 
     private readonly TypeSymbol type;
-    private readonly IRClassDeclaration[] nested;
+    private readonly IRTypeDeclaration[] nested;
     private readonly IRFieldDeclaration[] fields;
     private readonly IRMethodDeclaration[] methods;
-    
+
     private readonly List<CilTypeEmitter> nestedEmitters = [];
-    
-    public CilTypeEmitter(IRClassDeclaration classDeclaration, ModuleBuilder mob, IdentifierInterner interner, ClrTypeRegistry typeRegistry) : this(
-        interner, typeRegistry, classDeclaration.Type, classDeclaration.Nested, classDeclaration.Fields, classDeclaration.Methods)
+
+    public CilTypeEmitter(IRTypeDeclaration typeDeclaration, ModuleBuilder mob, IdentifierInterner interner,
+        ClrTypeRegistry typeRegistry) : this(
+        interner, typeRegistry, typeDeclaration.Type, typeDeclaration.Nested, typeDeclaration.Fields,
+        typeDeclaration.Methods)
     {
-        tb = mob.DefineType(interner[classDeclaration.Type.NameId],
-            TypeAttributes.Class | TypeAttributes.Public | TypeAttributes.Sealed);
+        var attrs = GetAttributes();
+        tb = mob.DefineType(interner[typeDeclaration.Type.NameId], attrs,
+            type.IsValueType ? typeof(ValueType) : typeof(object));
     }
 
-    public CilTypeEmitter(IRClassDeclaration classDeclaration, TypeBuilder parentType, IdentifierInterner interner, ClrTypeRegistry typeRegistry) :
-        this(interner, typeRegistry, classDeclaration.Type, classDeclaration.Nested, classDeclaration.Fields, classDeclaration.Methods)
+    private CilTypeEmitter(IRTypeDeclaration typeDeclaration, TypeBuilder parentType, IdentifierInterner interner,
+        ClrTypeRegistry typeRegistry) :
+        this(interner, typeRegistry, typeDeclaration.Type, typeDeclaration.Nested, typeDeclaration.Fields,
+            typeDeclaration.Methods)
     {
-        tb = parentType.DefineNestedType(interner[classDeclaration.Type.NameId],
-            TypeAttributes.Class | TypeAttributes.NestedPublic | TypeAttributes.Sealed);
+        var attrs = GetAttributes(isNested: true);
+        tb = parentType.DefineNestedType(interner[typeDeclaration.Type.NameId], attrs,
+            type.IsValueType ? typeof(ValueType) : typeof(object));
     }
 
     private CilTypeEmitter(IdentifierInterner interner, ClrTypeRegistry typeRegistry, TypeSymbol type,
-        IRClassDeclaration[] nested, IRFieldDeclaration[] fields, IRMethodDeclaration[] methods)
+        IRTypeDeclaration[] nested, IRFieldDeclaration[] fields, IRMethodDeclaration[] methods)
     {
         this.interner = interner;
         this.typeRegistry = typeRegistry;
@@ -53,7 +59,7 @@ public class CilTypeEmitter
         {
             nestedEmitter.CreateType();
         }
-        
+
         tb.CreateType();
     }
 
@@ -62,7 +68,20 @@ public class CilTypeEmitter
         typeRegistry.Register(type, tb);
         DefineNested();
     }
-    
+
+    private TypeAttributes GetAttributes(bool isNested = false)
+    {
+        var attrs = isNested ? TypeAttributes.NestedPublic : TypeAttributes.Public;
+        attrs |= TypeAttributes.Sealed;
+
+        if (type.IsValueType)
+        {
+            return attrs | TypeAttributes.SequentialLayout;
+        }
+
+        return attrs | TypeAttributes.Class;
+    }
+
     private void DefineNested()
     {
         foreach (var nestedDecl in nested)
@@ -88,18 +107,22 @@ public class CilTypeEmitter
         return callableEmitters.ToArray();
     }
 
-    public (TypeSymbol, ConstructorBuilder)[] DefineConstructors()
+    public IEnumerable<(TypeSymbol, ConstructorBuilder)> DefineConstructors()
     {
-        var ctor = EmitDefaultCtor(tb);
-        
-        List<(TypeSymbol, ConstructorBuilder)> constructors = [(type, ctor)];
+        if (!type.IsValueType)
+        {
+            var ctor = EmitDefaultCtor(tb);
+            yield return (type, ctor);
+        }
+
         foreach (var nestedEmitter in nestedEmitters)
         {
             var nestedConstructors = nestedEmitter.DefineConstructors();
-            constructors.AddRange(nestedConstructors);
+            foreach (var nestedConstructor in nestedConstructors)
+            {
+                yield return nestedConstructor;
+            }
         }
-        
-        return constructors.ToArray();
     }
 
     private static ConstructorBuilder EmitDefaultCtor(TypeBuilder tb)
@@ -135,7 +158,7 @@ public class CilTypeEmitter
         {
             fieldData.AddRange(nestedEmitter.EmitFields());
         }
-        
+
         return fieldData.ToArray();
     }
 }

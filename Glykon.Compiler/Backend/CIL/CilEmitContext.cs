@@ -12,6 +12,8 @@ public class CilEmitContext
     public Dictionary<MethodSymbol, MethodInfo> Methods { get; init; } = [];
     public Dictionary<FieldSymbol, FieldInfo> Fields { get; init; } = [];
     public Dictionary<TypeSymbol, ConstructorInfo> Constructors { get; init; } = [];
+    public TypeSymbol? CurrentDeclaringType { get; init; }
+    public bool CurrentIsStatic { get; init; }
     public Label? ReturnLabel { get; init; }
     public LocalBuilder? ReturnLocal { get; init; }
 }

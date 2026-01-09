@@ -25,7 +25,7 @@ public class CilCompilationUnitEmitter(
             TypeAttributes.Class | TypeAttributes.NotPublic | TypeAttributes.Abstract | TypeAttributes.Sealed);
 
         List<IRFunctionDeclaration> functionDeclarations = [];
-        List<IRClassDeclaration> classDeclarations = [];
+        List<IRTypeDeclaration> classDeclarations = [];
 
         foreach (var stmt in irTree)
         {
@@ -34,7 +34,7 @@ public class CilCompilationUnitEmitter(
                 case IRFunctionDeclaration f:
                     functionDeclarations.Add(f);
                     break;
-                case IRClassDeclaration c:
+                case IRTypeDeclaration c:
                     classDeclarations.Add(c);
                     break;
             }
@@ -119,9 +119,10 @@ public class CilCompilationUnitEmitter(
         // Emit callable bodies
         foreach (var callableEmitter in callableEmitters)
         {
-            callableEmitter.Emit(functions, methods, fields, constructors);
+            callableEmitter.Emit(functions, methods, fields, constructors, callableEmitter.ParentType,
+                callableEmitter.IsStatic);
         }
-        
+
         // Create defined types
         foreach (var typeEmitter in typeEmitters)
         {

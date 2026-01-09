@@ -143,9 +143,9 @@ namespace Tests
             Assert.Empty(lexErrors);
             Assert.Empty(parseErrors);
             Assert.Single(syntaxTree);
-            Assert.Equal(StatementKind.Class, syntaxTree.First().Kind);
+            Assert.Equal(StatementKind.Type, syntaxTree.First().Kind);
 
-            var classDecl = (ClassDeclaration)syntaxTree.First();
+            var classDecl = (TypeDeclaration)syntaxTree.First();
             Assert.Equal("Test", classDecl.Name);
             
             var methods = classDecl.Methods;

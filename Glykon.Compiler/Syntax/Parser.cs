@@ -55,13 +55,18 @@ public class Parser(LexResult lexResult, string filename)
 
         if (Match(TokenKind.Class))
         {
-            return ParseClassDeclaration();
+            return ParseTypeDeclaration();
+        }
+
+        if (Match(TokenKind.Struct))
+        {
+            return ParseTypeDeclaration(isValueType: true);
         }
 
         return ParseStatement();
     }
 
-    private ClassDeclaration ParseClassDeclaration()
+    private TypeDeclaration ParseTypeDeclaration(bool isValueType = false)
     {
         Token className = Consume(TokenKind.Identifier, "Expect class name");
         Consume(TokenKind.BraceLeft, "Body must be declared");
@@ -69,7 +74,7 @@ public class Parser(LexResult lexResult, string filename)
         List<MethodDeclaration> methods = [];
         List<FieldDeclaration> fields = [];
         List<ConstantDeclaration> constants = [];
-        List<ClassDeclaration> nested = [];
+        List<TypeDeclaration> nested = [];
 
         while (Current.Kind != TokenKind.BraceRight && !AtEnd)
         {
@@ -85,8 +90,13 @@ public class Parser(LexResult lexResult, string filename)
             }
             else if (Match(TokenKind.Class))
             {
-                var classDecl =  ParseClassDeclaration();
+                var classDecl =  ParseTypeDeclaration();
                 nested.Add(classDecl);
+            }
+            else if (Match(TokenKind.Struct))
+            {
+                var structDecl = ParseTypeDeclaration(isValueType: true);
+                nested.Add(structDecl);
             }
             else
             {
@@ -97,7 +107,7 @@ public class Parser(LexResult lexResult, string filename)
 
         Consume(TokenKind.BraceRight, "Expect '}' after class body");
 
-        return new ClassDeclaration(className.Text, [..methods], [..fields], [..constants], [..nested]);
+        return new TypeDeclaration(className.Text, isValueType, [..methods], [..fields], [..constants], [..nested]);
     }
 
     private MethodDeclaration ParseMethodDeclaration()
@@ -118,7 +128,7 @@ public class Parser(LexResult lexResult, string filename)
         Token identifierToken = Consume(TokenKind.Identifier, "Expect field name");
         
         Consume(TokenKind.Colon, "Expect type declaration");
-        var declaredType = ParseTypeDeclaration();
+        var declaredType = ParseType();
 
         Expression? initializer = null;
         if (Match(TokenKind.Assignment))
@@ -149,7 +159,7 @@ public class Parser(LexResult lexResult, string filename)
         TypeAnnotation returnType = TypeAnnotation.None;
         if (Match(TokenKind.Arrow))
         {
-            returnType = ParseTypeDeclaration();
+            returnType = ParseType();
         }
 
         Consume(TokenKind.BraceLeft, "Body must be declared");
@@ -168,7 +178,7 @@ public class Parser(LexResult lexResult, string filename)
         TypeAnnotation declaredType = TypeAnnotation.None;
         if (Match(TokenKind.Colon))
         {
-            declaredType = ParseTypeDeclaration();
+            declaredType = ParseType();
         }
 
         Expression? initializer = null;
@@ -196,7 +206,7 @@ public class Parser(LexResult lexResult, string filename)
 
         Consume(TokenKind.Colon, "Expect type declaration");
 
-        TypeAnnotation declaredType = ParseTypeDeclaration();
+        TypeAnnotation declaredType = ParseType();
 
         Consume(TokenKind.Assignment, "Expect constant value");
         Expression initializer = ParseLogicalOr();
@@ -228,7 +238,7 @@ public class Parser(LexResult lexResult, string filename)
             else
             {
                 Consume(TokenKind.Colon, "Expect colon before type declaration");
-                var type = ParseTypeDeclaration();
+                var type = ParseType();
 
                 parameter = new Parameter(name.Text, type);
             }
@@ -513,7 +523,7 @@ public class Parser(LexResult lexResult, string filename)
             }
             else if (Match(TokenKind.As))
             {
-                var targetType = ParseTypeDeclaration();
+                var targetType = ParseType();
                 expr = new ConversionExpr(expr, targetType);
             }
             else break;
@@ -660,7 +670,7 @@ public class Parser(LexResult lexResult, string filename)
         return new RangeExpr(start, end, step, isInclusive);
     }
 
-    private TypeAnnotation ParseTypeDeclaration()
+    private TypeAnnotation ParseType()
     {
         Expression typeExpr = ParseTypeRef();
         return new TypeAnnotation(typeExpr);

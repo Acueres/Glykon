@@ -149,7 +149,7 @@ public class Lowerer(IRTree ir, IdentifierInterner interner, TypeSystem ts, Symb
         List<IRStatement> functions = [];
         List<IRStatement> constants = [];
         List<IRStatement> scriptStatements = [];
-        List<IRClassDeclaration> types = [];
+        List<IRTypeDeclaration> types = [];
 
         foreach (var stmt in stmts)
         {
@@ -161,7 +161,7 @@ public class Lowerer(IRTree ir, IdentifierInterner interner, TypeSystem ts, Symb
                 case IRConstantDeclaration c:
                     constants.Add(c);
                     break;
-                case IRClassDeclaration t:
+                case IRTypeDeclaration t:
                     types.Add(t);
                     break;
                 default:

@@ -13,7 +13,7 @@ public abstract class IRTreeRewriter
             IRVariableDeclaration decl => RewriteVariableDeclaration(decl),
             IRConstantDeclaration c => RewriteConstantDeclaration(c),
             IRFunctionDeclaration f => RewriteFunctionDeclaration(f),
-            IRClassDeclaration c => RewriteClassDeclaration(c),
+            IRTypeDeclaration c => RewriteClassDeclaration(c),
             IRIfStmt i => RewriteIf(i),
             IRWhileStmt w => RewriteWhile(w),
             IRForStmt f => RewriteFor(f),
@@ -73,7 +73,7 @@ public abstract class IRTreeRewriter
             : new IRFunctionDeclaration(f.Signature, f.Parameters, f.ReturnType, body);
     }
 
-    private IRClassDeclaration RewriteClassDeclaration(IRClassDeclaration c)
+    private IRTypeDeclaration RewriteClassDeclaration(IRTypeDeclaration c)
     {
         var methods = RewriteArray(c.Methods, RewriteMethodDeclaration, out var methodsChanged);
         var constants = RewriteArray(c.Constants, RewriteConstantDeclaration, out var constantsChanged);
@@ -84,7 +84,7 @@ public abstract class IRTreeRewriter
             return c;
         }
 
-        return new IRClassDeclaration(
+        return new IRTypeDeclaration(
             c.Type,
             methodsChanged ? methods : c.Methods,
             c.Fields,

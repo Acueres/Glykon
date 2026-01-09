@@ -1,6 +1,5 @@
 ﻿using Glykon.Compiler.Core;
 using Glykon.Compiler.Semantics.Binding;
-using Glykon.Compiler.Semantics.Symbols;
 
 namespace Glykon.Compiler.Semantics.Types;
 
@@ -10,12 +9,12 @@ public class TypeSystem(IdentifierInterner interner)
 
     private int typeSerial = (int)TypeKind.SerialStart;
 
-    public TypeSymbol RegisterType(string name)
+    public TypeSymbol RegisterType(string name, bool isValueType)
     {
         int typeNameId = interner.Intern(name);
         int serialId = typeSerial++;
         TypeSymbol type =
-            new TypeSymbol(serialId, typeNameId, TypeKind.Defined);
+            new TypeSymbol(serialId, typeNameId, isValueType, TypeKind.Defined);
         types.Add(serialId, type);
         return type;
     }
@@ -23,22 +22,22 @@ public class TypeSystem(IdentifierInterner interner)
     public void BuildPrimitives()
     {
         int noneId = interner.Intern("none");
-        types.Add((int)TypeKind.None, new TypeSymbol((int)TypeKind.None, noneId, TypeKind.None));
+        types.Add((int)TypeKind.None, new TypeSymbol((int)TypeKind.None, noneId, isValueType: true, TypeKind.None));
 
         int integerId = interner.Intern("int");
-        types.Add((int)TypeKind.Int64, new TypeSymbol((int)TypeKind.Int64, integerId, TypeKind.Int64));
+        types.Add((int)TypeKind.Int64, new TypeSymbol((int)TypeKind.Int64, integerId, isValueType: true, TypeKind.Int64));
 
         int realId = interner.Intern("real");
-        types.Add((int)TypeKind.Float64, new TypeSymbol((int)TypeKind.Float64, realId, TypeKind.Float64));
+        types.Add((int)TypeKind.Float64, new TypeSymbol((int)TypeKind.Float64, realId, isValueType: true, TypeKind.Float64));
 
         int boolId = interner.Intern("bool");
-        types.Add((int)TypeKind.Bool, new TypeSymbol((int)TypeKind.Bool, boolId, TypeKind.Bool));
+        types.Add((int)TypeKind.Bool, new TypeSymbol((int)TypeKind.Bool, boolId, isValueType: true, TypeKind.Bool));
 
         int stringId = interner.Intern("str");
-        types.Add((int)TypeKind.String, new TypeSymbol((int)TypeKind.String, stringId, TypeKind.String));
+        types.Add((int)TypeKind.String, new TypeSymbol((int)TypeKind.String, stringId, isValueType: false, TypeKind.String));
         
         int errorId = interner.Intern("_error");
-        types.Add((int)TypeKind.Error, new TypeSymbol((int)TypeKind.Error, errorId, TypeKind.Error));
+        types.Add((int)TypeKind.Error, new TypeSymbol((int)TypeKind.Error, errorId, isValueType: true, TypeKind.Error));
     }
 
     // TODO: Add more numeric types

@@ -10,7 +10,7 @@ public enum BoundStatementKind : byte
     Constant,
     Function,
     Method,
-    Class,
+    Type,
     Return,
     If,
     While,

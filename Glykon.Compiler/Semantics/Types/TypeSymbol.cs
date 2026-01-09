@@ -17,9 +17,11 @@ public enum TypeKind
 public class TypeSymbol(
     int serialId,
     int nameId,
+    bool isValueType,
     TypeKind kind)
 {
     public int NameId { get; } = nameId;
+    public bool IsValueType { get; } = isValueType;
     public TypeKind Kind { get; } = kind;
     public bool IsPrimitive => Kind is TypeKind.Int64 or TypeKind.Float64 or TypeKind.Bool or TypeKind.String;
     public bool IsNumeric => Kind is TypeKind.Int64 or TypeKind.Float64;

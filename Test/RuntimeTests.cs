@@ -249,7 +249,7 @@ public class RuntimeTests
         Assert.Null(result.Exception);
         Assert.Contains("3.14", result.Stdout);
     }
-    
+
     [Fact]
     public void Script_ObjectInit_DefaultsAndOverride_Works()
     {
@@ -270,7 +270,7 @@ public class RuntimeTests
         Assert.Null(result.Exception);
         Assert.Equal("5" + Environment.NewLine + "10" + Environment.NewLine, result.Stdout);
     }
-    
+
     [Fact]
     public void Script_ObjectInit_DefaultFromAssociatedConst_Works()
     {
@@ -290,7 +290,7 @@ public class RuntimeTests
         Assert.Null(result.Exception);
         Assert.Equal("4" + Environment.NewLine, result.Stdout);
     }
-    
+
     [Fact]
     public void Script_ObjectInit_ChainedInnerObject_Works()
     {
@@ -308,7 +308,7 @@ public class RuntimeTests
         Assert.Null(result.Exception);
         Assert.Equal("11" + Environment.NewLine, result.Stdout);
     }
-    
+
     [Fact]
     public void Script_ObjectInit_UsedInIfCondition_Works()
     {
@@ -328,7 +328,7 @@ public class RuntimeTests
         Assert.Null(result.Exception);
         Assert.Equal("ok" + Environment.NewLine, result.Stdout);
     }
-    
+
     [Fact]
     public void Script_ObjectConstructorResolution_Works()
     {
@@ -351,7 +351,7 @@ public class RuntimeTests
         Assert.Null(result.Exception);
         Assert.Equal("42" + Environment.NewLine, result.Stdout);
     }
-    
+
     [Fact]
     public void Script_ObjectConstructorResolution_WrongReturnType_Errors()
     {
@@ -372,7 +372,7 @@ public class RuntimeTests
         var runtime = new GlykonRuntime(code, nameof(Script_ObjectConstructorResolution_WrongReturnType_Errors));
         Assert.Throws<InvalidOperationException>(() => runtime.RunScript());
     }
-    
+
     [Fact]
     public void Script_NestedType_ConstructorResolution_Works()
     {
@@ -397,7 +397,7 @@ public class RuntimeTests
         Assert.Null(result.Exception);
         Assert.Equal("7" + Environment.NewLine, result.Stdout);
     }
-    
+
     [Fact]
     public void Script_ExplicitInitCall_Works()
     {
@@ -420,7 +420,7 @@ public class RuntimeTests
         Assert.Null(result.Exception);
         Assert.Equal("9" + Environment.NewLine, result.Stdout);
     }
-    
+
     [Fact]
     public void Script_ConstructorCall_ArgCoercion_Works()
     {
@@ -443,7 +443,7 @@ public class RuntimeTests
         Assert.Null(result.Exception);
         Assert.Contains("3", result.Stdout); // formatting "3" vs "3.0"
     }
-    
+
     [Fact]
     public void Script_ConstructorCall_InMemberChain_Works()
     {
@@ -466,9 +466,7 @@ public class RuntimeTests
         Assert.Null(result.Exception);
         Assert.Equal("ok" + Environment.NewLine, result.Stdout);
     }
-    
-    
-    
+
     [Fact]
     public void Script_NestedType_ObjectInit_Works()
     {
@@ -489,7 +487,264 @@ public class RuntimeTests
         Assert.Null(result.Exception);
         Assert.Equal("2" + Environment.NewLine, result.Stdout);
     }
+
+    // Value vs reference types behavior
+
+    [Fact]
+    public void Script_Struct_AssignmentCopies_Value()
+    {
+        const string code = """
+                                struct S { x: int }
+
+                                let a = new S { x: 1 }
+                                let b = a
+                                b.x = 2
+
+                                println(a.x as str)
+                                println(b.x as str)
+                            """;
+
+        var runtime = new GlykonRuntime(code, nameof(Script_Struct_AssignmentCopies_Value));
+        var result = runtime.RunScript();
+
+        Assert.Null(result.Exception);
+        Assert.Equal("1" + Environment.NewLine + "2" + Environment.NewLine, result.Stdout);
+    }
+
+    [Fact]
+    public void Script_Class_AssignmentCopies_Reference()
+    {
+        const string code = """
+                                class C { x: int }
+
+                                let a = new C { x: 1 }
+                                let b = a
+                                b.x = 2
+
+                                println(a.x as str)
+                                println(b.x as str)
+                            """;
+
+        var runtime = new GlykonRuntime(code, nameof(Script_Class_AssignmentCopies_Reference));
+        var result = runtime.RunScript();
+
+        Assert.Null(result.Exception);
+        Assert.Equal("2" + Environment.NewLine + "2" + Environment.NewLine, result.Stdout);
+    }
+
+    [Fact]
+    public void Script_Struct_PassedToFunction_IsCopied()
+    {
+        const string code = """
+                                struct S { x: int }
+
+                                def bump(s: S) {
+                                    s.x = s.x + 1
+                                }
+
+                                let a = new S { x: 10 }
+                                bump(a)
+                                println(a.x as str)
+                            """;
+
+        var runtime = new GlykonRuntime(code, nameof(Script_Struct_PassedToFunction_IsCopied));
+        var result = runtime.RunScript();
+
+        Assert.Null(result.Exception);
+        Assert.Equal("10" + Environment.NewLine, result.Stdout);
+    }
+
+    [Fact]
+    public void Script_Class_PassedToFunction_IsSameObject()
+    {
+        const string code = """
+                                class C { x: int }
+
+                                def bump(c: C) {
+                                    c.x = c.x + 1
+                                }
+
+                                let a = new C { x: 10 }
+                                bump(a)
+                                println(a.x as str)
+                            """;
+
+        var runtime = new GlykonRuntime(code, nameof(Script_Class_PassedToFunction_IsSameObject));
+        var result = runtime.RunScript();
+
+        Assert.Null(result.Exception);
+        Assert.Equal("11" + Environment.NewLine, result.Stdout);
+    }
+
+    [Fact]
+    public void Script_Struct_FieldMutation_OnLocal_Works()
+    {
+        const string code = """
+                                struct S { x: int }
+
+                                let s = new S { x: 3 }
+                                s.x = 9
+                                println(s.x as str)
+                            """;
+
+        var runtime = new GlykonRuntime(code, nameof(Script_Struct_FieldMutation_OnLocal_Works));
+        var result = runtime.RunScript();
+
+        Assert.Null(result.Exception);
+        Assert.Equal("9" + Environment.NewLine, result.Stdout);
+    }
+
+    [Fact]
+    public void Script_Struct_NestedMemberAccess_Works()
+    {
+        const string code = """
+                                struct P { x: int }
+                                struct L { p: P }
+
+                                let l = new L { p: new P { x: 7 } }
+                                println(l.p.x as str)
+                            """;
+
+        var runtime = new GlykonRuntime(code, nameof(Script_Struct_NestedMemberAccess_Works));
+        var result = runtime.RunScript();
+
+        Assert.Null(result.Exception);
+        Assert.Equal("7" + Environment.NewLine, result.Stdout);
+    }
+
+    [Fact]
+    public void Script_Struct_FieldRead_FromTemporary_Works()
+    {
+        const string code = """
+                                struct S { x: int }
+
+                                def make(v: int) -> S {
+                                    return new S { x: v }
+                                }
+
+                                println(make(5).x as str)
+                            """;
+
+        var runtime = new GlykonRuntime(code, nameof(Script_Struct_FieldRead_FromTemporary_Works));
+        var result = runtime.RunScript();
+
+        Assert.Null(result.Exception);
+        Assert.Equal("5" + Environment.NewLine, result.Stdout);
+    }
+
+    [Fact]
+    public void Script_Struct_FieldWrite_ToTemporary_ShouldError()
+    {
+        const string code = """
+                                struct S { x: int }
+
+                                def make(v: int) -> S {
+                                    return new S { x: v }
+                                }
+
+                                make(1).x = 2
+                                println('unreachable')
+                            """;
+
+        var runtime = new GlykonRuntime(code, nameof(Script_Struct_FieldWrite_ToTemporary_ShouldError));
+
+        Assert.ThrowsAny<Exception>(() => runtime.RunScript());
+    }
+
+    // Struct methods
+    [Fact]
+    public void Script_Struct_Method_ReadsField_Works()
+    {
+        const string code = """
+                                struct S {
+                                    x: int
+
+                                    def get(this) -> int {
+                                        return this.x
+                                    }
+                                }
+
+                                let s = new S { x: 5 }
+                                println(s.get() as str)
+                            """;
+
+        var runtime = new GlykonRuntime(code, nameof(Script_Struct_Method_ReadsField_Works));
+        var result = runtime.RunScript();
+
+        Assert.Null(result.Exception);
+        Assert.Equal("5" + Environment.NewLine, result.Stdout);
+    }
+
+    [Fact]
+    public void Script_Struct_Method_MutatesField_Persists()
+    {
+        const string code = """
+                                struct S {
+                                    x: int
+
+                                    def inc(this) {
+                                        this.x = this.x + 1
+                                    }
+                                }
+
+                                let s = new S { x: 1 }
+                                s.inc()
+                                s.inc()
+                                println(s.x as str)
+                            """;
+
+        var runtime = new GlykonRuntime(code, nameof(Script_Struct_Method_MutatesField_Persists));
+        var result = runtime.RunScript();
+
+        Assert.Null(result.Exception);
+        Assert.Equal("3" + Environment.NewLine, result.Stdout);
+    }
     
+    [Fact]
+    public void Script_Struct_Method_MutatesCopy_DoesNotAffectOriginal()
+    {
+        const string code = """
+                                struct S {
+                                    x: int
+                                    def inc(this) { this.x = this.x + 1 }
+                                }
+
+                                let a = new S { x: 10 }
+                                let b = a
+                                b.inc()
+
+                                println(a.x as str)
+                                println(b.x as str)
+                            """;
+
+        var runtime = new GlykonRuntime(code, nameof(Script_Struct_Method_MutatesCopy_DoesNotAffectOriginal));
+        var result = runtime.RunScript();
+
+        Assert.Null(result.Exception);
+        Assert.Equal("10" + Environment.NewLine + "11" + Environment.NewLine, result.Stdout);
+    }
+    
+    [Fact]
+    public void Script_Struct_Method_CallOnTemporary_ReadOnly_Works()
+    {
+        const string code = """
+                                struct S {
+                                    x: int
+                                    def get(this) -> int { return this.x }
+                                }
+
+                                def make(v: int) -> S { return new S { x: v } }
+
+                                println(make(7).get() as str)
+                            """;
+
+        var runtime = new GlykonRuntime(code, nameof(Script_Struct_Method_CallOnTemporary_ReadOnly_Works));
+        var result = runtime.RunScript();
+
+        Assert.Null(result.Exception);
+        Assert.Equal("7" + Environment.NewLine, result.Stdout);
+    }
+
     [Fact]
     public void Script_MethodReceiverName_CanBeThis()
     {
@@ -512,7 +767,7 @@ public class RuntimeTests
         Assert.Null(result.Exception);
         Assert.Equal("3" + Environment.NewLine, result.Stdout);
     }
-    
+
     [Fact]
     public void Script_FieldDefault_ImplicitConversion_IntToReal_Works()
     {

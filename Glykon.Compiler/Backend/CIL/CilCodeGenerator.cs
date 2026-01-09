@@ -11,6 +11,7 @@ namespace Glykon.Compiler.Backend.CIL;
 
 public class CilCodeGenerator(ILGenerator il, CilEmitContext context, ClrTypeRegistry typeRegistry)
 {
+    private readonly Dictionary<int, LocalBuilder> locals = [];
     private readonly Stack<Label> loopStart = [];
     private readonly Stack<Label> loopEnd = [];
 
@@ -67,6 +68,7 @@ public class CilCodeGenerator(ILGenerator il, CilEmitContext context, ClrTypeReg
 
         var lb = il.DeclareLocal(type);
         symbol.LocalIndex = lb.LocalIndex;
+        locals[lb.LocalIndex] = lb;
 
         EmitExpression(statement.Initializer);
         il.Emit(OpCodes.Stloc, symbol.LocalIndex);
@@ -203,8 +205,15 @@ public class CilCodeGenerator(ILGenerator il, CilEmitContext context, ClrTypeReg
                     {
                         var fi = context.Fields[field];
 
-                        // push object ref
-                        EmitExpression(expr.Receiver);
+                        if (expr.Receiver.Type.IsValueType)
+                        {
+                            EmitAddressForRead(expr.Receiver);
+                        }
+                        else
+                        {
+                            EmitExpression(expr.Receiver);
+                        }
+
                         // pops object ref, pushes field value
                         il.Emit(OpCodes.Ldfld, fi);
 
@@ -244,8 +253,15 @@ public class CilCodeGenerator(ILGenerator il, CilEmitContext context, ClrTypeReg
 
                     var fi = context.Fields[expr.Field];
 
-                    // object ref
-                    EmitExpression(expr.Receiver);
+                    if (expr.Receiver.Type.IsValueType)
+                    {
+                        EmitAddress(expr.Receiver);
+                    }
+                    else
+                    {
+                        EmitExpression(expr.Receiver);
+                    }
+
                     // value
                     EmitExpression(expr.Value);
                     il.Emit(OpCodes.Stfld, fi);
@@ -263,22 +279,39 @@ public class CilCodeGenerator(ILGenerator il, CilEmitContext context, ClrTypeReg
                         _ => throw new NotSupportedException($"Unsupported callable: {call.Callable.GetType().Name}")
                     };
 
-                    foreach (var arg in call.Parameters)
+                    bool isInstance = !target.IsStatic;
+                    bool isStructReceiver = isInstance && target.DeclaringType!.IsValueType;
+
+                    if (isStructReceiver)
                     {
-                        EmitExpression(arg);
+                        EmitAddressForRead(call.Parameters[0]); // pushes &receiver
+
+                        for (int i = 1; i < call.Parameters.Length; i++)
+                        {
+                            EmitExpression(call.Parameters[i]);
+
+                        }
+
+                        il.EmitCall(OpCodes.Call, target, []);
+                    }
+                    else
+                    {
+                        foreach (var t in call.Parameters)
+                        {
+                            EmitExpression(t);
+                        }
+
+                        il.EmitCall(isInstance ? OpCodes.Callvirt : OpCodes.Call, target, []);
                     }
 
-                    // call vs callvirt
-                    // - static: Call
-                    // - instance: Callvirt
-                    var op = target.IsStatic ? OpCodes.Call : OpCodes.Callvirt;
-                    il.EmitCall(op, target, []);
                     break;
                 }
                 case IRExpressionKind.Unary:
                 {
                     var expr = (IRUnaryExpr)expression;
                     var type = expr.Operand.Type;
+                    
+                    EmitExpression(expr.Operand);
 
                     switch (expr.Operator)
                     {
@@ -450,6 +483,27 @@ public class CilCodeGenerator(ILGenerator il, CilEmitContext context, ClrTypeReg
                 case IRExpressionKind.Initializer:
                 {
                     var init = (IRInitializerExpr)expression;
+
+                    if (init.Type.IsValueType)
+                    {
+                        var clrType = typeRegistry.Resolve(init.Type);
+                        var tmp = il.DeclareLocal(clrType);
+                        
+                        il.Emit(OpCodes.Ldloca_S, tmp);
+                        il.Emit(OpCodes.Initobj, clrType);
+                        
+                        foreach (var i in init.Initializers)
+                        {
+                            var fi = context.Fields[i.Field];
+                            
+                            il.Emit(OpCodes.Ldloca_S, tmp);
+                            EmitExpression(i.Value); 
+                            il.Emit(OpCodes.Stfld, fi);
+                        }
+                        
+                        il.Emit(OpCodes.Ldloc, tmp);
+                        return;
+                    }
                     
                     if (!context.Constructors.TryGetValue(init.Type, out var ctor))
                     {
@@ -491,5 +545,87 @@ public class CilCodeGenerator(ILGenerator il, CilEmitContext context, ClrTypeReg
             case ConstantKind.Bool: il.Emit(OpCodes.Ldc_I4, value.Bool ? 1 : 0); break;
             case ConstantKind.None: il.Emit(OpCodes.Ldnull); break;
         }
+    }
+    
+    private void EmitAddress(IRExpression receiver)
+    {
+        switch (receiver)
+        {
+            case IRNameExpr { Symbol: VariableSymbol v }:
+                il.Emit(OpCodes.Ldloca_S, locals[v.LocalIndex]);
+                return;
+
+            case IRNameExpr { Symbol: ParameterSymbol p }:
+                bool isStructThis =
+                    p.Index == 0 &&
+                    context.CurrentDeclaringType?.IsValueType == true &&
+                    !context.CurrentIsStatic;
+
+                if (isStructThis)
+                {
+                    il.Emit(OpCodes.Ldarg_0);
+                }
+                else
+                {
+                    il.Emit(OpCodes.Ldarga_S, (short)p.Index);
+                }
+
+                return;
+
+            case IRMemberAccessExpr { MemberSymbol: FieldSymbol f } ma:
+            {
+                var fi = context.Fields[f];
+
+                if (fi.IsStatic)
+                {
+                    il.Emit(OpCodes.Ldsflda, fi);
+                    return;
+                }
+
+                if (ma.Receiver.Type.IsValueType)
+                {
+                    EmitAddress(ma.Receiver);
+                }
+                else
+                {
+                    EmitExpression(ma.Receiver);
+                }
+
+                il.Emit(OpCodes.Ldflda, fi);
+                return;
+            }
+
+            default:
+            {
+                throw new InvalidOperationException("Receiver is not addressable (not an lvalue).");
+            }
+        }
+    }
+    
+    private void EmitAddressForRead(IRExpression receiver)
+    {
+        if (IsAddressable(receiver)) 
+        {
+            EmitAddress(receiver);
+            return;
+        }
+        
+        var clrType = typeRegistry.Resolve(receiver.Type);
+        var tmp = il.DeclareLocal(clrType);
+        locals[tmp.LocalIndex] = tmp;
+
+        EmitExpression(receiver);
+        il.Emit(OpCodes.Stloc, tmp.LocalIndex);
+        il.Emit(OpCodes.Ldloca_S, tmp);
+    }
+    
+    private bool IsAddressable(IRExpression expr)
+    {
+        return expr.Kind switch
+        {
+            IRExpressionKind.Name => true,
+            IRExpressionKind.MemberAccess => IsAddressable(((IRMemberAccessExpr)expr).Receiver),
+            _ => false
+        };
     }
 }

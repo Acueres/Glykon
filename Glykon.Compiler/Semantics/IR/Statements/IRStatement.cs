@@ -10,7 +10,7 @@ public enum IRStatementKind : byte
     Constant,
     Function,
     Method,
-    Class,
+    Type,
     Return,
     If,
     While,

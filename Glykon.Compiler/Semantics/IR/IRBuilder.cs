@@ -20,6 +20,7 @@ public class IRBuilder(
     private readonly List<IGlykonError> errors = [];
     private readonly IRExpression invalidExpr = new IRInvalidExpr(typeSystem[TypeKind.Error]);
     private readonly Dictionary<FieldSymbol, IRExpression> fieldDefaultValues = [];
+    private readonly int constructorNameId = interner.Intern("init");
 
     public (IRTree, IGlykonError[]) Build()
     {
@@ -37,16 +38,16 @@ public class IRBuilder(
     {
         switch (stmt.Kind)
         {
-            case BoundStatementKind.Class:
+            case BoundStatementKind.Type:
             {
-                var classDecl = (BoundClassDeclaration)stmt;
+                var typeDeclaration = (BoundTypeDeclaration)stmt;
 
-                var constants = classDecl.Constants.Select(BuildStatement).OfType<IRConstantDeclaration>().ToArray();
-                var fields = classDecl.Fields.Select(f => new IRFieldDeclaration(f.Symbol)).ToArray();
-                var nested = classDecl.Nested.Select(BuildStatement).OfType<IRClassDeclaration>().ToArray();
-                var methods = classDecl.Methods.Select(BuildMethodDeclaration).ToArray();
+                var constants = typeDeclaration.Constants.Select(BuildStatement).OfType<IRConstantDeclaration>().ToArray();
+                var fields = typeDeclaration.Fields.Select(f => new IRFieldDeclaration(f.Symbol)).ToArray();
+                var nested = typeDeclaration.Nested.Select(BuildStatement).OfType<IRTypeDeclaration>().ToArray();
+                var methods = typeDeclaration.Methods.Select(BuildMethodDeclaration).ToArray();
 
-                return new IRClassDeclaration(classDecl.Type, methods, fields, constants, nested);
+                return new IRTypeDeclaration(typeDeclaration.Type, methods, fields, constants, nested);
             }
             case BoundStatementKind.Block:
             {
@@ -205,9 +206,9 @@ public class IRBuilder(
     {
         switch (stmt.Kind)
         {
-            case BoundStatementKind.Class:
+            case BoundStatementKind.Type:
             {
-                var c = (BoundClassDeclaration)stmt;
+                var c = (BoundTypeDeclaration)stmt;
                 
                 foreach (var n in c.Nested)
                     PrecomputeInStatement(n);
@@ -524,7 +525,7 @@ public class IRBuilder(
                     })
                 {
                     var ctor = callee.Type.Methods.FirstOrDefault(m =>
-                        m.IsStatic && interner[m.NameId] == "init" && m.Type == callee.Type);
+                        m.IsStatic && m.NameId == constructorNameId && m.Type == callee.Type);
                     if (ctor is null)
                     {
                         errors.Add(new TypeError(fileName, $"Type {interner[callee.Type.NameId]} has no constructor."));

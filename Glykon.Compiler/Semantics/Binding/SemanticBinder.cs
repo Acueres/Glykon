@@ -26,7 +26,7 @@ public class SemanticBinder(
         RegisterStd();
 
         List<BoundStatement> boundStatements = new(syntaxTree.Length);
-        List<ClassDeclaration> types = [];
+        List<TypeDeclaration> types = [];
         List<Statement> constants = [];
         List<Statement> functions = [];
         List<Statement> statements = [];
@@ -43,7 +43,7 @@ public class SemanticBinder(
                     functions.Add(fd);
                     break;
 
-                case ClassDeclaration t:
+                case TypeDeclaration t:
                     types.Add(t);
                     break;
 
@@ -77,18 +77,18 @@ public class SemanticBinder(
 
         switch (stmt.Kind)
         {
-            case StatementKind.Class:
+            case StatementKind.Type:
             {
-                var classDecl = (ClassDeclaration)stmt;
+                var typeDeclaration = (TypeDeclaration)stmt;
 
                 TypeSymbol type;
-                if (symbolTable.TryGetType(classDecl.Name, out type!))
+                if (symbolTable.TryGetType(typeDeclaration.Name, out type!))
                 {
-                    errors.Add(new BindingError(filename, $"Type '{classDecl.Name}' already defined."));
+                    errors.Add(new BindingError(filename, $"Type '{typeDeclaration.Name}' already defined."));
                 }
                 else
                 {
-                    type = typeSystem.RegisterType(classDecl.Name);
+                    type = typeSystem.RegisterType(typeDeclaration.Name, typeDeclaration.IsValueType);
                     symbolTable.RegisterType(type);
                 }
 
@@ -96,7 +96,7 @@ public class SemanticBinder(
 
                 Dictionary<int, TypeMemberKind> memberKinds = [];
                 
-                var nested = classDecl.Nested.Select(BindStatement).OfType<BoundClassDeclaration>().ToArray();
+                var nested = typeDeclaration.Nested.Select(BindStatement).OfType<BoundTypeDeclaration>().ToArray();
                 foreach (var nestedType in nested)
                 {
                     ClaimMemberName(nestedType.Type.NameId, TypeMemberKind.NestedType);
@@ -104,7 +104,7 @@ public class SemanticBinder(
 
                 type.NestedTypes = nested.Select(decl => decl.Type).ToArray();
                 
-                var constants = classDecl.Constants.Select(BindStatement).OfType<BoundConstantDeclaration>()
+                var constants = typeDeclaration.Constants.Select(BindStatement).OfType<BoundConstantDeclaration>()
                     .ToArray();
                 foreach (var constant in constants)
                 {
@@ -113,7 +113,7 @@ public class SemanticBinder(
                 
                 type.Constants = constants.Select(c => c.Symbol).ToArray();
                 
-                var fields = classDecl.Fields.Select(f => BindField(f, type)).ToArray();
+                var fields = typeDeclaration.Fields.Select(f => BindField(f, type)).ToArray();
                 foreach (var field in fields)
                 {
                     ClaimMemberName(field.Symbol.NameId, TypeMemberKind.Field);
@@ -121,7 +121,7 @@ public class SemanticBinder(
                 
                 type.Fields = fields.Select(f => f.Symbol).ToArray();
                 
-                var methods = classDecl.Methods.Select(m => BindMethodDeclaration(m, type)).ToArray();
+                var methods = typeDeclaration.Methods.Select(m => BindMethodDeclaration(m, type)).ToArray();
                 foreach (var method in methods)
                 {
                     ClaimMemberName(method.Symbol.NameId, TypeMemberKind.Method);
@@ -131,14 +131,14 @@ public class SemanticBinder(
 
                 symbolTable.EndScope();
 
-                return new BoundClassDeclaration(type, methods, fields, constants, nested);
+                return new BoundTypeDeclaration(type, methods, fields, constants, nested);
                 
                 void ClaimMemberName(int nameId, TypeMemberKind kind)
                 {
                     if (memberKinds.TryGetValue(nameId, out var existing))
                     {
                         errors.Add(new BindingError(filename,
-                            $"Name '{interner[nameId]}' is already used for a {existing} in type '{classDecl.Name}'."));
+                            $"Name '{interner[nameId]}' is already used for a {existing} in type '{typeDeclaration.Name}'."));
                     }
                     else
                     {
