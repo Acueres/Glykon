@@ -13,7 +13,7 @@ public class LoweringTests : CompilerTestBase
     {
         const string src = @"
         for i in 0..=10 {
-            println(i)
+            println(i as str)
         }
 ";
         var semanticResult = Analyze(src, LanguageMode.Script);
@@ -47,7 +47,7 @@ public class LoweringTests : CompilerTestBase
     {
         const string src = @"
         for i in 10..0 by -1 {
-            println(i)
+            println(i as str)
         }
 ";
         var semanticResult = Analyze(src, LanguageMode.Script);
@@ -86,7 +86,7 @@ public class LoweringTests : CompilerTestBase
     {
         const string src = @"
         for i in 10..=0 by -2 {
-            println(i)
+            println(i as str)
         }
 ";
         var semanticResult = Analyze(src, LanguageMode.Script);
@@ -127,7 +127,7 @@ public class LoweringTests : CompilerTestBase
         let start = 0
         let end = 10
         for i in start..end {
-            println(i)
+            println(i as str)
         }
 ";
         var semanticResult = Analyze(src, LanguageMode.Script);
@@ -161,7 +161,7 @@ public class LoweringTests : CompilerTestBase
     {
         const string src = @"
         for i in 0..10 by 0 {
-            println(i)
+            println(i as str)
         }
 ";
         var semanticResult = Analyze(src, LanguageMode.Script);

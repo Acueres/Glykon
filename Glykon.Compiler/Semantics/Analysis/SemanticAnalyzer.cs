@@ -25,8 +25,8 @@ public class SemanticAnalyzer(ParseResult parseResult, LanguageMode mode, string
         FlowAnalyzer flowAnalyzer = new(boundTree, fileName);
         var flowErrors = flowAnalyzer.Analyze();
 
-        IRTypeBuilder irTypeBuilder = new(boundTree, typeSystem, interner, fileName);
-        var (irTree, typeErrors) = irTypeBuilder.Build();
+        IRBuilder irBuilder = new(boundTree, typeSystem, interner, fileName);
+        var (irTree, typeErrors) = irBuilder.Build();
 
         ConstantFolder folder = new(irTree, typeSystem, interner, fileName);
         var (foldedTree, foldingErrors) = folder.Fold();

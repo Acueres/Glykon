@@ -7,7 +7,7 @@ public class IRTree(IRStatement[] statements, string fileName) : IEnumerable<IRS
 {
     public readonly string FileName = fileName;
 
-    readonly IRStatement[] statements = statements;
+    private readonly IRStatement[] statements = statements;
 
     public IRStatement this[int index]
     {

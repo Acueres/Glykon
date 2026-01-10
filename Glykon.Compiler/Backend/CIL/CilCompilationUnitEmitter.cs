@@ -12,64 +12,136 @@ namespace Glykon.Compiler.Backend.CIL;
 public class CilCompilationUnitEmitter(
     IRTree irTree,
     SymbolTable symbolTable,
-    TypeSystem typeSystem,
     IdentifierInterner interner,
     string appName)
 {
+    private readonly ClrTypeRegistry typeRegistry = new();
+
     public FunctionInfo[] EmitAssembly(ModuleBuilder mob)
     {
         symbolTable.ResetScope();
 
-        TypeBuilder tb = mob.DefineType(appName,
+        TypeBuilder unitTb = mob.DefineType(appName,
             TypeAttributes.Class | TypeAttributes.NotPublic | TypeAttributes.Abstract | TypeAttributes.Sealed);
 
-        List<CilFunctionEmitter> methodGenerators = [];
-        Dictionary<FunctionSymbol, MethodInfo> methods = LoadStdLibrary();
-        List<FunctionInfo> definedMethods = [];
+        List<IRFunctionDeclaration> functionDeclarations = [];
+        List<IRTypeDeclaration> classDeclarations = [];
 
         foreach (var stmt in irTree)
         {
-            if (stmt is IRFunctionDeclaration f)
+            switch (stmt)
             {
-                CilFunctionEmitter mg = new(f, typeSystem, interner, tb);
-                methodGenerators.Add(mg);
+                case IRFunctionDeclaration f:
+                    functionDeclarations.Add(f);
+                    break;
+                case IRTypeDeclaration c:
+                    classDeclarations.Add(c);
+                    break;
+            }
+        }
+        
+        List<CilCallableEmitter> callableEmitters = [];
+        Dictionary<FunctionSymbol, MethodInfo> functions = LoadStdLibrary();
+        List<FunctionInfo> definedFunctions = [];
+        Dictionary<MethodSymbol, MethodInfo> methods = [];
+        Dictionary<FieldSymbol, FieldInfo> fields = [];
 
-                var mb = mg.GetMethodBuilder();
-                methods[f.Signature] = mb;
-                definedMethods.Add(new FunctionInfo(f.Signature, mb));
+        // Create top-level emitters
+        var typeEmitters = classDeclarations.Select(c => new CilTypeEmitter(c, mob, interner, typeRegistry)).ToArray();
+        
+        // Define all types (top-level and nested)
+        foreach (var typeEmitter in typeEmitters)
+        {
+            typeEmitter.DefineType();
+        }
+        
+        Dictionary<TypeSymbol, ConstructorInfo> constructors = [];
+        // Define constructors for all types
+        foreach (var typeEmitter in typeEmitters)
+        {
+            foreach (var (type, constructor) in typeEmitter.DefineConstructors())
+            {
+                constructors[type] = constructor;
+            }
+        }
+        
+        // Emit all fields
+        foreach (var typeEmitter in typeEmitters)
+        {
+            var definedFields = typeEmitter.EmitFields();
+            foreach (var (fieldSymbol, fieldInfo) in definedFields)
+            {
+                fields[fieldSymbol] = fieldInfo;
+            }
+        }
+        
+        // Define all methods
+        foreach (var typeEmitter in typeEmitters)
+        {
+            var methodEmitters = typeEmitter.DefineMethods();
+            foreach (var (signature, methodEmitter) in methodEmitters)
+            {
+                callableEmitters.Add(methodEmitter);
+                var mb = methodEmitter.GetMethodBuilder();
+                methods[signature] = mb;
             }
         }
 
-        foreach (var mg in methodGenerators)
+        // Define top-level functions
+        foreach (var f in functionDeclarations)
         {
-            mg.Emit(methods);
+            CilCallableEmitter emitter = new(f, typeRegistry, interner, unitTb);
+            callableEmitters.Add(emitter);
+            
+            var mb = emitter.GetMethodBuilder();
+            functions[f.Signature] = mb;
+            definedFunctions.Add(new FunctionInfo(f.Signature, mb));
+        }
+        
+        // Define all locals
+        List<CilCallableEmitter> localEmitters = [];
+        foreach (var locals in callableEmitters
+                     .Select(callable => callable.DefineLocals()))
+        {
+            foreach (var (local, signature) in locals)
+            {
+                localEmitters.Add(local);
+
+                var mb = local.GetMethodBuilder();
+                functions[signature] = mb;
+                definedFunctions.Add(new FunctionInfo(signature, mb));
+            }
+        }
+        
+        // Add locals to the emitter pile
+        callableEmitters.AddRange(localEmitters);
+        
+        // Emit callable bodies
+        foreach (var callableEmitter in callableEmitters)
+        {
+            callableEmitter.Emit(functions, methods, fields, constructors, callableEmitter.ParentType,
+                callableEmitter.IsStatic);
         }
 
-        tb.CreateType();
+        // Create defined types
+        foreach (var typeEmitter in typeEmitters)
+        {
+            typeEmitter.CreateType();
+        }
+        
+        unitTb.CreateType();
 
-        return [..definedMethods];
+        return [..definedFunctions];
     }
 
-    Dictionary<FunctionSymbol, MethodInfo> LoadStdLibrary()
+    private Dictionary<FunctionSymbol, MethodInfo> LoadStdLibrary()
     {
         Dictionary<FunctionSymbol, MethodInfo> stdFunctions = [];
 
         var console = typeof(Console);
 
-        stdFunctions.Add(symbolTable.GetFunction("println", [typeSystem[TypeKind.String]]),
-            console.GetMethod("WriteLine", [typeof(string)]));
-
-        stdFunctions.Add(symbolTable.GetFunction("println", [typeSystem[TypeKind.Int64]]),
-            console.GetMethod("WriteLine", [typeof(long)]));
-
-        stdFunctions.Add(symbolTable.GetFunction("println", [typeSystem[TypeKind.Float64]]),
-            console.GetMethod("WriteLine", [typeof(double)]));
-
-        stdFunctions.Add(symbolTable.GetFunction("println", [typeSystem[TypeKind.Bool]]),
-            console.GetMethod("WriteLine", [typeof(bool)]));
-
-        stdFunctions.Add(symbolTable.GetFunction("println", [typeSystem[TypeKind.None]]),
-            console.GetMethod("WriteLine", []));
+        stdFunctions.Add(symbolTable.GetFunction("println")!,
+            console.GetMethod("WriteLine", [typeof(string)])!);
 
         return stdFunctions;
     }

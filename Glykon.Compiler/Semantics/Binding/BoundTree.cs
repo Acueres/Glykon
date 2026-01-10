@@ -8,7 +8,7 @@ public class BoundTree(BoundStatement[] statements, string fileName) : IEnumerab
 {
     public readonly string FileName = fileName;
 
-    readonly BoundStatement[] statements = statements;
+    private readonly BoundStatement[] statements = statements;
 
     public BoundStatement this[int index]
     {

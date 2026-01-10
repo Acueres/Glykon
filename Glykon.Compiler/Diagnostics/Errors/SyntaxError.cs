@@ -2,9 +2,9 @@
 {
     public class SyntaxError(int line, string filename, string message) : IGlykonError
     {
-        readonly int line = line;
-        readonly string filename = filename;
-        readonly string message = message;
+        private readonly int line = line;
+        private readonly string filename = filename;
+        private readonly string message = message;
 
         public void Report()
         {

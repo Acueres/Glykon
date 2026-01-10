@@ -77,4 +77,7 @@ public abstract class CompilerTestBase
     
     protected static IRAssignmentExpr GetAssignment(IRExpression e)
         => Assert.IsType<IRAssignmentExpr>(e);
+    
+    protected static IRCallExpr GetCall(IRExpression e)
+        => Assert.IsType<IRCallExpr>(e);
 }

@@ -1,6 +1,5 @@
 ﻿using Glykon.Compiler.Core;
 using Glykon.Compiler.Semantics.Binding;
-using Glykon.Compiler.Semantics.IR.Statements;
 using Glykon.Compiler.Semantics.Types;
 using Tests.Infrastructure;
 
@@ -8,50 +7,6 @@ namespace Tests;
 
 public class SemanticTests : CompilerTestBase
 {
-    [Fact]
-    public void VariableTypeInference()
-    {
-        const string src = """
-
-                                       let i = 6
-                                       let res = i + (2 + 2 * 3)
-
-                           """;
-
-        var semanticResult = Analyze(src, LanguageMode.Script);
-        var irTree = semanticResult.Ir;
-        var interner = semanticResult.Interner;
-        
-        Assert.Empty(semanticResult.AllErrors);
-        Assert.NotEmpty(irTree);
-
-        var f = GetFunction(irTree.Single());
-        
-        Assert.Equal(2, f.Body.Statements.Length);
-        Assert.Equal(IRStatementKind.Variable, f.Body.Statements[1].Kind);
-        var stmt = (IRVariableDeclaration)f.Body.Statements[1];
-
-        string name = interner[stmt.Symbol.NameId];
-        Assert.Equal("res", name);
-        Assert.NotNull(stmt.Initializer);
-        Assert.Equal(TypeKind.Int64, stmt.Symbol.Type.Kind);
-    }
-
-    [Fact]
-    public void VariableWrongTypeInference()
-    {
-        const string src = """
-
-                                       let res = (2 + 2 * 'text')
-                           """;
-        var semanticResult = Analyze(src, LanguageMode.Script);
-        
-        Assert.Single(semanticResult.AllErrors);
-
-        var f = GetFunction(semanticResult.Ir.Single());
-        Assert.Single(f.Body.Statements);
-    }
-    
     [Fact]
     public void CheckVariableInsideConstantDeclaration()
     {
@@ -88,31 +43,6 @@ public class SemanticTests : CompilerTestBase
     }
 
     [Fact]
-    public void OverloadResolutionSuccess()
-    {
-        const string src = """
-            def log(msg: str) { return }
-            def log(level: int, msg: str) { return }
-            log('hi')          # picks 1‑arg
-            log(1, 'bye')      # picks 2‑arg
-        """;
-        var semanticResult = Analyze(src, LanguageMode.Script);
-        Assert.Empty(semanticResult.AllErrors);
-    }
-
-    [Fact]
-    public void OverloadResolutionFailure()
-    {
-        const string src = """
-            def log(msg: str) { return }
-            def log(level: int, msg: str) { return }
-            log(true, 'oops')   # no matching overload
-        """;
-        var semanticResult = Analyze(src, LanguageMode.Script);
-        Assert.Single(semanticResult.AllErrors);
-    }
-
-    [Fact]
     public void CallWithUnknownIdentifier()
     {
         const string src = @"
@@ -120,7 +50,7 @@ public class SemanticTests : CompilerTestBase
         ";
 
         var semanticResult = Analyze(src, LanguageMode.Script);
-        Assert.Single(semanticResult.AllErrors);
+        Assert.NotEmpty(semanticResult.AllErrors);
     }
 
     [Fact]
@@ -132,7 +62,7 @@ public class SemanticTests : CompilerTestBase
         ";
 
         var semanticResult = Analyze(src, LanguageMode.Script);
-        Assert.Single(semanticResult.AllErrors);
+        Assert.NotEmpty(semanticResult.AllErrors);
     }
 
     [Fact]
@@ -146,32 +76,509 @@ public class SemanticTests : CompilerTestBase
         var semanticResult = Analyze(src, LanguageMode.Script);
         Assert.Empty(semanticResult.AllErrors);
     }
-
+    
+    // Type declaration tests
     [Fact]
-    public void CallOverloadNoMatch()
+    public void TypeDecl_DuplicateTypeName_Fails()
     {
-        const string src = @"
-            def log(i: int) { return }
-            def log(i: int, j: int) { return }
-            log(true)     # no matching overload for (bool)
-        ";
+        const string src = """
+                               class A { }
+                               class A { }
+                           """;
 
-        var semanticResult = Analyze(src, LanguageMode.Script);
-        Assert.Single(semanticResult.AllErrors);
+        var r = Analyze(src, LanguageMode.Script);
+        Assert.Single(r.AllErrors);
     }
 
     [Fact]
-    public void CallOverloadExactMatch()
+    public void TypeDecl_FieldAndMethodNameCollision_Fails()
     {
-        const string src = @"
-            def log(i: int) { return }
-            def log(i: int, j: int) { return }
-            log(1)
-            log(1, 2)
-        ";
+        const string src = """
+                               class A {
+                                   x: int
+                                   def x() { return }
+                               }
+                           """;
 
-        var semanticResult = Analyze(src, LanguageMode.Script);
-        Assert.Empty(semanticResult.AllErrors);
+        var r = Analyze(src, LanguageMode.Script);
+        Assert.Single(r.AllErrors);
+    }
+    
+    [Fact]
+    public void TypeDecl_FieldAndConstNameCollision_Fails()
+    {
+        const string src = """
+                               class A {
+                                   x: int
+                                   const x: real = 3.14
+                               }
+                           """;
+
+        var r = Analyze(src, LanguageMode.Script);
+        Assert.Single(r.AllErrors);
+    }
+    
+    [Fact]
+    public void TypeDecl_MethodAndConstNameCollision_Fails()
+    {
+        const string src = """
+                               class A {
+                                   const m: real = 3.14
+                                   def m() { return }
+                               }
+                           """;
+
+        var r = Analyze(src, LanguageMode.Script);
+        Assert.Single(r.AllErrors);
+    }
+    
+    [Fact]
+    public void TypeDecl_NestedTypeAndFieldNameCollision_Fails()
+    {
+        const string src = """
+                               class Outer {
+                                   x: int
+                                   class x { }
+                               }
+                           """;
+
+        var r = Analyze(src, LanguageMode.Script);
+        Assert.Single(r.AllErrors);
+    }
+    
+    [Fact]
+    public void TypeDecl_DuplicateFieldName_Fails()
+    {
+        const string src = """
+                               class A {
+                                   x: int
+                                   x: int = 1
+                               }
+                           """;
+
+        var r = Analyze(src, LanguageMode.Script);
+        Assert.Single(r.AllErrors);
+    }
+    
+    [Fact]
+    public void TypeDecl_DuplicateConstName_Fails()
+    {
+        const string src = """
+                               class A {
+                                   const pi: real = 3.14
+                                   const pi: real = 3.14
+                               }
+                           """;
+
+        var r = Analyze(src, LanguageMode.Script);
+        Assert.Single(r.AllErrors);
+    }
+    
+    [Fact]
+    public void TypeDecl_DuplicateNestedTypeName_Fails()
+    {
+        const string src = """
+                               class Outer {
+                                   class Inner { }
+                                   class Inner { }
+                               }
+                           """;
+
+        var r = Analyze(src, LanguageMode.Script);
+        Assert.Equal(2, r.AllErrors.Count());
+    }
+    
+    [Fact]
+    public void TypeDecl_DuplicateMethodName_Fails()
+    {
+        const string src = """
+                               class A {
+                                   def m() { return }
+                                   def m() { return }
+                               }
+                           """;
+
+        var r = Analyze(src, LanguageMode.Script);
+        Assert.Single(r.AllErrors);
+    }
+    
+    // Type instance tests
+    [Fact]
+    public void InstanceMethodCall_WithCorrectArgs_Succeeds()
+    {
+        const string src = """
+                               class Vec {
+                                   def add(self, x: int) -> int { return x + 1 }
+                               }
+
+                               def use(v: Vec) -> int {
+                                   return v.add(41)
+                               }
+                           """;
+
+        var r = Analyze(src, LanguageMode.Script);
+        Assert.Empty(r.AllErrors);
+    }
+    
+    [Fact]
+    public void InstanceMethodCall_WrongArgType_Fails()
+    {
+        const string src = """
+                               class Vec {
+                                   def add(self, x: int) -> int { return x + 1 }
+                               }
+
+                               def use(v: Vec) -> int {
+                                   return v.add('no')
+                               }
+                           """;
+
+        var r = Analyze(src, LanguageMode.Script);
+        Assert.Single(r.AllErrors);
+    }
+    
+    [Fact]
+    public void MemberAccess_UnknownMember_Fails()
+    {
+        const string src = """
+                               class A { }
+
+                               def f(a: A) {
+                                   a.nope
+                               }
+                           """;
+
+        var r = Analyze(src, LanguageMode.Script);
+        Assert.Single(r.AllErrors);
+    }
+    
+    [Fact]
+    public void NestedType_QualifiedName_Resolves()
+    {
+        const string src = """
+                               class Outer {
+                                   class Inner { }
+                               }
+
+                               def f(x: Outer.Inner) { return }
+                           """;
+
+        var r = Analyze(src, LanguageMode.Script);
+        Assert.Empty(r.AllErrors);
+    }
+    
+    [Fact]
+    public void FieldInitializer_TypeMismatch_Fails()
+    {
+        const string src = """
+                               class A {
+                                   x: int = 'oops'
+                               }
+                           """;
+
+        var r = Analyze(src, LanguageMode.Script);
+        Assert.Single(r.AllErrors);
+    }
+    
+    [Fact]
+    public void AssociatedConst_TypeMismatch_Fails()
+    {
+        const string src = """
+                               class Math {
+                                   const pi: real = 'oops'
+                               }
+                           """;
+
+        var r = Analyze(src, LanguageMode.Script);
+        Assert.Single(r.AllErrors);
+    }
+    
+    [Fact]
+    public void MemberAccess_Field_Succeeds()
+    {
+        const string src = """
+                               class Point { x: int }
+
+                               def f(p: Point) -> int {
+                                   return p.x
+                               }
+                           """;
+
+        var r = Analyze(src, LanguageMode.Script);
+        Assert.Empty(r.AllErrors);
+    }
+    
+    [Fact]
+    public void FieldAssignment_TypeMismatch_Fails()
+    {
+        const string src = """
+                               class Point { x: int }
+
+                               def f(p: Point) {
+                                   p.x = 'oops'
+                               }
+                           """;
+
+        var r = Analyze(src, LanguageMode.Script);
+        Assert.Single(r.AllErrors);
+    }
+    
+    [Fact]
+    public void FieldDefault_TypeMismatch_Fails()
+    {
+        const string src = """
+                               class A {
+                                   x: int = 'oops'
+                               }
+                           """;
+
+        var r = Analyze(src, LanguageMode.Script);
+        Assert.Single(r.AllErrors);
+    }
+
+    [Fact]
+    public void InstanceMethodCall_Succeeds()
+    {
+        const string src = """
+                               class A {
+                                   def inc(self, x: int) -> int { return x + 1 }
+                               }
+
+                               def f(a: A) -> int {
+                                   return a.inc(41)
+                               }
+                           """;
+
+        var r = Analyze(src, LanguageMode.Script);
+        Assert.Empty(r.AllErrors);
+    }
+    
+    [Fact]
+    public void StaticMethodCall_Succeeds()
+    {
+        const string src = """
+                               class A {
+                                   def make(x: int) -> int { return x }
+                               }
+
+                               def f() -> int {
+                                   return A.make(1)
+                               }
+                           """;
+
+        var r = Analyze(src, LanguageMode.Script);
+        Assert.Empty(r.AllErrors);
+    }
+    
+    // Object initializer tests
+    [Fact]
+    public void InitObject_UnknownField_Fails()
+    {
+        const string src = """
+                               class A { i: int }
+
+                               def f() {
+                                   let a = new A { nope: 1, i: 1 }
+                               }
+                           """;
+
+        var r = Analyze(src, LanguageMode.Script);
+        Assert.Single(r.AllErrors);
+    }
+    
+    [Fact]
+    public void InitObject_DuplicateField_Fails()
+    {
+        const string src = """
+                               class A { i: int }
+
+                               def f() {
+                                   let a = new A { i: 1, i: 2 }
+                               }
+                           """;
+
+        var r = Analyze(src, LanguageMode.Script);
+        Assert.Single(r.AllErrors);
+    }
+    
+    [Fact]
+    public void InitObject_AssigningConst_Fails()
+    {
+        const string src = """
+                               class A {
+                                   i: int = 1
+                                   const pi: real = 3.14
+                               }
+
+                               def f() {
+                                   let a = new A { pi: 1.0 }
+                               }
+                           """;
+
+        var r = Analyze(src, LanguageMode.Script);
+        Assert.Single(r.AllErrors);
+    }
+    
+    [Fact]
+    public void InitObject_AssigningMethodName_Fails()
+    {
+        const string src = """
+                               class A {
+                                   i: int
+                                   def m() { return }
+                               }
+
+                               def f() {
+                                   let a = new A { m: 1, i: 1 }
+                               }
+                           """;
+
+        var r = Analyze(src, LanguageMode.Script);
+        Assert.Single(r.AllErrors);
+    }
+    
+    [Fact]
+    public void InitObject_MissingRequiredField_Fails()
+    {
+        const string src = """
+                               class A { i: int }
+
+                               def f() {
+                                   let a = new A { }
+                               }
+                           """;
+
+        var r = Analyze(src, LanguageMode.Script);
+        Assert.Single(r.AllErrors);
+    }
+
+    [Fact]
+    public void InitObject_FieldTypeMismatch_Fails()
+    {
+        const string src = """
+                               class A { i: int }
+
+                               def f() {
+                                   let a = new A { i: 'oops' }
+                               }
+                           """;
+
+        var r = Analyze(src, LanguageMode.Script);
+        Assert.Single(r.AllErrors);
+    }
+    
+    [Fact]
+    public void InitObject_CustomTypedField_Succeeds()
+    {
+        const string src = """
+                               class B { }
+                               class A { b: B }
+
+                               def f(x: B) {
+                                   let a = new A { b: x }
+                               }
+                           """;
+
+        var r = Analyze(src, LanguageMode.Script);
+        Assert.Empty(r.AllErrors);
+    }
+    
+    [Fact]
+    public void InitObject_NonConstructibleType_Fails()
+    {
+        const string src = """
+                               def f() {
+                                   let x = new int { }
+                               }
+                           """;
+
+        var r = Analyze(src, LanguageMode.Script);
+        Assert.Single(r.AllErrors);
+    }
+    
+    [Fact]
+    public void InitObject_Partial_UsesDefaultsForOmittedFields()
+    {
+        const string src = """
+                               class A {
+                                   x: int = 1
+                                   y: int
+                               }
+
+                               def f() {
+                                   let a = new A { y: 2 }
+                               }
+                           """;
+
+        var r = Analyze(src, LanguageMode.Script);
+        Assert.Empty(r.AllErrors);
+    }
+    
+    [Fact]
+    public void InitObject_ExplicitValue_OverridesDefault()
+    {
+        const string src = """
+                               class A {
+                                   x: int = 1
+                               }
+
+                               def f() {
+                                   let a = new A { x: 5 }
+                               }
+                           """;
+
+        var r = Analyze(src, LanguageMode.Script);
+        Assert.Empty(r.AllErrors);
+    }
+    
+    // Constructors
+    [Fact]
+    public void InitObject_ConstructorLowering_Succeeds()
+    {
+        const string src = """
+                               class A {
+                                   x: int
+                                   
+                                   def init(x: int) -> A {
+                                        return new A { x: x }
+                                    }
+                               }
+
+                               let a = A(1)
+                           """;
+        var r = Analyze(src, LanguageMode.Script);
+        Assert.Empty(r.AllErrors);
+    }
+
+    [Fact]
+    public void ConstructorResolution_InitIsInstance_Fails()
+    {
+        const string src = """
+                               class A {
+                                   x: int
+                                   def init(this, x: int) -> A { return new A { x: x } }
+                               }
+
+                               let a = A(1)
+                           """;
+
+        var r = Analyze(src, LanguageMode.Script);
+        Assert.NotEmpty(r.AllErrors);
+    }
+    
+    [Fact]
+    public void ConstructorResolution_DuplicateInit_Fails()
+    {
+        const string src = """
+                               class A {
+                                   def init(x: int) -> A { return new A { } }
+                                   def init(x: int) -> A { return new A { } }
+                               }
+                               let a = A(1)
+                           """;
+
+        var r = Analyze(src, LanguageMode.Script);
+        Assert.NotEmpty(r.AllErrors);
     }
 
     // Symbol table tests

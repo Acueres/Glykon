@@ -10,11 +10,14 @@ public enum IRExpressionKind : byte
     Call,
     Grouping,
     Literal,
-    Variable,
+    Name,
     Assignment,
+    FieldAssignment,
+    MemberAccess,
     Logical,
     Conversion,
-    Range
+    Range,
+    Initializer
 }
 
 public abstract class IRExpression(TypeSymbol type)

@@ -1,4 +1,6 @@
-﻿namespace Glykon.Compiler.Semantics.Types;
+﻿using Glykon.Compiler.Semantics.Symbols;
+
+namespace Glykon.Compiler.Semantics.Types;
 
 public enum TypeKind
 {
@@ -12,21 +14,47 @@ public enum TypeKind
     SerialStart
 }
 
-public class TypeSymbol(int serialId, int nameId, TypeKind kind)
+public class TypeSymbol(
+    int serialId,
+    int nameId,
+    bool isValueType,
+    TypeKind kind)
 {
-    public int SerialId { get; } = serialId;
     public int NameId { get; } = nameId;
+    public bool IsValueType { get; } = isValueType;
     public TypeKind Kind { get; } = kind;
     public bool IsPrimitive => Kind is TypeKind.Int64 or TypeKind.Float64 or TypeKind.Bool or TypeKind.String;
     public bool IsNumeric => Kind is TypeKind.Int64 or TypeKind.Float64;
     public bool IsNone => Kind == TypeKind.None;
     public bool IsError => Kind == TypeKind.Error;
 
+    public MethodSymbol[] Methods { get; set; } = [];
+    public FieldSymbol[] Fields { get; set; } = [];
+    public ConstantSymbol[] Constants { get; set; } = [];
+    public TypeSymbol[] NestedTypes { get; set; } = [];
+
+    public int SerialId { get; } = serialId;
+
+    public Symbol? Find(int nameId)
+    {
+        var field = Fields.FirstOrDefault(f => f.NameId == nameId);
+        if (field is not null) return field;
+        
+        var constant = Constants.FirstOrDefault(c => c.NameId == nameId);
+        if (constant is not null) return constant;
+        
+        var nestedType = NestedTypes.FirstOrDefault(n => n.NameId == nameId);
+        if (nestedType is not null) return new TypeNameSymbol(nameId, nestedType);
+        
+        var method = Methods.FirstOrDefault(m => m.NameId == nameId);
+        return method;
+    }
+
     public static bool operator ==(TypeSymbol a, TypeSymbol b)
     {
         return a.SerialId == b.SerialId;
     }
-    
+
     public static bool operator !=(TypeSymbol a, TypeSymbol b)
     {
         return a.SerialId != b.SerialId;

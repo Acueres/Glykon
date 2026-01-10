@@ -37,11 +37,11 @@ public class Lowerer(IRTree ir, IdentifierInterner interner, TypeSystem ts, Symb
         return new IRBlockStmt(stmts, bodyBlock.Scope);
     }
 
-    IRWhileStmt LowerForToWhile(IRForStmt forStatement)
+    private IRWhileStmt LowerForToWhile(IRForStmt forStatement)
     {
         var range = forStatement.Range;
         
-        var iteratorVariable = new IRVariableExpr(forStatement.Iterator.Symbol);
+        var iteratorVariable = new IRNameExpr(forStatement.Iterator.Symbol);
 
         var stepExpr = range.Step switch
         {
@@ -52,7 +52,7 @@ public class Lowerer(IRTree ir, IdentifierInterner interner, TypeSystem ts, Symb
 
         IRExpression loopCondition = HandleForDirection(range, stepExpr, iteratorVariable);
         var nextIterator = new IRBinaryExpr(BinaryOp.Add, iteratorVariable, stepExpr, ts[TypeKind.Int64]);
-        var iteratorIncrement = new IRAssignmentExpr(nextIterator, iteratorVariable.Symbol);
+        var iteratorIncrement = new IRAssignmentExpr(nextIterator, iteratorVariable.Symbol, ts[TypeKind.None]);
 
         var body = (IRBlockStmt)forStatement.Body;
         var bodyStatements = body.Statements.ToList();
@@ -61,10 +61,10 @@ public class Lowerer(IRTree ir, IdentifierInterner interner, TypeSystem ts, Symb
         return new IRWhileStmt(loopCondition, new IRBlockStmt([..bodyStatements], body.Scope));
     }
 
-    IRExpression HandleForDirection(
+    private IRExpression HandleForDirection(
         IRRangeExpr range,
         IRExpression stepExpr,
-        IRVariableExpr iteratorVariable)
+        IRNameExpr iteratorName)
     {
         var intType = ts[TypeKind.Int64];
         var boolType = ts[TypeKind.Bool];
@@ -88,7 +88,7 @@ public class Lowerer(IRTree ir, IdentifierInterner interner, TypeSystem ts, Symb
 
             return new IRBinaryExpr(
                 comparisonOp,
-                iteratorVariable,
+                iteratorName,
                 range.End,
                 boolType);
         }
@@ -113,14 +113,14 @@ public class Lowerer(IRTree ir, IdentifierInterner interner, TypeSystem ts, Symb
         // Ascending bounds: i < end (or <=)
         var forwardBound = new IRBinaryExpr(
             range.IsInclusive ? BinaryOp.LessOrEqual : BinaryOp.Less,
-            iteratorVariable,
+            iteratorName,
             range.End,
             boolType);
 
         // Descending bounds: i > end (or >=)
         var backwardBound = new IRBinaryExpr(
             range.IsInclusive ? BinaryOp.GreaterOrEqual : BinaryOp.Greater,
-            iteratorVariable,
+            iteratorName,
             range.End,
             boolType);
 
@@ -149,20 +149,24 @@ public class Lowerer(IRTree ir, IdentifierInterner interner, TypeSystem ts, Symb
         List<IRStatement> functions = [];
         List<IRStatement> constants = [];
         List<IRStatement> scriptStatements = [];
+        List<IRTypeDeclaration> types = [];
 
         foreach (var stmt in stmts)
         {
-            if (stmt is IRFunctionDeclaration f)
+            switch (stmt)
             {
-                functions.Add(f);
-            }
-            else if (stmt is IRConstantDeclaration c)
-            {
-                constants.Add(c);
-            }
-            else
-            {
-                scriptStatements.Add(stmt);
+                case IRFunctionDeclaration f:
+                    functions.Add(f);
+                    break;
+                case IRConstantDeclaration c:
+                    constants.Add(c);
+                    break;
+                case IRTypeDeclaration t:
+                    types.Add(t);
+                    break;
+                default:
+                    scriptStatements.Add(stmt);
+                    break;
             }
         }
 
@@ -188,6 +192,6 @@ public class Lowerer(IRTree ir, IdentifierInterner interner, TypeSystem ts, Symb
         
         functions.Add(mainDeclaration);
         
-        return [..constants, ..functions];
+        return [..constants, ..types, ..functions];
     }
 }

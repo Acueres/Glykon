@@ -4,30 +4,28 @@ namespace Glykon.Cli;
 
 internal static class Program
 {
-    static void Main(string[] args)
+    private static void Main(string[] args)
     {
         const string filename = "Test";
         const string src = """
 
                                        def main() {
                                             for i in 0..21 {
-                                                println(fib(i));
+                                                println(fib(i) as str)
                                             }
                                        }
                                        
                                        def fib(n: int) -> int {
-                                            let a = 0;
-                                            let b = 1;
-                                            let i = 0;
-                           
-                                            while i < n {
-                                                let next = a + b;
-                                                a = b;
-                                                b = next;
-                                                i = i + 1;
+                                            let a = 0
+                                            let b = 1
+
+                                            for i in 0..n {
+                                                let next = a + b
+                                                a = b
+                                                b = next
                                             }
                            
-                                        return a;
+                                        return a
                                       }
                            """;
         GlykonRuntime runtime = new(src, filename);

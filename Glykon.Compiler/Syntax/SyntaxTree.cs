@@ -8,7 +8,7 @@ public class SyntaxTree(Statement[] statements, string fileName) : IEnumerable<S
 {
     public readonly string FileName = fileName;
 
-    readonly Statement[] statements = statements;
+    private readonly Statement[] statements = statements;
 
     public Statement this[int index]
     {

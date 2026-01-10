@@ -24,9 +24,9 @@ public enum TokenKind : byte
     Less, LessEqual, //< <=
 
     // Keywords
-    Identifier, Class, Struct, Interface, Enum, Def, Let, Const,
+    Identifier, Class, Struct, Interface, New, Enum, Def, Let, Const,
     And, Not, Or,
-    If, Else, Elif, For, By, In, While, Return, Break, Continue,
+    If, Else, Elif, For, By, In, As, While, Return, Break, Continue,
 
     EOF
 }
@@ -39,7 +39,7 @@ public readonly struct Token
 
     public string Text => Span!.Value.Text;
 
-    static readonly Token empty = new(TokenKind.Empty, 0);
+    private static readonly Token empty = new(TokenKind.Empty, 0);
     public static ref readonly Token Empty => ref empty;
 
     public bool IsEmpty => Kind == TokenKind.Empty;

@@ -2,9 +2,9 @@
 
 namespace Glykon.Compiler.Semantics.IR.Expressions;
 
-public class IRCallExpr(FunctionSymbol function, IRExpression[] parameters) : IRExpression(function.Type)
+public class IRCallExpr(Symbol callable, IRExpression[] parameters) : IRExpression(callable.Type)
 {
     public override IRExpressionKind Kind => IRExpressionKind.Call;
-    public FunctionSymbol Function { get; } = function;
+    public Symbol Callable { get; } = callable;
     public IRExpression[] Parameters { get; } = parameters;
 }

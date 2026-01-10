@@ -5,9 +5,9 @@ namespace Glykon.Compiler.Diagnostics.Errors
 {
     public class ParseError(Token? token, string filename, string message) : IGlykonError
     {
-        readonly Token? token = token;
-        readonly string filename = filename;
-        readonly string message = message;
+        private readonly Token? token = token;
+        private readonly string filename = filename;
+        private readonly string message = message;
 
         public void Report()
         {

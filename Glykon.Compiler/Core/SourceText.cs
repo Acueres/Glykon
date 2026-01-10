@@ -6,7 +6,7 @@ public class SourceText(string fileName, string text)
     public ReadOnlyMemory<char> Buffer { get; } = text.AsMemory();
     public int Length => Buffer.Length;
 
-    readonly string text = text;
+    private readonly string text = text;
 
     public ReadOnlySpan<char> Slice(TextSpan span) =>
         Buffer.Span.Slice(span.Start, span.Length);

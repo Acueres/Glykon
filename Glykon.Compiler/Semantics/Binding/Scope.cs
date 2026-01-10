@@ -1,5 +1,4 @@
-﻿using Glykon.Compiler.Core;
-using Glykon.Compiler.Semantics.Symbols;
+﻿using Glykon.Compiler.Semantics.Symbols;
 using Glykon.Compiler.Semantics.Types;
 
 namespace Glykon.Compiler.Semantics.Binding;
@@ -8,21 +7,25 @@ public enum ScopeKind
 {
     Top,
     Function,
+    Method,
+    Type,
     Block
 }
 
 public class Scope
 {
-    public Scope Parent { get; }
+    public Scope? Parent { get; }
     public ScopeKind Kind { get; }
 
     public FunctionSymbol? ContainingFunction { get; }
+    public MethodSymbol? ContainingMethod { get; }
 
-    readonly Dictionary<int, Symbol> symbols = [];
-    readonly Dictionary<int, List<FunctionSymbol>> functions = [];
-    readonly Dictionary<int, TypeSymbol> types = [];
+    private readonly Dictionary<int, Symbol> symbols = [];
+    private readonly Dictionary<int, FunctionSymbol> functions = [];
+    private readonly Dictionary<int, MethodSymbol> methods = [];
+    private readonly Dictionary<int, TypeSymbol> types = [];
 
-    int parameterCount = 0;
+    private int parameterCount;
 
     public Scope(Scope parent, ScopeKind scopeKind)
     {
@@ -37,104 +40,79 @@ public class Scope
         Kind = ScopeKind.Function;
         ContainingFunction = function;
     }
+    
+    public Scope(Scope parent, MethodSymbol method)
+    {
+        Parent = parent;
+        Kind = ScopeKind.Method;
+        ContainingMethod = method;
+    }
 
     public Scope() { Kind = ScopeKind.Top; }
 
-    public FunctionSymbol? GetLocalFunction(int id, TypeSymbol[] parameters)
+    public FunctionSymbol? GetLocalFunction(int id)
     {
-        if (functions.TryGetValue(id, out var localOverloads))
-        {
-            foreach (var overload in localOverloads)
-            {
-                if (overload.Parameters.SequenceEqual(parameters))
-                {
-                    return overload;
-                }
-            }
-        }
-
-        return null;
+        return functions.GetValueOrDefault(id);
     }
 
-    public FunctionSymbol? AddFunction(int symbolId, int serialId, int qualifiedId, TypeSymbol returnType, TypeSymbol[] parameters)
+    public FunctionSymbol? AddFunction(int symbolId, int serialId, int qualifiedId, TypeSymbol returnType,
+        TypeSymbol[] parameters)
     {
-        FunctionSymbol symbol;
+        FunctionSymbol symbol = new(symbolId, serialId, qualifiedId, returnType, parameters);
 
-        if (functions.TryGetValue(symbolId, out List<FunctionSymbol>? overloads))
-        {
-            foreach (var overload in overloads)
-            {
-                if (parameters.Length == overload.Parameters.Length)
-                {
-                    if (parameters.SequenceEqual(overload.Parameters))
-                    {
-                        return null;
-                    }
-                }
-            }
-
-            symbol = new(symbolId, serialId, qualifiedId, returnType, parameters);
-            overloads.Add(symbol);
-        }
-        else
-        {
-            symbol = new(symbolId, serialId, qualifiedId, returnType, parameters);
-            functions.Add(symbolId, [symbol]);
-        }
+        functions.TryAdd(symbolId, symbol);
 
         return symbol;
     }
 
-    public FunctionSymbol? GetFunction(int id, TypeSymbol[] parameters)
+    public FunctionSymbol? GetFunction(int id)
     {
-        var allOverloads = GetFunctionOverloads(id);
-
-        foreach (var overload in allOverloads)
+        if (!functions.TryGetValue(id, out var symbol))
         {
-            if (overload.Parameters.SequenceEqual(parameters))
-            {
-                return overload;
-            }
+            return Parent?.GetFunction(id);
         }
-
-        return null;
+        
+        return symbol;
     }
 
-    public FunctionSymbol[] GetFunctionOverloads(int id)
+    public MethodSymbol? AddMethod(int symbolId, TypeSymbol returnType, TypeSymbol parentType, TypeSymbol[] parameters,
+        bool isStatic)
     {
-        List<FunctionSymbol> allOverloads = [];
+        MethodSymbol symbol = new(symbolId, returnType, parentType, parameters, isStatic);
 
-        if (functions.TryGetValue(id, out List<FunctionSymbol>? localOverloads))
+        methods.TryAdd(symbolId, symbol);
+
+        return symbol;
+    }
+
+    public MethodSymbol? GetMethod(int id)
+    {
+        if (!methods.TryGetValue(id, out var symbol))
         {
-            allOverloads.AddRange(localOverloads);
+            return Parent?.GetMethod(id);
         }
-
-        if (Parent is not null)
-        {
-            allOverloads.AddRange(Parent.GetFunctionOverloads(id));
-        }
-
-        return [..allOverloads];
+        
+        return symbol;
     }
 
     public ConstantSymbol RegisterConstant(int id, TypeSymbol type)
     {
         ConstantSymbol symbol = new(id, type);
-        symbols.Add(id, symbol);
+        symbols.TryAdd(id, symbol);
         return symbol;
     }
 
     public ParameterSymbol AddParameter(int id, TypeSymbol type)
     {
         ParameterSymbol symbol = new(id, type, parameterCount++);
-        symbols.Add(id, symbol);
+        symbols.TryAdd(id, symbol);
         return symbol;
     }
 
-    public VariableSymbol AddVariable(int id, TypeSymbol type)
+    public VariableSymbol AddVariable(int id, bool immutable, TypeSymbol type)
     {
-        VariableSymbol symbol = new(id, type);
-        symbols.Add(id, symbol);
+        VariableSymbol symbol = new(id, immutable, type);
+        symbols.TryAdd(id, symbol);
         return symbol;
     }
 
@@ -142,8 +120,8 @@ public class Scope
     {
         if (!symbols.TryGetValue(id, out Symbol? symbol) || symbol is not VariableSymbol variable)
         {
-            if (Kind == ScopeKind.Function) return null;
-            return Parent is null ? null : Parent.GetVariable(id);
+            if (Kind is ScopeKind.Function or ScopeKind.Method) return null;
+            return Parent?.GetVariable(id);
         }
         
         return variable;
@@ -151,19 +129,14 @@ public class Scope
 
     public void AddType(int id, TypeSymbol type)
     {
-        types.Add(id, type);
+        types.TryAdd(id, type);
     }
 
     public TypeSymbol? GetType(int id)
     {
-        if (!types.TryGetValue(id, out TypeSymbol? symbol))
+        if (!types.TryGetValue(id, out var symbol))
         {
-            if (Parent is null)
-            {
-                return null;
-            }
-
-            return Parent.GetType(id);
+            return Parent?.GetType(id);
         }
 
         return symbol;
@@ -171,14 +144,9 @@ public class Scope
 
     public Symbol? GetSymbol(int id)
     {
-        if (!symbols.TryGetValue(id, out Symbol? symbol))
+        if (!symbols.TryGetValue(id, out var symbol))
         {
-            if (Parent is null)
-            {
-                return null;
-            }
-
-            return Parent.GetSymbol(id);
+            return Parent?.GetSymbol(id);
         }
 
         return symbol;

@@ -1,29 +1,40 @@
-﻿using Glykon.Compiler.Core;
-using Glykon.Compiler.Semantics.Symbols;
+﻿using Glykon.Compiler.Semantics.Symbols;
 using Glykon.Compiler.Semantics.Types;
 
 namespace Glykon.Compiler.Semantics.Binding;
 
 public class SymbolTable
 {
-    readonly Scope top = new();
-    readonly List<Scope> scopes;
-    readonly IdentifierInterner interner;
+    private readonly Scope top = new();
+    private readonly IdentifierInterner interner;
 
-    Scope current;
+    private Scope current;
 
-    int functionSerial;
+    private int functionSerial;
 
     public SymbolTable(IdentifierInterner interner)
     {
-        scopes = [top];
         current = top;
         this.interner = interner;
     }
 
-    public FunctionSymbol? GetCurrentFunction()
+    public bool TryGetCurrentContainer(out Symbol? containerSymbol)
     {
-        return current.ContainingFunction;
+        containerSymbol = null;
+
+        if (current.ContainingFunction is not null)
+        {
+            containerSymbol = current.ContainingFunction;
+            return true;
+        }
+
+        if (current.ContainingMethod is not null)
+        {
+            containerSymbol = current.ContainingMethod;
+            return true;
+        }
+
+        return false;
     }
     
     public Symbol? GetSymbol(string name)
@@ -38,28 +49,42 @@ public class SymbolTable
         return current.GetVariable(id);
     }
 
-    public FunctionSymbol? GetFunction(string name, TypeSymbol[] parameters)
+    public FunctionSymbol? GetFunction(string name)
     {
         if (!interner.TryGetId(name, out var id)) return null;
-        return current.GetFunction(id, parameters);
+        return current.GetFunction(id);
     }
 
-    public FunctionSymbol[] GetFunctionOverloads(string name)
-    {
-        if (!interner.TryGetId(name, out var id)) return [];
-        return current.GetFunctionOverloads(id);
-    }
-
-    public FunctionSymbol? GetLocalFunction(string name, TypeSymbol[] parameters)
+    public FunctionSymbol? GetLocalFunction(string name)
     {
         if (!interner.TryGetId(name, out var nameId)) return null;
-        return current.GetLocalFunction(nameId, parameters);
+        return current.GetLocalFunction(nameId);
+    }
+    
+    public bool TryGetFunction(string name, out FunctionSymbol? function)
+    {
+        function = null;
+        if (!interner.TryGetId(name, out var id)) return false;
+        function = current.GetFunction(id);
+        
+        return function is not null;
     }
 
-    public TypeSymbol? GetType(string name)
+    public bool TryGetMethod(string name, out MethodSymbol? method)
     {
-        if (!interner.TryGetId(name, out var nameId)) return null;
-        return current.GetType(nameId);
+        method = null;
+        if (!interner.TryGetId(name, out var id)) return false;
+        method = current.GetMethod(id);
+        
+        return method is not null;
+    }
+
+    public bool TryGetType(string name, out TypeSymbol? type)
+    {
+        type = null;
+        if (!interner.TryGetId(name, out var nameId)) return false;
+        type = current.GetType(nameId);
+        return type is not null;
     }
     
     public FunctionSymbol? RegisterFunction(string name, TypeSymbol returnType, TypeSymbol[] parameterTypes)
@@ -68,6 +93,14 @@ public class SymbolTable
         string qualifiedName = ComputeQualifiedName(name);
         int qualifiedId = interner.Intern(qualifiedName);
         FunctionSymbol? signature = current.AddFunction(symbolIndex, functionSerial++, qualifiedId, returnType, parameterTypes);
+        return signature;
+    }
+
+    public MethodSymbol? RegisterMethod(string name, TypeSymbol returnType, TypeSymbol parentType,
+        TypeSymbol[] parameterTypes, bool isStatic)
+    {
+        int symbolIndex = interner.Intern(name);
+        MethodSymbol? signature = current.AddMethod(symbolIndex, returnType, parentType, parameterTypes, isStatic);
         return signature;
     }
 
@@ -85,10 +118,10 @@ public class SymbolTable
         return parameter;
     }
 
-    public VariableSymbol RegisterVariable(string name, TypeSymbol type)
+    public VariableSymbol RegisterVariable(string name, bool immutable, TypeSymbol type)
     {
         int symbolIndex = interner.Intern(name);
-        VariableSymbol variable = current.AddVariable(symbolIndex, type);
+        VariableSymbol variable = current.AddVariable(symbolIndex, immutable, type);
         return variable;
     }
 
@@ -102,20 +135,27 @@ public class SymbolTable
     public Scope BeginScope(ScopeKind scopeKind)
     {
         current = new Scope(current, scopeKind);
-        scopes.Add(current);
         return current;
     }
 
     public Scope BeginScope(FunctionSymbol containingFunction)
     {
         current = new Scope(current, containingFunction);
-        scopes.Add(current);
+        return current;
+    }
+    
+    public Scope BeginScope(MethodSymbol containingMethod)
+    {
+        current = new Scope(current, containingMethod);
         return current;
     }
 
-    public void ExitScope()
+    public void EndScope()
     {
-        current = current.Parent;
+        if (current.Parent is not null)
+        {
+            current = current.Parent;
+        }
     }
 
     public void ResetScope()
@@ -123,20 +163,20 @@ public class SymbolTable
         current = top;
     }
 
-    string ComputeQualifiedName(string localName)
+    private string ComputeQualifiedName(string localName)
     {
         var stack = GetContainingFunctionStack();
         return stack.Count == 0 ? localName : string.Join('.', stack.Append(localName));
     }
 
-    List<string> GetContainingFunctionStack()
+    private List<string> GetContainingFunctionStack()
     {
-        Scope currentScope = current;
+        Scope? currentScope = current;
         List<string> stack = [];
 
-        while (currentScope != null)
+        while (currentScope is not null)
         {
-            if (currentScope.Kind == ScopeKind.Function && currentScope.ContainingFunction != null)
+            if (currentScope is { Kind: ScopeKind.Function, ContainingFunction: not null })
             {
                 string name = interner[currentScope.ContainingFunction.NameId];
                 stack.Add(name);

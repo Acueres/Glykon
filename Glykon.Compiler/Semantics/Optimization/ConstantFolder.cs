@@ -1,3 +1,5 @@
+using System.Globalization;
+
 using Glykon.Compiler.Core;
 using Glykon.Compiler.Diagnostics.Errors;
 using Glykon.Compiler.Semantics.Binding;
@@ -8,7 +10,6 @@ using Glykon.Compiler.Semantics.Operators;
 using Glykon.Compiler.Semantics.Rewriting;
 using Glykon.Compiler.Semantics.Symbols;
 using Glykon.Compiler.Semantics.Types;
-using Glykon.Compiler.Syntax;
 
 namespace Glykon.Compiler.Semantics.Optimization;
 
@@ -25,9 +26,9 @@ public class ConstantFolder(IRTree irTree, TypeSystem typeSystem, IdentifierInte
     
     protected override IRExpression RewriteUnary(IRUnaryExpr unaryExpr)
     {
-        var opnd = VisitExpr(unaryExpr.Operand);
-        if (!ReferenceEquals(opnd, unaryExpr.Operand)) unaryExpr = new IRUnaryExpr(unaryExpr.Operator, opnd, unaryExpr.Type);
-        if (opnd is not IRLiteralExpr lit) return unaryExpr;
+        var operand = VisitExpr(unaryExpr.Operand);
+        if (!ReferenceEquals(operand, unaryExpr.Operand)) unaryExpr = new IRUnaryExpr(unaryExpr.Operator, operand, unaryExpr.Type);
+        if (operand is not IRLiteralExpr lit) return unaryExpr;
         if (TryFoldUnary(unaryExpr.Operator, lit, out var folded)) return folded;
 
         return unaryExpr;
@@ -72,7 +73,7 @@ public class ConstantFolder(IRTree irTree, TypeSystem typeSystem, IdentifierInte
         return logicalExpr;
     }
 
-    protected override IRStatement RewriteConstantDeclaration(IRConstantDeclaration c)
+    protected override IRConstantDeclaration RewriteConstantDeclaration(IRConstantDeclaration c)
     {
         var foldedInitializer = VisitExpr(c.Initializer);
 
@@ -92,9 +93,9 @@ public class ConstantFolder(IRTree irTree, TypeSystem typeSystem, IdentifierInte
             : new IRConstantDeclaration(foldedInitializer, c.Symbol);
     }
 
-    protected override IRExpression RewriteVariable(IRVariableExpr v)
+    protected override IRExpression RewriteName(IRNameExpr v)
     {
-        if (v.Symbol is ConstantSymbol c && !c.Value.IsNone)
+        if (v.Symbol is ConstantSymbol { Value.IsNone: false } c)
         {
             return new IRLiteralExpr(c.Value, v.Type);
         }
@@ -142,10 +143,37 @@ public class ConstantFolder(IRTree irTree, TypeSystem typeSystem, IdentifierInte
             {
                 return lit;
             }
+            
             // int to float
             if (cnv.Type.Kind == TypeKind.Float64 && lit.Value.Kind == ConstantKind.Int)
             {
                 return new IRLiteralExpr(ConstantValue.FromReal(lit.Value.Int), typeSystem[TypeKind.Float64]);
+            }
+            
+            // string conversions
+            if (cnv.Type.Kind == TypeKind.String)
+            {
+                var stringType = typeSystem[TypeKind.String];
+                // int to string
+                if (lit.Value.Kind == ConstantKind.Int)
+                {
+                    return new IRLiteralExpr(ConstantValue.FromString(lit.Value.Int.ToString()), stringType);
+                }
+                
+                // real to string
+                if (lit.Value.Kind == ConstantKind.Real)
+                {
+                    return new IRLiteralExpr(ConstantValue.FromString(lit.Value.Real.ToString(CultureInfo.InvariantCulture)), stringType);
+                }
+                
+                // boolean to string
+                if (lit.Value.Kind == ConstantKind.Bool)
+                {
+                    return new IRLiteralExpr(ConstantValue.FromString(lit.Value.Bool.ToString()), stringType);
+                }
+                
+                // string identity
+                if (lit.Value.Kind == ConstantKind.String) return lit;
             }
             
             var error = new ConstantFoldingError(filename,

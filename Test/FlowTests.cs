@@ -56,7 +56,7 @@ public class FlowTests : CompilerTestBase
     {
         const string src = """
             while true {
-                return 1   # still outside any function
+                return 1
             }
         """;
         
