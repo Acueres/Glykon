@@ -6,6 +6,8 @@ public enum TokenKind : byte
 {
     // Sentinel
     Empty,
+    // Cursor (for parser prediction mode)
+    Cursor,
 
     // Literals
     None, LiteralInt, LiteralReal, LiteralString, LiteralTrue, LiteralFalse,

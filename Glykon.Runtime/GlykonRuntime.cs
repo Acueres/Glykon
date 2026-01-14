@@ -140,10 +140,10 @@ public sealed class GlykonRuntime(string source, string fileName)
     {
         var text = new SourceText(file, src);
 
-        var lexer = new Lexer(text, file);
+        var lexer = new Lexer(text, file, SyntaxMode.Normal);
         var lexResult = lexer.Lex();
 
-        var parser = new Parser(lexResult, file);
+        var parser = new Parser(lexResult, file, SyntaxMode.Normal);
         var parseResult = parser.Parse();
         
         var semanticAnalyzer = new SemanticAnalyzer(parseResult, mode, file);

@@ -4,6 +4,7 @@ using Glykon.Compiler.Semantics.IR.Expressions;
 using Glykon.Compiler.Semantics.IR.Statements;
 using Glykon.Compiler.Semantics.Symbols;
 using Glykon.Compiler.Semantics.Types;
+using Glykon.Compiler.Syntax;
 using Tests.Infrastructure;
 
 namespace Tests;
@@ -14,7 +15,7 @@ public class TypeTests : CompilerTestBase
 
     private IGlykonError[] Check(string src, string file)
     {
-        var semanticResult = Analyze(src, LanguageMode.Script, file);
+        var semanticResult = Analyze(src, LanguageMode.Script, SyntaxMode.Normal, file);
         return [..semanticResult.AllErrors];
     }
 

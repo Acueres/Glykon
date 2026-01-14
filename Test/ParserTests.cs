@@ -19,8 +19,8 @@ namespace Tests
                                            
                                """;
 
-            var (syntaxTree, _, lexErrors, errors) = Parse(src);
-            
+            var (syntaxTree, _, lexErrors, errors, _) = Parse(src);
+
             Assert.Empty(lexErrors);
             Assert.Empty(errors);
             Assert.NotEmpty(syntaxTree);
@@ -55,9 +55,9 @@ namespace Tests
                                            }
                                            
                                """;
-            
-            var (syntaxTree, _, lexErrors, errors) = Parse(src);
-            
+
+            var (syntaxTree, _, lexErrors, errors, _) = Parse(src);
+
             Assert.Empty(lexErrors);
             Assert.Empty(errors);
             Assert.Equal(3, syntaxTree.Length);
@@ -83,9 +83,9 @@ namespace Tests
                                            }
                                            
                                """;
-            
-            var (syntaxTree, _, lexErrors, errors) = Parse(src);
-            
+
+            var (syntaxTree, _, lexErrors, errors, _) = Parse(src);
+
             Assert.Empty(lexErrors);
             Assert.Empty(errors);
             Assert.Equal(2, syntaxTree.Length);
@@ -94,7 +94,7 @@ namespace Tests
             Assert.NotNull(whileStmt.Body);
             Assert.NotNull(whileStmt.Condition);
         }
-        
+
         [Fact]
         public void ForStatement()
         {
@@ -103,9 +103,9 @@ namespace Tests
                                     println(i)
                                }
                                """;
-            
-            var (syntaxTree, _, lexErrors, errors) = Parse(src);
-            
+
+            var (syntaxTree, _, lexErrors, errors, _) = Parse(src);
+
             Assert.Empty(lexErrors);
             Assert.Empty(errors);
             Assert.Single(syntaxTree);
@@ -117,7 +117,7 @@ namespace Tests
             Assert.True(forStmt.Range.IsInclusive);
             Assert.NotNull(forStmt.Body);
         }
-        
+
         [Fact]
         public void ClassDeclaration()
         {
@@ -137,9 +137,9 @@ namespace Tests
                                             }
                                     }
                                """;
-            
-            var (syntaxTree, _, lexErrors, parseErrors) = Parse(src);
-            
+
+            var (syntaxTree, _, lexErrors, parseErrors, _) = Parse(src);
+
             Assert.Empty(lexErrors);
             Assert.Empty(parseErrors);
             Assert.Single(syntaxTree);
@@ -147,16 +147,16 @@ namespace Tests
 
             var classDecl = (TypeDeclaration)syntaxTree.First();
             Assert.Equal("Test", classDecl.Name);
-            
+
             var methods = classDecl.Methods;
 
             Assert.Equal(2, methods.Length);
             Assert.False(methods[0].IsStatic);
             Assert.True(methods[1].IsStatic);
-            
+
             var fields = classDecl.Fields;
             Assert.Equal(2, fields.Length);
-            
+
             var constants = classDecl.Constants;
             Assert.Single(constants);
         }
@@ -171,9 +171,9 @@ namespace Tests
                                            }
                                            
                                """;
-            
-            var (syntaxTree, _, lexErrors, errors) = Parse(src);
-            
+
+            var (syntaxTree, _, lexErrors, errors, _) = Parse(src);
+
             Assert.Empty(lexErrors);
             Assert.Empty(errors);
             Assert.Single(syntaxTree);
@@ -194,9 +194,9 @@ namespace Tests
         public void ConstantDeclaration()
         {
             const string src = "const pi: real = 3.14";
-            
-            var (syntaxTree, _, lexErrors, errors) = Parse(src);
-            
+
+            var (syntaxTree, _, lexErrors, errors, _) = Parse(src);
+
             Assert.Empty(lexErrors);
             Assert.Empty(errors);
             Assert.Single(syntaxTree);
@@ -207,9 +207,9 @@ namespace Tests
         public void VariableDeclaration()
         {
             const string src = "let value = 42;";
-            
-            var (syntaxTree, _, lexErrors, errors) = Parse(src);
-            
+
+            var (syntaxTree, _, lexErrors, errors, _) = Parse(src);
+
             Assert.Empty(lexErrors);
             Assert.Empty(errors);
             Assert.NotEmpty(syntaxTree);
@@ -218,7 +218,7 @@ namespace Tests
             VariableDeclaration stmt = (VariableDeclaration)syntaxTree.First();
             Assert.Equal("value", stmt.Name);
             Assert.NotNull(stmt.Initializer);
-            
+
             var name = (NameExpr)stmt.DeclaredType.Expression;
             Assert.Equal("none", name.Name);
             Assert.Equal(42, ((LiteralExpr)stmt.Initializer).Value.Int);
@@ -228,9 +228,9 @@ namespace Tests
         public void VariableTypeDeclaration()
         {
             const string src = "let value: int = 42;";
-            
-            var (syntaxTree, _, lexErrors, errors) = Parse(src);
-            
+
+            var (syntaxTree, _, lexErrors, errors, _) = Parse(src);
+
             Assert.Empty(lexErrors);
             Assert.Empty(errors);
             Assert.NotEmpty(syntaxTree);
@@ -239,7 +239,7 @@ namespace Tests
             VariableDeclaration stmt = (VariableDeclaration)syntaxTree.First();
             Assert.Equal("value", stmt.Name);
             Assert.NotNull(stmt.Initializer);
-            
+
             var name = (NameExpr)stmt.DeclaredType.Expression;
             Assert.Equal("int", name.Name);
             Assert.Equal(42, (stmt.Initializer as LiteralExpr).Value.Int);
@@ -253,9 +253,9 @@ namespace Tests
                                            function('call test')
                                            
                                """;
-            
-            var (syntaxTree, _, lexErrors, errors) = Parse(src);
-            
+
+            var (syntaxTree, _, lexErrors, errors, _) = Parse(src);
+
             Assert.Empty(lexErrors);
             Assert.Empty(errors);
             Assert.Single(syntaxTree);
@@ -271,9 +271,9 @@ namespace Tests
             const string src = """
 
                                            42 as str
-                               """; 
-            var (syntaxTree, _, lexErrors, errors) = Parse(src);
-            
+                               """;
+            var (syntaxTree, _, lexErrors, errors, _) = Parse(src);
+
             Assert.Empty(lexErrors);
             Assert.Empty(errors);
             Assert.Single(syntaxTree);
@@ -295,9 +295,9 @@ namespace Tests
             const string src = """
                                             let a = 5
                                             a = 3
-                               """; 
-            var (syntaxTree, _, lexErrors, errors) = Parse(src);
-            
+                               """;
+            var (syntaxTree, _, lexErrors, errors, _) = Parse(src);
+
             Assert.Empty(lexErrors);
             Assert.Empty(errors);
             Assert.Equal(2, syntaxTree.Length);
@@ -311,11 +311,11 @@ namespace Tests
         public void UnaryOperator()
         {
             const string src = "not false;";
-            
-            var (syntaxTree, _, lexErrors, errors) = Parse(src);
+
+            var (syntaxTree, _, lexErrors, errors, _) = Parse(src);
             var exprStmt = GetStmt<ExpressionStmt>(syntaxTree.Single());
             var ast = exprStmt.Expression;
-            
+
             Assert.Empty(lexErrors);
             Assert.Empty(errors);
             Assert.NotNull(ast);
@@ -331,11 +331,11 @@ namespace Tests
         public void Equality()
         {
             const string src = "true == false;";
-            
-            var (syntaxTree, _, lexErrors, errors) = Parse(src);
+
+            var (syntaxTree, _, lexErrors, errors, _) = Parse(src);
             var exprStmt = GetStmt<ExpressionStmt>(syntaxTree.Single());
             var ast = exprStmt.Expression;
-            
+
             Assert.Empty(lexErrors);
             Assert.Empty(errors);
             Assert.NotNull(ast);
@@ -353,11 +353,11 @@ namespace Tests
         public void Comparison()
         {
             const string src = "2 > 1;";
-            
-            var (syntaxTree, _, lexErrors, errors) = Parse(src);
+
+            var (syntaxTree, _, lexErrors, errors, _) = Parse(src);
             var exprStmt = GetStmt<ExpressionStmt>(syntaxTree.Single());
             var ast = exprStmt.Expression;
-            
+
             Assert.Empty(lexErrors);
             Assert.Empty(errors);
             Assert.NotNull(ast);
@@ -375,11 +375,11 @@ namespace Tests
         public void Term()
         {
             const string src = "2 - 3;";
-            
-            var (syntaxTree, _, lexErrors, errors) = Parse(src);
+
+            var (syntaxTree, _, lexErrors, errors, _) = Parse(src);
             var exprStmt = GetStmt<ExpressionStmt>(syntaxTree.Single());
             var ast = exprStmt.Expression;
-            
+
             Assert.Empty(lexErrors);
             Assert.Empty(errors);
             Assert.NotNull(ast);
@@ -397,11 +397,11 @@ namespace Tests
         public void Factor()
         {
             const string src = "6 / 3;";
-            
-            var (syntaxTree, _, lexErrors, errors) = Parse(src);
+
+            var (syntaxTree, _, lexErrors, errors, _) = Parse(src);
             var exprStmt = GetStmt<ExpressionStmt>(syntaxTree.Single());
             var ast = exprStmt.Expression;
-            
+
             Assert.Empty(lexErrors);
             Assert.Empty(errors);
             Assert.NotNull(ast);
@@ -419,11 +419,11 @@ namespace Tests
         public void LogicalAnd()
         {
             const string src = "true and false;";
-            
-            var (syntaxTree, _, lexErrors, errors) = Parse(src);
+
+            var (syntaxTree, _, lexErrors, errors, _) = Parse(src);
             var exprStmt = GetStmt<ExpressionStmt>(syntaxTree.Single());
             var ast = exprStmt.Expression;
-            
+
             Assert.Empty(lexErrors);
             Assert.Empty(errors);
             Assert.NotNull(ast);
@@ -441,11 +441,11 @@ namespace Tests
         public void LogicalOr()
         {
             const string src = "true or false;";
-            
-            var (syntaxTree, _, lexErrors, errors) = Parse(src);
+
+            var (syntaxTree, _, lexErrors, errors, _) = Parse(src);
             var exprStmt = GetStmt<ExpressionStmt>(syntaxTree.Single());
             var ast = exprStmt.Expression;
-            
+
             Assert.Empty(lexErrors);
             Assert.Empty(errors);
             Assert.NotNull(ast);
@@ -463,32 +463,109 @@ namespace Tests
         public void InitObject()
         {
             const string src = "let a = new A { field1: 1, field2: 2 }";
-            
-            var (syntaxTree, _, lexErrors, errors) = Parse(src);
+
+            var (syntaxTree, _, lexErrors, errors, _) = Parse(src);
 
             Assert.Empty(lexErrors);
             Assert.Empty(errors);
-            
+
             var variableDeclaration = GetStmt<VariableDeclaration>(syntaxTree.Single());
             Assert.Equal(ExpressionKind.Initializer, variableDeclaration.Initializer.Kind);
 
             var initObj = (InitializerExpr)variableDeclaration.Initializer;
             Assert.Equal(ExpressionKind.Name, initObj.TypeName.Expression.Kind);
-            
+
             var name = (NameExpr)initObj.TypeName.Expression;
             Assert.Equal("A", name.Name);
-            
+
             Assert.Equal(2, initObj.Initializers.Length);
             var first = initObj.Initializers[0];
             var second = initObj.Initializers[1];
-            
+
             Assert.Equal("field1", first.Name);
             Assert.Equal("field2", second.Name);
-            
+
             Assert.Equal(ExpressionKind.Literal, first.Value.Kind);
             Assert.Equal(ExpressionKind.Literal, second.Value.Kind);
         }
-        
+
+        [Fact]
+        public void InitObject_Disallows_Conversion_In_TypeName()
+        {
+            const string src = "let a = new A as B { f: 1 }";
+
+            var (_, _, lexErrors, parseErrors, _) = Parse(src);
+
+            Assert.Empty(lexErrors);
+            Assert.NotEmpty(parseErrors);
+        }
+
+        [Fact]
+        public void InitObject_Disallows_Call_Or_MemberAccess_In_TypeName()
+        {
+            const string src = "let a = new A().B { f: 1 }";
+
+            var (_, _, lexErrors, parseErrors, _) = Parse(src);
+
+            Assert.Empty(lexErrors);
+            Assert.NotEmpty(parseErrors);
+        }
+
+        [Fact]
+        public void InitObject_Disallows_Parenthesized_TypeName()
+        {
+            const string src = "let a = new (A) { f: 1 }";
+
+            var (_, _, lexErrors, parseErrors, _) = Parse(src);
+
+            Assert.Empty(lexErrors);
+            Assert.NotEmpty(parseErrors);
+        }
+
+        [Fact]
+        public void InitObject_Allows_Qualified_TypeName()
+        {
+            const string src = "let a = new Outer.Inner { f: 1 }";
+
+            var (syntaxTree, _, lexErrors, errors, _) = Parse(src);
+
+            Assert.Empty(lexErrors);
+            Assert.Empty(errors);
+            Assert.Single(syntaxTree);
+
+            var variableDeclaration = GetStmt<VariableDeclaration>(syntaxTree.Single());
+            var initObj = Assert.IsType<InitializerExpr>(variableDeclaration.Initializer);
+
+            AssertTypePath(initObj.TypeName.Expression, "Outer", "Inner");
+            Assert.Single(initObj.Initializers);
+            Assert.Equal("f", initObj.Initializers[0].Name);
+        }
+
+        [Fact]
+        public void Conversion_On_InitObject_Value_Is_Allowed()
+        {
+            const string src = "let a = (new A { f: 1 }) as B";
+
+            var (syntaxTree, _, lexErrors, errors, _) = Parse(src);
+
+            Assert.Empty(lexErrors);
+            Assert.Empty(errors);
+            Assert.Single(syntaxTree);
+
+            var variableDeclaration = GetStmt<VariableDeclaration>(syntaxTree.Single());
+            var conv = Assert.IsType<ConversionExpr>(variableDeclaration.Initializer);
+
+            // Target type is B
+            AssertTypePath(conv.TargetType.Expression, "B");
+
+            // Inner value is the initializer expression
+            var grouping = Assert.IsType<GroupingExpr>(conv.Expression);
+            var initObj = Assert.IsType<InitializerExpr>(grouping.Expression);
+            AssertTypePath(initObj.TypeName.Expression, "A");
+            Assert.Single(initObj.Initializers);
+            Assert.Equal("f", initObj.Initializers[0].Name);
+        }
+
         [Fact]
         public void QualifiedTypeAnnotationsInFunctionDeclaration()
         {
@@ -498,7 +575,7 @@ namespace Tests
                                }
                                """;
 
-            var (syntaxTree, _, lexErrors, errors) = Parse(src);
+            var (syntaxTree, _, lexErrors, errors, _) = Parse(src);
 
             Assert.Empty(lexErrors);
             Assert.Empty(errors);
@@ -519,7 +596,7 @@ namespace Tests
                                value as Outer.Inner
                                """;
 
-            var (syntaxTree, _, lexErrors, errors) = Parse(src);
+            var (syntaxTree, _, lexErrors, errors, _) = Parse(src);
 
             Assert.Empty(lexErrors);
             Assert.Empty(errors);

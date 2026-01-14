@@ -3,7 +3,7 @@ using Glykon.Compiler.Diagnostics.Errors;
 
 namespace Glykon.Compiler.Syntax;
 
-public class Lexer(SourceText source, string fileName)
+public class Lexer(SourceText source, string fileName, SyntaxMode mode)
 {
     private bool AtEnd => currentCharIndex >= source.Length;
 
@@ -25,11 +25,18 @@ public class Lexer(SourceText source, string fileName)
 
         if (tokens.Count > 0)
         {
-            var last = ScanEndOfLine();
-
-            if (!last.IsEmpty)
+            if (mode == SyntaxMode.Predict)
             {
-                tokens.Add(last);
+                tokens.Add(new Token(TokenKind.Cursor, line));
+            }
+            else
+            {
+                var last = ScanEndOfLine();
+
+                if (!last.IsEmpty)
+                {
+                    tokens.Add(last);
+                }
             }
 
             tokens.Add(new(TokenKind.EOF, line));
