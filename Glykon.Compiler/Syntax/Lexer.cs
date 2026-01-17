@@ -9,8 +9,8 @@ public class Lexer(SourceText source, string fileName, SyntaxMode mode)
 
     private readonly List<Token> tokens = [];
     private readonly List<IGlykonError> errors = [];
-    private int line = 0;
-    private int currentCharIndex = 0;
+    private int line;
+    private int currentCharIndex;
 
     public LexResult Lex()
     {
@@ -29,20 +29,13 @@ public class Lexer(SourceText source, string fileName, SyntaxMode mode)
             {
                 tokens.Add(new Token(TokenKind.Cursor, line));
             }
-            else
-            {
-                var last = ScanEndOfLine();
 
-                if (!last.IsEmpty)
-                {
-                    tokens.Add(last);
-                }
-            }
-
-            tokens.Add(new(TokenKind.EOF, line));
+            tokens.Add(new Token(TokenKind.EOF, line));
         }
 
-        return new LexResult(tokens.ToArray(), [..errors]);
+        var processedTokens = InsertTerminators();
+
+        return new LexResult(processedTokens, [..errors]);
     }
 
     private Token GetNextToken()
@@ -53,21 +46,21 @@ public class Lexer(SourceText source, string fileName, SyntaxMode mode)
         {
             //symbols
             case '{':
-                return new(TokenKind.BraceLeft, line);
+                return new Token(TokenKind.BraceLeft, line);
             case '}':
-                return new(TokenKind.BraceRight, line);
+                return new Token(TokenKind.BraceRight, line);
             case '(':
-                return new(TokenKind.ParenthesisLeft, line);
+                return new Token(TokenKind.ParenthesisLeft, line);
             case ')':
-                return new(TokenKind.ParenthesisRight, line);
+                return new Token(TokenKind.ParenthesisRight, line);
             case '[':
-                return new(TokenKind.BracketLeft, line);
+                return new Token(TokenKind.BracketLeft, line);
             case ']':
-                return new(TokenKind.BracketRight, line);
+                return new Token(TokenKind.BracketRight, line);
             case ',':
-                return new(TokenKind.Comma, line);
+                return new Token(TokenKind.Comma, line);
             case ':':
-                return new(TokenKind.Colon, line);
+                return new Token(TokenKind.Colon, line);
 
             //long symbols
             case '.':
@@ -83,36 +76,34 @@ public class Lexer(SourceText source, string fileName, SyntaxMode mode)
                     return new Token(TokenKind.Range, line);
                 }
 
-                return new(TokenKind.Dot, line);
+                return new Token(TokenKind.Dot, line);
             }
             case '+':
-                return new(TokenKind.Plus, line);
+                return new Token(TokenKind.Plus, line);
             case '-':
                 if (Match('>'))
                 {
-                    return new(TokenKind.Arrow, line);
+                    return new Token(TokenKind.Arrow, line);
                 }
 
-                return new(TokenKind.Minus, line);
+                return new Token(TokenKind.Minus, line);
             case '<':
-                return new(Match('=') ? TokenKind.LessEqual : TokenKind.Less, line);
+                return new Token(Match('=') ? TokenKind.LessEqual : TokenKind.Less, line);
             case '>':
-                return new(Match('=') ? TokenKind.GreaterEqual : TokenKind.Greater, line);
+                return new Token(Match('=') ? TokenKind.GreaterEqual : TokenKind.Greater, line);
             case '*':
-                return new(Match('*') ? TokenKind.StarDouble : TokenKind.Star, line);
+                return new Token(Match('*') ? TokenKind.StarDouble : TokenKind.Star, line);
             case '/':
-                return new(Match('/') ? TokenKind.SlashDouble : TokenKind.Slash, line);
+                return new Token(Match('/') ? TokenKind.SlashDouble : TokenKind.Slash, line);
             case '=':
-                return new(Match('=') ? TokenKind.Equal : TokenKind.Assignment, line);
+                return new Token(Match('=') ? TokenKind.Equal : TokenKind.Assignment, line);
             case '!': //! is not valid by itself
                 if (Match('='))
                 {
-                    return new(TokenKind.NotEqual, line);
+                    return new Token(TokenKind.NotEqual, line);
                 }
-                else
-                {
-                    errors.Add(new SyntaxError(line, fileName, $"Invalid character '{character}' in token"));
-                }
+
+                errors.Add(new SyntaxError(line, fileName, $"Invalid character '{character}' in token"));
 
                 break;
 
@@ -132,12 +123,12 @@ public class Lexer(SourceText source, string fileName, SyntaxMode mode)
                 while (!AtEnd && Peek() != '\n') Advance();
                 break;
 
-            //statement terminator
             case '\n':
-                line++;
-                return ScanEndOfLine();
+                // Increase line at newline
+                return new Token(TokenKind.Newline, line++);
+            //statement terminator
             case ';':
-                return new(TokenKind.Semicolon, line);
+                return new Token(TokenKind.Semicolon, line);
 
             default:
                 if (char.IsAsciiDigit(character))
@@ -167,10 +158,10 @@ public class Lexer(SourceText source, string fileName, SyntaxMode mode)
 
         if (keywords.TryGetValue(identifier.Text, out TokenKind type))
         {
-            return new(type, line);
+            return new Token(type, line);
         }
 
-        return new(TokenKind.Identifier, line, identifier);
+        return new Token(TokenKind.Identifier, line, identifier);
     }
 
     private Token ScanNumber(bool isReal = false)
@@ -196,7 +187,7 @@ public class Lexer(SourceText source, string fileName, SyntaxMode mode)
             type = TokenKind.LiteralReal;
         }
 
-        return new(type, line, number);
+        return new Token(type, line, number);
     }
 
     private Token ScanString(char openingQuote)
@@ -234,19 +225,35 @@ public class Lexer(SourceText source, string fileName, SyntaxMode mode)
         return result;
     }
 
-    private Token ScanEndOfLine()
+    private Token[] InsertTerminators()
     {
-        Token last = tokens.LastOrDefault();
+        List<Token> processedTokens = [];
+        
+        for (int i = 0; i < tokens.Count; i++)
+        {
+            var token = tokens[i];
+            if (token.Kind != TokenKind.Newline)
+            {
+                processedTokens.Add(token);
+                continue;
+            }
+            
+            if (i == 0) continue;
+            
+            var previousToken = tokens[i - 1];
+            
+            if (asiNoInsertAfter.Contains(previousToken.Kind)) continue;
 
-        if (last.IsEmpty || terminatorExceptions.Contains(last.Kind)) return Token.Empty;
-
-        (char nextChar, int peekIndex) = PeekNextSignificant();
-        if (chainingChars.Contains(nextChar)) return Token.Empty;
-
-        // Handle long chaining tokens
-        if (IsLongChainingToken(nextChar, peekIndex)) return Token.Empty;
-
-        return new(TokenKind.Semicolon, line);
+            if (i == tokens.Count - 1) continue;
+            
+            var nextToken = tokens[i + 1];
+            
+            if (asiContinuationBefore.Contains(nextToken.Kind)) continue;
+            
+            processedTokens.Add(new Token(TokenKind.Semicolon, token.Line));
+        }
+        
+        return processedTokens.ToArray();
     }
 
     private bool Match(char token)
@@ -275,76 +282,6 @@ public class Lexer(SourceText source, string fileName, SyntaxMode mode)
         return c;
     }
 
-    private (char, int) PeekNextSignificant()
-    {
-        int i = currentCharIndex;
-
-        while (i < source.Length)
-        {
-            char c = source[i];
-
-            if (!char.IsWhiteSpace(c))
-            {
-                return (c, i);
-            }
-
-            i++;
-        }
-
-        return ('\0', -1);
-    }
-
-    private bool IsLongChainingToken(char c, int index)
-    {
-        // Check for end of source
-        if (index == -1) return false;
-
-        // Handle 'and'
-        if (c == 'a')
-        {
-            const int len = 3;
-            int end = index + len;
-
-            if (source.Length >= end && source.Slice(index, len).ToString() == "and")
-            {
-                if (source.Length == end || !IsAllowedIdentifierCharacter(source[end]))
-                {
-                    return true;
-                }
-            }
-        }
-        // Handle 'or'
-        else if (c == 'o')
-        {
-            const int len = 2;
-            int end = index + len;
-
-            if (source.Length >= end && source.Slice(index, len).ToString() == "or")
-            {
-                if (source.Length == end || !IsAllowedIdentifierCharacter(source[end]))
-                {
-                    return true;
-                }
-            }
-        }
-        // Handle 'not'
-        else if (c == 'n')
-        {
-            const int len = 3;
-            int end = index + len;
-
-            if (source.Length >= end && source.Slice(index, len).ToString() == "not")
-            {
-                if (source.Length == end || !IsAllowedIdentifierCharacter(source[end]))
-                {
-                    return true;
-                }
-            }
-        }
-
-        return false;
-    }
-
     private char Advance()
     {
         return source[currentCharIndex++];
@@ -361,8 +298,8 @@ public class Lexer(SourceText source, string fileName, SyntaxMode mode)
     }
 
     private static readonly Dictionary<string, TokenKind> keywords;
-    private static readonly HashSet<TokenKind> terminatorExceptions;
-    private static readonly HashSet<char> chainingChars;
+    private static readonly HashSet<TokenKind> asiNoInsertAfter;
+    private static readonly HashSet<TokenKind> asiContinuationBefore;
 
     static Lexer()
     {
@@ -387,7 +324,7 @@ public class Lexer(SourceText source, string fileName, SyntaxMode mode)
             { "elif", TokenKind.Elif },
             { "for", TokenKind.For },
             { "by", TokenKind.By },
-            { "in",  TokenKind.In },
+            { "in", TokenKind.In },
             { "as", TokenKind.As },
             { "while", TokenKind.While },
             { "return", TokenKind.Return },
@@ -395,10 +332,13 @@ public class Lexer(SourceText source, string fileName, SyntaxMode mode)
             { "continue", TokenKind.Continue }
         };
 
-        terminatorExceptions =
+        asiNoInsertAfter =
         [
             // Internal/special
-            TokenKind.EOF, TokenKind.Semicolon,
+            TokenKind.EOF,
+            // Avoid double terminators
+            TokenKind.Semicolon,
+            TokenKind.Newline,
 
             // Openers
             TokenKind.BracketLeft,
@@ -447,12 +387,12 @@ public class Lexer(SourceText source, string fileName, SyntaxMode mode)
             TokenKind.Let,
             TokenKind.Const,
             TokenKind.New,
-            
+
             // Control-flow keywords
             TokenKind.If,
             TokenKind.Else,
             TokenKind.Elif,
-            
+
             // Other keywords
             TokenKind.For,
             TokenKind.By,
@@ -461,6 +401,41 @@ public class Lexer(SourceText source, string fileName, SyntaxMode mode)
             TokenKind.As
         ];
 
-        chainingChars = ['.', '[', '(', '+', '-', '*', '/', '=', '!', '<', '>'];
+        asiContinuationBefore =
+        [
+            TokenKind.Cursor,
+
+            // Postfix / delimiters
+            TokenKind.Dot,
+            TokenKind.ParenthesisLeft,
+            TokenKind.ParenthesisRight,
+            TokenKind.BracketLeft,
+            TokenKind.BracketRight,
+
+            // Arithmetic operators
+            TokenKind.Plus,
+            TokenKind.Minus,
+            TokenKind.Star,
+            TokenKind.StarDouble,
+            TokenKind.Slash,
+            TokenKind.SlashDouble,
+
+            // Assignment / comparison
+            TokenKind.Assignment,
+            TokenKind.Equal,
+            TokenKind.NotEqual,
+            TokenKind.Less,
+            TokenKind.LessEqual,
+            TokenKind.Greater,
+            TokenKind.GreaterEqual,
+
+            // Logical operators
+            TokenKind.And,
+            TokenKind.Not,
+            TokenKind.Or,
+
+            // Keyword operator
+            TokenKind.As,
+        ];
     }
 }

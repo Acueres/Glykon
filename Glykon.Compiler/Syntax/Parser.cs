@@ -148,7 +148,7 @@ public class Parser(LexResult lexResult, string filename, SyntaxMode mode)
             initializer = ParseLogicalOr();
         }
 
-        TerminateStatement("Expect ';' after field declaration", initializer);
+        TerminateStatement("Expect ';' after field declaration");
 
         string name = identifierToken.Text;
         return new FieldDeclaration(initializer, name, declaredType);
@@ -199,14 +199,17 @@ public class Parser(LexResult lexResult, string filename, SyntaxMode mode)
             initializer = ParseLogicalOr();
         }
 
-        if (initializer == null)
+        if (initializer is null)
         {
             ParseError error = new(identifierToken, filename, "Variable must be initialized");
             errors.Add(error);
             throw error.Exception();
         }
 
-        TerminateStatement("Expect ';' after variable declaration", initializer);
+        if (initializer.Kind != ExpressionKind.Initializer)
+        {
+            TerminateStatement("Expect ';' after variable declaration");
+        }
 
         string name = identifierToken.Text;
         return new VariableDeclaration(initializer, name, declaredType, immutable);
@@ -223,7 +226,7 @@ public class Parser(LexResult lexResult, string filename, SyntaxMode mode)
         Consume(TokenKind.Assignment, "Expect constant value");
         Expression initializer = ParseLogicalOr();
 
-        TerminateStatement("Expect ';' after constant declaration", initializer);
+        TerminateStatement("Expect ';' after constant declaration");
 
         string name = token.Text;
         return new(initializer, name, declaredType);
@@ -299,7 +302,7 @@ public class Parser(LexResult lexResult, string filename, SyntaxMode mode)
 
         Expression expr = ParseExpression();
 
-        TerminateStatement("Expect ';' after expression", expr);
+        TerminateStatement("Expect ';' after expression");
 
         return new ExpressionStmt(expr);
     }
@@ -386,7 +389,7 @@ public class Parser(LexResult lexResult, string filename, SyntaxMode mode)
 
         Expression value = ParseLogicalOr();
 
-        TerminateStatement("Expect ';' after return value", value);
+        TerminateStatement("Expect ';' after return value");
 
         return new ReturnStmt(value, token);
     }
@@ -400,7 +403,7 @@ public class Parser(LexResult lexResult, string filename, SyntaxMode mode)
     {
         Expression expr = ParseLogicalOr();
 
-        if (mode == SyntaxMode.Predict && expr is not NameExpr or MemberAccessExpr
+        if (mode == SyntaxMode.Predict && expr is not (NameExpr or MemberAccessExpr)
             || !Match(TokenKind.Assignment)) return expr;
 
         Token token = Peek(-2);
@@ -702,15 +705,30 @@ public class Parser(LexResult lexResult, string filename, SyntaxMode mode)
 
         return expr;
     }
-    
-    private void TerminateStatement(string errorMessage, Expression? expr = null)
+
+    private void TerminateStatement(string message)
     {
-        if (expr is not null && expr.Kind == ExpressionKind.Initializer) return;
+        if (Current.Kind is TokenKind.EOF or TokenKind.BraceRight)
+            return;
         
-        if (Current.Kind != TokenKind.BraceRight)
+        if (mode == SyntaxMode.Predict && AtCursor)
         {
-            Consume(TokenKind.Semicolon, errorMessage);
+            ProcessExpected(TokenKind.Semicolon);
+            ProcessExpected(TokenKind.OptionalTerminator);
+            StopPredicting();
+            return;
         }
+        
+        if (Current.Kind == TokenKind.Semicolon)
+        {
+            Advance();
+            return;
+        }
+
+        // Internal error: lexer failed to insert semicolon where grammar requires it
+        var error = new ParseError(Current, filename, message);
+        errors.Add(error);
+        throw error.Exception();
     }
 
     private void Synchronize()

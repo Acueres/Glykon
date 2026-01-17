@@ -4,10 +4,11 @@ namespace Glykon.Compiler.Syntax;
 
 public enum TokenKind : byte
 {
-    // Sentinel
-    Empty,
+    // Sentinels
+    Empty, OptionalTerminator,
     // Cursor (for parser prediction mode)
     Cursor,
+    Newline,
 
     // Literals
     None, LiteralInt, LiteralReal, LiteralString, LiteralTrue, LiteralFalse,
