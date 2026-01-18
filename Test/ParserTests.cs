@@ -540,6 +540,51 @@ namespace Tests
             Assert.Single(initObj.Initializers);
             Assert.Equal("f", initObj.Initializers[0].Name);
         }
+        
+        [Fact]
+        public void InitObject_Followed_By_Statement_On_NewLine_Is_Allowed()
+        {
+            const string src = """
+                               let a = new A { f: 1 }
+                               let b = 2
+                               """;
+
+            var (syntaxTree, _, lexErrors, errors, _) = Parse(src);
+
+            Assert.Empty(lexErrors);
+            Assert.Empty(errors);
+            Assert.Equal(2, syntaxTree.Length);
+
+            Assert.IsType<VariableDeclaration>(syntaxTree[0]);
+            Assert.IsType<VariableDeclaration>(syntaxTree[1]);
+        }
+
+        [Fact]
+        public void InitObject_Followed_By_Statement_On_SameLine_Requires_Semicolon()
+        {
+            const string src = "let a = new A { x: 1 } let b = 2";
+
+            var (_, _, lexErrors, parseErrors, _) = Parse(src);
+
+            Assert.Empty(lexErrors);
+            Assert.NotEmpty(parseErrors);
+        }
+
+        [Fact]
+        public void InitObject_Followed_By_Statement_On_SameLine_With_Semicolon_Is_Allowed()
+        {
+            const string src = "let a = new A { x: 1 }; let b = 2";
+
+            var (syntaxTree, _, lexErrors, errors, _) = Parse(src);
+
+            Assert.Empty(lexErrors);
+            Assert.Empty(errors);
+            Assert.Equal(2, syntaxTree.Length);
+
+            Assert.IsType<VariableDeclaration>(syntaxTree[0]);
+            Assert.IsType<VariableDeclaration>(syntaxTree[1]);
+        }
+
 
         [Fact]
         public void Conversion_On_InitObject_Value_Is_Allowed()

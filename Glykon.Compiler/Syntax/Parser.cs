@@ -148,7 +148,7 @@ public class Parser(LexResult lexResult, string filename, SyntaxMode mode)
             initializer = ParseLogicalOr();
         }
 
-        TerminateStatement("Expect ';' after field declaration");
+        TerminateStatement("Expect ';' after field declaration", initializer);
 
         string name = identifierToken.Text;
         return new FieldDeclaration(initializer, name, declaredType);
@@ -184,7 +184,7 @@ public class Parser(LexResult lexResult, string filename, SyntaxMode mode)
     private VariableDeclaration ParseVariableDeclaration()
     {
         bool immutable = Match(TokenKind.Const);
-        
+
         Token identifierToken = Consume(TokenKind.Identifier, "Expect variable name");
 
         TypeAnnotation declaredType = TypeAnnotation.None;
@@ -206,10 +206,7 @@ public class Parser(LexResult lexResult, string filename, SyntaxMode mode)
             throw error.Exception();
         }
 
-        if (initializer.Kind != ExpressionKind.Initializer)
-        {
-            TerminateStatement("Expect ';' after variable declaration");
-        }
+        TerminateStatement("Expect ';' after variable declaration", initializer);
 
         string name = identifierToken.Text;
         return new VariableDeclaration(initializer, name, declaredType, immutable);
@@ -226,7 +223,7 @@ public class Parser(LexResult lexResult, string filename, SyntaxMode mode)
         Consume(TokenKind.Assignment, "Expect constant value");
         Expression initializer = ParseLogicalOr();
 
-        TerminateStatement("Expect ';' after constant declaration");
+        TerminateStatement("Expect ';' after constant declaration", initializer);
 
         string name = token.Text;
         return new(initializer, name, declaredType);
@@ -302,7 +299,7 @@ public class Parser(LexResult lexResult, string filename, SyntaxMode mode)
 
         Expression expr = ParseExpression();
 
-        TerminateStatement("Expect ';' after expression");
+        TerminateStatement("Expect ';' after expression", expr);
 
         return new ExpressionStmt(expr);
     }
@@ -389,7 +386,7 @@ public class Parser(LexResult lexResult, string filename, SyntaxMode mode)
 
         Expression value = ParseLogicalOr();
 
-        TerminateStatement("Expect ';' after return value");
+        TerminateStatement("Expect ';' after return value", value);
 
         return new ReturnStmt(value, token);
     }
@@ -706,10 +703,17 @@ public class Parser(LexResult lexResult, string filename, SyntaxMode mode)
         return expr;
     }
 
-    private void TerminateStatement(string message)
+    private void TerminateStatement(string message, Expression? expr = null)
     {
         if (Current.Kind is TokenKind.EOF or TokenKind.BraceRight)
+        {
             return;
+        }
+
+        if (expr?.Kind == ExpressionKind.Initializer)
+        {
+            if (Current.Line > Previous.Line) return;
+        }
         
         if (mode == SyntaxMode.Predict && AtCursor)
         {
