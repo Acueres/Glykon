@@ -276,8 +276,7 @@ public static class LanguageSpec
     [
         TokenKind.Empty,
         TokenKind.OptionalTerminator,
-        TokenKind.Cursor,
-        TokenKind.EOF,
+        TokenKind.Cursor
     ];
 
     // -------------------------
@@ -377,8 +376,6 @@ public static class LanguageSpec
 
         TokenKind[] continuationBefore =
         [
-            TokenKind.Cursor,
-
             // Postfix / delimiters
             TokenKind.Dot,
             TokenKind.ParenthesisLeft,
@@ -591,13 +588,12 @@ public static class LanguageSpec
 
         bool IsLexable(TokenKind k)
         {
-            if (synthetic.Contains(k))
-                return false;
-            return k switch
+            if (k == TokenKind.EOF || synthetic.Contains(k))
             {
-                TokenKind.Cursor or TokenKind.OptionalTerminator or TokenKind.Empty or TokenKind.EOF => false,
-                _ => true
-            };
+                return false;
+            }
+
+            return true;
         }
 
         var infos = new List<TokenInfoDto>(allKinds.Length);

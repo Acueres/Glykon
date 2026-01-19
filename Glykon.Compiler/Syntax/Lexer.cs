@@ -17,7 +17,7 @@ public class Lexer(SourceText source, string fileName, SyntaxMode mode)
     private static readonly char newlineChar = LanguageSpec.Trivia.Newline;
     private static readonly char lineCommentStart = LanguageSpec.Trivia.LineCommentStart;
     private static readonly Dictionary<char, LanguageSpec.FixedTokenSpec[]> fixedByFirstChar = BuildFixedByFirstChar();
-    
+
     public LexResult Lex()
     {
         while (!AtEnd)
@@ -29,15 +29,12 @@ public class Lexer(SourceText source, string fileName, SyntaxMode mode)
             }
         }
 
-        if (tokens.Count > 0)
+        if (mode == SyntaxMode.Predict)
         {
-            if (mode == SyntaxMode.Predict)
-            {
-                tokens.Add(new Token(TokenKind.Cursor, line));
-            }
-
-            tokens.Add(new Token(TokenKind.EOF, line));
+            tokens.Add(new Token(TokenKind.Cursor, line));
         }
+
+        tokens.Add(new Token(TokenKind.EOF, line));
 
         var processedTokens = InsertTerminators();
 
