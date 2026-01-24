@@ -14,6 +14,8 @@ namespace Glykon.Compiler.Syntax;
 /// </summary>
 public static class LanguageSpec
 {
+    public const string LanguageName = "Glykon";
+    
     // -------------------------
     // Versioning / hashing
     // -------------------------

@@ -3,7 +3,7 @@ using Glykon.Compiler.Diagnostics.Errors;
 
 namespace Glykon.Compiler.Syntax;
 
-public class Lexer(SourceText source, string fileName, SyntaxMode mode)
+public class Lexer(SourceText source, string filename, SyntaxMode mode)
 {
     private bool AtEnd => currentCharIndex >= source.Length;
 
@@ -86,7 +86,7 @@ public class Lexer(SourceText source, string fileName, SyntaxMode mode)
             return new Token(kind, line);
         }
         
-        errors.Add(new SyntaxError(line, fileName, $"Invalid character '{c}' in token"));
+        errors.Add(new SyntaxError(line, filename, $"Invalid character '{c}' in token"));
         return Token.Empty;
     }
 
@@ -147,7 +147,7 @@ public class Lexer(SourceText source, string fileName, SyntaxMode mode)
             {
                 if (!multiline)
                 {
-                    errors.Add(new SyntaxError(line, fileName, "Unterminated string literal"));
+                    errors.Add(new SyntaxError(line, filename, "Unterminated string literal"));
                     return Token.Empty;
                 }
 
@@ -159,7 +159,7 @@ public class Lexer(SourceText source, string fileName, SyntaxMode mode)
 
         if (AtEnd)
         {
-            errors.Add(new SyntaxError(line, fileName, "Unterminated string literal"));
+            errors.Add(new SyntaxError(line, filename, "Unterminated string literal"));
             return Token.Empty;
         }
 
