@@ -12,11 +12,9 @@ public class Lexer(SourceText source, string filename, SyntaxMode mode)
     private int line;
     private int currentCharIndex;
     
-    private static readonly HashSet<char> whitespaceChars = BuildSingleCharSet(LanguageSpec.Trivia.WhitespaceChars);
-    private static readonly HashSet<char> quoteChars = BuildSingleCharSet(LanguageSpec.Strings.QuoteChars);
-    private static readonly char newlineChar = LanguageSpec.Trivia.Newline;
-    private static readonly char lineCommentStart = LanguageSpec.Trivia.LineCommentStart;
-    private static readonly Dictionary<char, LanguageSpec.FixedTokenSpec[]> fixedByFirstChar = BuildFixedByFirstChar();
+    private static readonly char newlineChar = LanguageSpec.TriviaSpec.NewLineChar;
+    private static readonly char lineCommentStart = LanguageSpec.TriviaSpec.LineCommentStart;
+    private static readonly Dictionary<char, LanguageSpec.SymbolSpec[]> fixedByFirstChar = BuildFixedByFirstChar();
 
     public LexResult Lex()
     {
@@ -45,14 +43,14 @@ public class Lexer(SourceText source, string filename, SyntaxMode mode)
     {
         char c = Advance();
 
-        if (whitespaceChars.Contains(c))
+        if (LanguageSpec.TriviaSpec.IsWhitespace(c))
         {
             return Token.Empty;
         }
 
         if (c == newlineChar)
         {
-            return new Token(LanguageSpec.Asi.NewlineTokenKind, line++);
+            return new Token(LanguageSpec.TriviaSpec.NewlineTokenKind, line++);
         }
         
         if (c == lineCommentStart)
@@ -61,7 +59,7 @@ public class Lexer(SourceText source, string filename, SyntaxMode mode)
             return Token.Empty;
         }
 
-        if (quoteChars.Contains(c))
+        if (LanguageSpec.StringSpec.IsStringQuote(c))
         {
             return ScanString(c);
         }
@@ -76,7 +74,7 @@ public class Lexer(SourceText source, string filename, SyntaxMode mode)
             return ScanNumber(isReal: true);
         }
 
-        if (LanguageSpec.IsAllowedIdentifierStartCharacter(c))
+        if (LanguageSpec.IdentifierSpec.IsMatchStart(c))
         {
             return ScanIdentifier();
         }
@@ -94,7 +92,7 @@ public class Lexer(SourceText source, string filename, SyntaxMode mode)
     {
         int identifierStart = currentCharIndex - 1;
 
-        while (LanguageSpec.IsAllowedIdentifierCharacter(Peek())) Advance();
+        while (LanguageSpec.IdentifierSpec.IsMatchContinue(Peek())) Advance();
 
         TextSpan identifier = new(source, identifierStart, currentCharIndex - identifierStart);
 
@@ -112,25 +110,18 @@ public class Lexer(SourceText source, string filename, SyntaxMode mode)
 
         while (char.IsAsciiDigit(Peek())) Advance();
 
-        if (Peek() == '.')
+        if (Peek() == '.' && char.IsAsciiDigit(Peek(1)))
         {
-            bool canTakeDot =
-                LanguageSpec.Numerics.AllowTrailingDotReal ||
-                (!LanguageSpec.Numerics.RequireDigitAfterDotIfHasLeadingDigits || char.IsAsciiDigit(Peek(1)));
-                
-            if (canTakeDot && char.IsAsciiDigit(Peek(1)))
-            {
-                isReal = true;
-                Advance();
-                while (char.IsAsciiDigit(Peek())) Advance();
-            }
+            isReal = true;
+            Advance();
+            while (char.IsAsciiDigit(Peek())) Advance();
         }
 
         TextSpan number = new(source, numberStart, currentCharIndex - numberStart);
 
         TokenKind type = isReal
-            ? LanguageSpec.Numerics.RealTokenKind
-            : LanguageSpec.Numerics.IntegerTokenKind;
+            ? LanguageSpec.NumberSpec.RealTokenKind
+            : LanguageSpec.NumberSpec.IntegerTokenKind;
 
         return new Token(type, line, number);
     }
@@ -164,7 +155,7 @@ public class Lexer(SourceText source, string filename, SyntaxMode mode)
         }
 
         int stringEndOffset = multiline ? 3 : 1;
-        Token result = new(TokenKind.LiteralString, currentLine,
+        Token result = new(multiline ? TokenKind.LiteralMultilineString : TokenKind.LiteralString, currentLine,
             new TextSpan(source, stringStart, currentCharIndex - stringStart - stringEndOffset));
 
         return result;
@@ -177,7 +168,7 @@ public class Lexer(SourceText source, string filename, SyntaxMode mode)
         for (int i = 0; i < tokens.Count; i++)
         {
             var token = tokens[i];
-            if (token.Kind != LanguageSpec.Asi.NewlineTokenKind)
+            if (token.Kind != LanguageSpec.TriviaSpec.NewlineTokenKind)
             {
                 processedTokens.Add(token);
                 continue;
@@ -187,15 +178,15 @@ public class Lexer(SourceText source, string filename, SyntaxMode mode)
             
             var previousToken = tokens[i - 1];
             
-            if (LanguageSpec.AsiNoInsertAfter(previousToken.Kind)) continue;
+            if (LanguageSpec.AsiSpec.NoInsertAfter(previousToken.Kind)) continue;
 
             if (i == tokens.Count - 1) continue;
             
             var nextToken = tokens[i + 1];
             
-            if (LanguageSpec.AsiContinuationBefore(nextToken.Kind)) continue;
+            if (LanguageSpec.AsiSpec.ContinuationBefore(nextToken.Kind)) continue;
             
-            processedTokens.Add(new Token(LanguageSpec.Asi.VirtualTerminatorKind, token.Line));
+            processedTokens.Add(new Token(LanguageSpec.AsiSpec.VirtualTerminatorKind, token.Line));
         }
         
         return processedTokens.ToArray();
@@ -283,35 +274,35 @@ public class Lexer(SourceText source, string filename, SyntaxMode mode)
         return set;
     }
     
-    private static Dictionary<char, LanguageSpec.FixedTokenSpec[]> BuildFixedByFirstChar()
+    private static Dictionary<char, LanguageSpec.SymbolSpec[]> BuildFixedByFirstChar()
     {
-        var dict = new Dictionary<char, List<LanguageSpec.FixedTokenSpec>>();
+        var dict = new Dictionary<char, List<LanguageSpec.SymbolSpec>>();
 
-        var newlineKind = LanguageSpec.Asi.NewlineTokenKind;
+        var newlineKind = LanguageSpec.TriviaSpec.NewlineTokenKind;
 
-        foreach (var fx in LanguageSpec.FixedTokenEntries)
+        foreach (var symbol in LanguageSpec.GetSymbolSpecs())
         {
-            if (string.IsNullOrEmpty(fx.Spelling))
+            if (string.IsNullOrEmpty(symbol.Spelling))
             {
                 continue;
             }
 
-            if (fx.Kind == newlineKind)
+            if (symbol.Kind == newlineKind)
             {
                 continue;
             }
 
-            char first = fx.Spelling[0];
+            char first = symbol.Spelling[0];
             if (!dict.TryGetValue(first, out var list))
             {
                 list = [];
                 dict[first] = list;
             }
 
-            list.Add(fx);
+            list.Add(symbol);
         }
         
-        var result = new Dictionary<char, LanguageSpec.FixedTokenSpec[]>();
+        var result = new Dictionary<char, LanguageSpec.SymbolSpec[]>();
         foreach (var (ch, list) in dict)
         {
             list.Sort(static (a, b) =>

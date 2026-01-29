@@ -1,4 +1,3 @@
-using System.Security.Cryptography;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 
@@ -8,14 +7,11 @@ namespace Glykon.Compiler.Syntax;
 /// Glykon lexical rules.
 ///
 /// This spec is designed to be machine-readable (DTO + deterministic JSON)
-/// 
-/// NOTE: The hash is computed over the canonical JSON WITHOUT the "specHash" field
-/// (i.e., over <see cref="ToDtoWithoutHash"/>). This avoids self-referential hashing.
 /// </summary>
 public static class LanguageSpec
 {
     public const string LanguageName = "Glykon";
-    
+
     // -------------------------
     // Versioning / hashing
     // -------------------------
@@ -25,11 +21,6 @@ public static class LanguageSpec
     /// </summary>
     public const string SpecVersion = "0.1.0";
 
-    /// <summary>
-    /// Deterministic SHA-256 (hex, lowercase) of canonical JSON (excluding specHash field).
-    /// </summary>
-    public static readonly string SpecHash;
-
     // -------------------------
     // Canonical JSON options
     // -------------------------
@@ -37,7 +28,7 @@ public static class LanguageSpec
     /// <summary>
     /// Canonical options used for hashing and deterministic JSON output.
     /// </summary>
-    public static readonly JsonSerializerOptions CanonicalJsonOptions = new()
+    private static readonly JsonSerializerOptions CanonicalJsonOptions = new()
     {
         WriteIndented = false,
         PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
@@ -48,10 +39,7 @@ public static class LanguageSpec
     // Keywords
     // -------------------------
 
-    /// <summary>
-    /// Keyword entries (canonical order is by keywordText ordinal).
-    /// </summary>
-    public static readonly KeywordEntrySpec[] KeywordEntries =
+    private static readonly KeywordSpec[] keywordEntries =
     [
         new("and",
             TokenKind.And),
@@ -105,19 +93,9 @@ public static class LanguageSpec
             TokenKind.While),
     ];
 
-    /// <summary>
-    /// Keyword lookup map (exact match, case-sensitive, ordinal).
-    /// </summary>
-    public static readonly IReadOnlyDictionary<string, TokenKind> Keywords;
+    private static readonly Dictionary<string, TokenKind> keywords;
 
-    // -------------------------
-    // Fixed tokens (operators / punctuators)
-    // -------------------------
-
-    /// <summary>
-    /// Fixed spelling tokens (canonical order: by token kind id, then spelling ordinal).
-    /// </summary>
-    public static readonly FixedTokenSpec[] FixedTokenEntries =
+    private static readonly SymbolSpec[] symbolEntries =
     [
         // Symbols
         new(TokenKind.BraceLeft,
@@ -185,129 +163,318 @@ public static class LanguageSpec
             "\n"),
     ];
 
-    /// <summary>
-    /// Fast lookup from TokenKind to spellings (may contain multiple spellings).
-    /// </summary>
-    public static readonly IReadOnlyDictionary<TokenKind, string[]> FixedSpellingsByKind;
+    // =========================
+    // Identifier
+    // =========================
 
-    // -------------------------
-    // Identifier rules
-    // -------------------------
-
-    public static readonly IdentifierSpec Identifier = new(
-        // Start: char.IsLetter(c) || c == '_' || c == '@'
-        Start: new IdentifierCharSetSpec(
-            IncludeUnicodeLetter: true,
-            IncludeAsciiUnderscore: true,
-            IncludeAtSign: true,
-            IncludeUnicodeLetterOrDigit: false
-        ),
-        // Continue: c == '_' || char.IsLetterOrDigit(c)
-        Continue: new IdentifierCharSetSpec(
-            IncludeUnicodeLetter: true,
-            IncludeAsciiUnderscore: true,
-            IncludeAtSign: false,
-            IncludeUnicodeLetterOrDigit: true
-        ),
-        KeywordsAreReserved: true
-    );
-
-    // -------------------------
-    // Numerical rules
-    // -------------------------
-
-    public static readonly NumberSpec Numerics = new(
-        Digits: DigitSet.Ascii,
-        // Real number is produced if:
-        //  - starts with '.' AND next is digit (handled by caller)
-        //  - OR has digits then '.' then digit
-        AllowLeadingDotReal: true,
-        RequireDigitAfterDotIfHasLeadingDigits: true,
-        AllowTrailingDotReal: false,
-        AllowExponent: false,
-        AllowUnderscoreSeparators: false,
-        IntegerTokenKind: TokenKind.LiteralInt,
-        RealTokenKind: TokenKind.LiteralReal
-    );
-
-    // -------------------------
-    // String rules
-    // -------------------------
-
-    public static readonly StringSpec Strings = new(
-        QuoteChars:
-        [
-            "\"",
-            "'"
-        ],
-        TripleQuoteEnabled: true,
-        MultiLineRequiresTripleQuote: true,
-        EscapeMode: StringEscapeMode.None,
-        AllowsNewlineInSingleLineString: false,
-        TokenKind: TokenKind.LiteralString
-    );
-
-    // -------------------------
-    // Trivia rules (whitespace + comments)
-    // -------------------------
-
-    public static readonly TriviaSpec Trivia = new(
-        // Lexer skips ' ', '\r', '\t' as whitespace
-        WhitespaceChars:
-        [
-            " ",
-            "\t",
-            "\r"
-        ],
-        Newline: '\n',
-        LineCommentStart: '#',
-        LineCommentEndsAtNewline: true
-    );
-
-    // -------------------------
-    // ASI / virtual semicolons + parser exceptions
-    // -------------------------
-
-    public static readonly AsiSpec Asi;
-
-    // -------------------------
-    // Synthetic token inventory
-    // -------------------------
-
-    public static readonly TokenKind[] SyntheticTokenKinds =
-    [
-        TokenKind.Empty,
-        TokenKind.OptionalTerminator,
-        TokenKind.Cursor
-    ];
-
-    // -------------------------
-    // Initialization
-    // -------------------------
-
-    static LanguageSpec()
+    public static class IdentifierSpec
     {
-        // Build keyword dictionary
-        Keywords = KeywordEntries
-            .OrderBy(k => k.Text,
-                StringComparer.Ordinal)
-            .ToDictionary(k => k.Text,
-                k => k.Kind,
-                StringComparer.Ordinal);
+        // Start Pattern
+        private const string start = @"re:^(?:\p{L}|_|@)$";
 
-        // Build fixed token spelling map
-        FixedSpellingsByKind = FixedTokenEntries
-            .GroupBy(x => x.Kind)
-            .ToDictionary(
-                g => g.Key,
-                g => g.Select(x => x.Spelling)
-                    .OrderBy(s => s,
-                        StringComparer.Ordinal)
-                    .ToArray()
+        // Continue Pattern
+        private const string cont = @"re:^(?:\p{L}|[0-9]|_)$";
+
+        public static bool IsMatchStart(char c)
+        {
+            return c == '_' || c == '@' || char.IsLetter(c);
+        }
+
+        public static bool IsMatchContinue(char c)
+        {
+            return c == '_' || char.IsLetter(c) || char.IsAsciiDigit(c);
+        }
+
+        public static LexerMachineDto LexerMachine { get; } = GetIdentifierLexerMachineDto();
+
+        private static LexerMachineDto GetIdentifierLexerMachineDto()
+        {
+            // States:
+            // 0 = Start (not accepting)
+            // 1 = InIdentifier (accepting)
+            return new LexerMachineDto(
+                TokenKindId: (int)TokenKind.Identifier,
+                StartStateId: 0,
+                States:
+                [
+                    new LexerStateDto(Id: 0, Accepting: false),
+                    new LexerStateDto(Id: 1, Accepting: true),
+                ],
+                Transitions:
+                [
+                    // Start -> InIdentifier on valid start char
+                    new LexerTransitionDto(FromStateId: 0, Predicate: start, ToStateId: 1),
+
+                    // Stay in identifier on valid continue char
+                    new LexerTransitionDto(FromStateId: 1, Predicate: cont, ToStateId: 1),
+                ]
             );
+        }
+    }
 
-        // ASI sets
-        TokenKind[] noInsertAfter =
+    // =========================
+    // Strings
+    // =========================
+
+    public static class StringSpec
+    {
+        private static HashSet<char> stringQuoteChars { get; } = ['\'', '"'];
+
+        public static bool IsStringQuote(char c) => stringQuoteChars.Contains(c);
+
+        public static LexerMachineDto SingleLineLexerMachine { get; } = GetSingleLineLexerMachineDto();
+        public static LexerMachineDto MultilineLexerMachine { get; } = GetMultilineLexerMachineDto();
+        
+        private static LexerMachineDto GetSingleLineLexerMachineDto()
+        {
+            // States:
+            // 0 Start
+            // Single-quote branch:
+            // 1 InSingle, 2 EscSingle, 3 DoneSingle (accepting)
+            // Double-quote branch:
+            // 4 InDouble, 5 EscDouble, 6 DoneDouble (accepting)
+
+            var states = new[]
+            {
+                new LexerStateDto(0, false),
+                new LexerStateDto(1, false),
+                new LexerStateDto(2, false),
+                new LexerStateDto(3, true),
+                new LexerStateDto(4, false),
+                new LexerStateDto(5, false),
+                new LexerStateDto(6, true),
+            };
+
+            // Helper regexes
+            // In single-quoted string: anything but newline, backslash, single-quote
+            const string ReInSingle = @"re:^(?!\n|'|\\).$";
+            // In double-quoted string: anything but newline, backslash, double-quote
+            const string ReInDouble = @"re:^(?!\n|""|\\).$";
+            // Escape payload: any char but newline
+            const string ReEscPayload = @"re:^(?!\n).$";
+
+            var tr = new List<LexerTransitionDto>
+            {
+                // Start transitions
+                new(0, "lit:'", 1),
+                new(0, "lit:\"", 4),
+
+                // Single-quote branch
+                new(1, "lit:\\", 2), // backslash escape
+                new(1, "lit:'", 3), // closing '
+                new(1, ReInSingle, 1), // normal char
+
+                new(2, ReEscPayload, 1), // escaped char
+
+                // Double-quote branch
+                new(4, "lit:\\", 5),
+                new(4, "lit:\"", 6),
+                new(4, ReInDouble, 4),
+
+                new(5, ReEscPayload, 4),
+            };
+
+            return new LexerMachineDto(TokenKindId: (int)TokenKind.LiteralString, StartStateId: 0, States: states,
+                Transitions: tr.ToArray());
+        }
+
+        private static LexerMachineDto GetMultilineLexerMachineDto()
+        {
+            // This machine recognizes:
+            //   ''' ... '''
+            //   """ ... """
+            //
+            // Branches are duplicated. It allows any char inside (including '\n').
+            // It detects closing triple quotes via intermediate states.
+
+            // Single-quote branch:
+            // 0 Start
+            // 1 saw '
+            // 2 saw ''
+            // 3 InTripleSingle content
+            // 4 saw closing ' (1st)
+            // 5 saw closing '' (2nd)
+            // 6 DoneSingle (accepting)
+
+            // Double-quote branch:
+            // 7 saw "
+            // 8 saw ""
+            // 9 InTripleDouble content
+            // 10 saw closing " (1st)
+            // 11 saw closing "" (2nd)
+            // 12 DoneDouble (accepting)
+
+            var states = new[]
+            {
+                new LexerStateDto(0, false),
+                new LexerStateDto(1, false),
+                new LexerStateDto(2, false),
+                new LexerStateDto(3, false),
+                new LexerStateDto(4, false),
+                new LexerStateDto(5, false),
+                new LexerStateDto(6, true),
+
+                new LexerStateDto(7, false),
+                new LexerStateDto(8, false),
+                new LexerStateDto(9, false),
+                new LexerStateDto(10, false),
+                new LexerStateDto(11, false),
+                new LexerStateDto(12, true),
+            };
+
+            var tr = new List<LexerTransitionDto>
+            {
+                // Start triple single: ''' 
+                new(0, "lit:'", 1),
+                new(1, "lit:'", 2),
+                new(2, "lit:'", 3),
+
+                // InTripleSingle content
+                new(3, "lit:'", 4), // maybe starting close
+                new(3, "*", 3), // any other char (including newline)
+
+                // Closing detector for single quotes
+                new(4, "lit:'", 5), // got ''
+                new(4, "*", 3), // false alarm: go back to content
+
+                new(5, "lit:'", 6), // got ''' -> done
+                new(5, "*", 3), // false alarm
+
+                // Start triple double: """
+                new(0, "lit:\"", 7),
+                new(7, "lit:\"", 8),
+                new(8, "lit:\"", 9),
+
+                // InTripleDouble content
+                new(9, "lit:\"", 10),
+                new(9, "*", 9),
+
+                // Closing detector for double quotes
+                new(10, "lit:\"", 11),
+                new(10, "*", 9),
+
+                new(11, "lit:\"", 12),
+                new(11, "*", 9),
+            };
+
+            return new LexerMachineDto(TokenKindId: (int)TokenKind.LiteralMultilineString, StartStateId: 0,
+                States: states,
+                Transitions: tr.ToArray());
+        }
+    }
+
+    // =========================
+    // Numbers
+    // =========================
+
+    public static class NumberSpec
+    {
+        public static TokenKind IntegerTokenKind => TokenKind.LiteralInt;
+        public static TokenKind RealTokenKind => TokenKind.LiteralReal;
+        
+        private const string Digit = @"re:^[0-9]$";
+        private const string Dot = "lit:.";
+        
+        public static LexerMachineDto IntegerLexerMachine { get; } = GetIntegerLexerMachineDto();
+        public static LexerMachineDto RealLexerMachine { get; } = GetRealLexerMachineDto();
+
+        private static LexerMachineDto GetIntegerLexerMachineDto()
+        {
+            // States:
+            // 0 = Start
+            // 1 = Digits (accepting)
+            return new LexerMachineDto(
+                TokenKindId: (int)TokenKind.LiteralInt,
+                StartStateId: 0,
+                States:
+                [
+                    new LexerStateDto(0, Accepting: false),
+                    new LexerStateDto(1, Accepting: true),
+                ],
+                Transitions:
+                [
+                    new LexerTransitionDto(0, Predicate: Digit, ToStateId: 1),
+                    new LexerTransitionDto(1, Predicate: Digit, ToStateId: 1),
+                ]
+            );
+        }
+
+        private static LexerMachineDto GetRealLexerMachineDto()
+        {
+            // Reals supported (no sci-notation):
+            //   - \d+\.\d+
+            //   - \.\d+
+            //
+            // Important property for generation:
+            //   We allow consuming a leading integer prefix (\d+) but it's NOT accepting
+            //   until we have '.' and at least one fractional digit.
+
+            // States:
+            // 0 = Start (not accepting)
+            // 1 = IntPart (\d+) (NOT accepting)
+            // 2 = AfterDotFromInt (\d+\.) (NOT accepting)
+            // 3 = FracPart (\d+\.\d+ OR \.\d+) (accepting)
+            // 4 = LeadingDotSeen (.) (NOT accepting)
+            return new LexerMachineDto(
+                TokenKindId: (int)TokenKind.LiteralReal,
+                StartStateId: 0,
+                States:
+                [
+                    new LexerStateDto(0, Accepting: false),
+                    new LexerStateDto(1, Accepting: false),
+                    new LexerStateDto(2, Accepting: false),
+                    new LexerStateDto(3, Accepting: true),
+                    new LexerStateDto(4, Accepting: false),
+                ],
+                Transitions:
+                [
+                    // Start
+                    new LexerTransitionDto(0, Predicate: Digit, ToStateId: 1),
+                    new LexerTransitionDto(0, Predicate: Dot, ToStateId: 4),
+
+                    // Int part
+                    new LexerTransitionDto(1, Predicate: Digit, ToStateId: 1),
+                    new LexerTransitionDto(1, Predicate: Dot, ToStateId: 2),
+
+                    // After dot (from int)
+                    new LexerTransitionDto(2, Predicate: Digit, ToStateId: 3),
+
+                    // Leading dot seen
+                    new LexerTransitionDto(4, Predicate: Digit, ToStateId: 3),
+
+                    // Fractional digits
+                    new LexerTransitionDto(3, Predicate: Digit, ToStateId: 3),
+                ]
+            );
+        }
+    }
+
+    // =========================
+    // Trivia
+    // =========================
+
+    public static class TriviaSpec
+    {
+        public static char NewLineChar => '\n';
+        public static TokenKind NewlineTokenKind => TokenKind.Newline;
+        
+        private static HashSet<char> whitespaceChars { get; } = [' ', '\t', '\r'];
+        
+        public static char LineCommentStart => '#';
+        
+        public static TriviaDto Dto { get; } = new(whitespaceChars.Select(c => c.ToString()).ToArray(), NewLineChar.ToString(),
+            LineCommentStart.ToString());
+        
+        public static bool IsWhitespace(char c) => whitespaceChars.Contains(c);
+    }
+
+    // =========================
+    // ASI
+    // =========================
+
+    public static class AsiSpec
+    {
+        private static readonly HashSet<TokenKind> noInsertAfter =
         [
             // Internal/special
             TokenKind.EOF,
@@ -376,7 +543,7 @@ public static class LanguageSpec
             TokenKind.As
         ];
 
-        TokenKind[] continuationBefore =
+        private static readonly HashSet<TokenKind> continuationBefore =
         [
             // Postfix / delimiters
             TokenKind.Dot,
@@ -411,44 +578,107 @@ public static class LanguageSpec
             TokenKind.As
         ];
 
-        Asi = new AsiSpec(
-            Enabled: true,
-            VirtualTerminatorKind: TokenKind.Semicolon,
-            NewlineTokenKind: TokenKind.Newline,
-            DropsNewlineTokens: true,
-            NoInsertAfter: noInsertAfter.OrderBy(k => (int)k)
-                .ToArray(),
-            ContinuationBefore: continuationBefore.OrderBy(k => (int)k)
-                .ToArray(),
-            // Parser special-case: initializer expressions may terminate by line break even when lexer did NOT insert a semicolon.
-            ParserExceptions: new ParserLayoutExceptionSpec(
-                AllowMissingTerminatorAfterInitializerIfNextTokenOnNewLine: true,
-                OptionalTerminatorTokenKind: TokenKind.OptionalTerminator
-            )
-        );
+        public static TokenKind VirtualTerminatorKind => TokenKind.Semicolon;
 
-        // Compute hash over canonical JSON WITHOUT specHash field
-        SpecHash = ComputeSha256Hex(ToJsonUtf8(includeHash: false));
+        public static bool NoInsertAfter(TokenKind previous) =>
+            noInsertAfter.Contains(previous);
+
+        public static bool ContinuationBefore(TokenKind next) =>
+            continuationBefore.Contains(next);
+    }
+
+    // -------------------------
+    // Synthetic tokens
+    // -------------------------
+
+    private static readonly HashSet<TokenKind> syntheticTokenKinds =
+    [
+        TokenKind.Empty,
+        TokenKind.VirtualTerminator,
+        TokenKind.Cursor
+    ];
+    
+    // -------------------------
+    // Pattern tokens
+    // -------------------------
+    
+    private static readonly HashSet<TokenKind> patternTokenKinds =
+    [
+        TokenKind.LiteralInt,
+        TokenKind.LiteralReal,
+        TokenKind.LiteralString,
+        TokenKind.LiteralMultilineString,
+        TokenKind.Identifier
+    ];
+
+    // -------------------------
+    // Initialization
+    // -------------------------
+
+    static LanguageSpec()
+    {
+        // Build keyword dictionary
+        keywords = keywordEntries
+            .OrderBy(k => k.Text,
+                StringComparer.Ordinal)
+            .ToDictionary(k => k.Text,
+                k => k.Kind,
+                StringComparer.Ordinal);
     }
 
     // -------------------------
     // Public export API
     // -------------------------
 
-    public static LanguageSpecDto ToDto() =>
-        ToDto(includeHash: true);
+    public static LanguageSpecDto ToDto()
+    {
+        List<TokenInfoDto> tokenInfos = [];
+        List<FixedTokenDto> fixedInfos = [];
+
+        Dictionary<TokenKind, string> fixedMap = [];
+
+        foreach (var kw in keywordEntries)
+        {
+            fixedMap[kw.Kind] = kw.Text;
+        }
+
+        foreach (var sb in symbolEntries)
+        {
+            fixedMap[sb.Kind] = sb.Spelling;
+        }
+
+        foreach (TokenKind kind in Enum.GetValues(typeof(TokenKind)))
+        {
+            tokenInfos.Add(new TokenInfoDto((int)kind, kind.ToString()));
+
+            if (syntheticTokenKinds.Contains(kind) || patternTokenKinds.Contains(kind)) continue;
+
+            string literal = fixedMap[kind];
+
+            fixedInfos.Add(new FixedTokenDto((int)kind, kind.ToString(), literal));
+        }
+
+        LexerMachineDto[] lexerMachines =
+        [
+            StringSpec.SingleLineLexerMachine, StringSpec.MultilineLexerMachine, IdentifierSpec.LexerMachine,
+            NumberSpec.IntegerLexerMachine, NumberSpec.RealLexerMachine
+        ];
+
+        return new LanguageSpecDto(SpecVersion, tokenInfos.ToArray(), fixedInfos.ToArray(),
+            lexerMachines, TriviaSpec.Dto, syntheticTokenKinds.Select(k => (int)k).ToArray());
+    }
 
     public static string ToJson(JsonSerializerOptions? opts = null)
     {
         opts ??= CanonicalJsonOptions;
-        return JsonSerializer.Serialize(ToDto(includeHash: true),
+        return JsonSerializer.Serialize(ToDto(),
             opts);
     }
 
     public static byte[] ToJsonUtf8(JsonSerializerOptions? opts = null)
     {
         opts ??= CanonicalJsonOptions;
-        return JsonSerializer.SerializeToUtf8Bytes(ToDto(includeHash: true),
+        return JsonSerializer.SerializeToUtf8Bytes(ToDto(),
             opts);
     }
 
@@ -456,236 +686,28 @@ public static class LanguageSpec
     // Shared helpers
     // -------------------------
 
-    public static bool IsAllowedIdentifierStartCharacter(char c) =>
-        Identifier.Start.IsMatchStart(c);
-
-    public static bool IsAllowedIdentifierCharacter(char c) =>
-        Identifier.Continue.IsMatchContinue(c);
-
     public static bool TryGetKeywordKind(string text,
         out TokenKind kind) =>
-        Keywords.TryGetValue(text,
+        keywords.TryGetValue(text,
             out kind);
 
-    public static bool AsiNoInsertAfter(TokenKind previous) =>
-        Asi.NoInsertAfterSet.Contains(previous);
-
-    public static bool AsiContinuationBefore(TokenKind next) =>
-        Asi.ContinuationBeforeSet.Contains(next);
-
-    // -------------------------
-    // Internal DTO construction
-    // -------------------------
-
-    private static LanguageSpecDto ToDto(bool includeHash)
+    public static IEnumerable<SymbolSpec> GetSymbolSpecs()
     {
-        var tokens = BuildTokenInventory();
-
-        var keywords = KeywordEntries
-            .OrderBy(k => k.Text,
-                StringComparer.Ordinal)
-            .Select(k => new KeywordEntryDto(k.Text,
-                (int)k.Kind,
-                k.Kind.ToString()))
-            .ToArray();
-
-        var fixedTokens = FixedTokenEntries
-            .OrderBy(x => (int)x.Kind)
-            .ThenBy(x => x.Spelling,
-                StringComparer.Ordinal)
-            .Select(x => new FixedTokenDto((int)x.Kind,
-                x.Kind.ToString(),
-                x.Spelling))
-            .ToArray();
-
-        return new LanguageSpecDto(
-            SpecVersion: SpecVersion,
-            SpecHash: includeHash
-                ? SpecHash
-                : null,
-            Tokens: tokens,
-            Keywords: keywords,
-            FixedTokens: fixedTokens,
-            Identifier: Identifier.ToDto(),
-            Numbers: Numerics.ToDto(),
-            Strings: Strings.ToDto(),
-            Trivia: Trivia.ToDto(),
-            Asi: Asi.ToDto()
-        );
-    }
-
-    private static LanguageSpecDto ToDtoWithoutHash() =>
-        ToDto(includeHash: false);
-
-    private static TokenInfoDto[] BuildTokenInventory()
-    {
-        var allKinds = Enum.GetValues(typeof(TokenKind))
-            .Cast<TokenKind>()
-            .OrderBy(k => (int)k)
-            .ToArray();
-
-        // Reverse lookup: kind -> keyword spellings
-        var keywordSpellings = KeywordEntries
-            .GroupBy(k => k.Kind)
-            .ToDictionary(
-                g => g.Key,
-                g => g.Select(x => x.Text)
-                    .OrderBy(s => s,
-                        StringComparer.Ordinal)
-                    .ToArray()
-            );
-
-        // Define token classification sets
-        var synthetic = new HashSet<TokenKind>(SyntheticTokenKinds);
-        var literalKinds = new HashSet<TokenKind>
+        foreach (var symbol in symbolEntries)
         {
-            TokenKind.None,
-            TokenKind.LiteralTrue,
-            TokenKind.LiteralFalse,
-            TokenKind.LiteralInt,
-            TokenKind.LiteralReal,
-            TokenKind.LiteralString,
-        };
-
-        var symbolKinds = new HashSet<TokenKind>
-        {
-            TokenKind.BracketLeft,
-            TokenKind.BracketRight,
-            TokenKind.ParenthesisLeft,
-            TokenKind.ParenthesisRight,
-            TokenKind.BraceLeft,
-            TokenKind.BraceRight,
-            TokenKind.Comma,
-            TokenKind.Colon,
-            TokenKind.Dot,
-            TokenKind.Semicolon,
-            TokenKind.Newline,
-        };
-
-        var operatorKinds = new HashSet<TokenKind>
-        {
-            TokenKind.Minus,
-            TokenKind.Plus,
-            TokenKind.Slash,
-            TokenKind.SlashDouble,
-            TokenKind.Star,
-            TokenKind.StarDouble,
-            TokenKind.Assignment,
-            TokenKind.Arrow,
-            TokenKind.Range,
-            TokenKind.RangeInclusive,
-            TokenKind.NotEqual,
-            TokenKind.Equal,
-            TokenKind.Greater,
-            TokenKind.GreaterEqual,
-            TokenKind.Less,
-            TokenKind.LessEqual,
-
-            // keyword-operators
-            TokenKind.And,
-            TokenKind.Not,
-            TokenKind.Or,
-            TokenKind.As,
-        };
-
-        bool IsLexable(TokenKind k)
-        {
-            if (k == TokenKind.EOF || synthetic.Contains(k))
-            {
-                return false;
-            }
-
-            return true;
+            yield return symbol;
         }
-
-        var infos = new List<TokenInfoDto>(allKinds.Length);
-        foreach (var kind in allKinds)
-        {
-            var id = (int)kind;
-            var name = kind.ToString();
-
-            string category;
-            if (synthetic.Contains(kind))
-                category = "synthetic";
-            else if (literalKinds.Contains(kind))
-                category = "literal";
-            else if (kind == TokenKind.Identifier)
-                category = "pattern";
-            else if (symbolKinds.Contains(kind))
-                category = "symbol";
-            else if (operatorKinds.Contains(kind))
-                category = "operator";
-            else if (keywordSpellings.ContainsKey(kind))
-                category = "keyword";
-            else
-                category = "unknown";
-
-            // Spellings only for fixed-form tokens (keywords / operators / punctuators)
-            // Pattern tokens (Identifier, LiteralInt/Real/String) intentionally have no spellings.
-            var spellings = Array.Empty<string>();
-            if (kind is not (TokenKind.Identifier or TokenKind.LiteralInt or TokenKind.LiteralReal or TokenKind.LiteralString))
-            {
-                var merged = new List<string>();
-                if (keywordSpellings.TryGetValue(kind,
-                        out var kw))
-                    merged.AddRange(kw);
-                if (FixedSpellingsByKind.TryGetValue(kind,
-                        out var fx))
-                    merged.AddRange(fx);
-                if (merged.Count > 0)
-                {
-                    spellings = merged.Distinct(StringComparer.Ordinal)
-                        .OrderBy(s => s,
-                            StringComparer.Ordinal)
-                        .ToArray();
-                }
-            }
-
-            bool isSynthetic = synthetic.Contains(kind);
-            bool isTrivia = kind == TokenKind.Newline; // newline is lexed but removed during ASI processing
-            bool isVirtual = kind == TokenKind.Semicolon; // may be inserted by ASI
-
-            infos.Add(new TokenInfoDto(
-                Id: id,
-                Name: name,
-                Category: category,
-                Spellings: spellings,
-                IsLexable: IsLexable(kind),
-                IsSynthetic: isSynthetic,
-                IsTrivia: isTrivia,
-                MayBeVirtual: isVirtual
-            ));
-        }
-
-        return infos.OrderBy(t => t.Id)
-            .ToArray();
     }
 
     // -------------------------
-    // Hashing
+    // Spec primitives
     // -------------------------
 
-    private static byte[] ToJsonUtf8(bool includeHash) =>
-        JsonSerializer.SerializeToUtf8Bytes(ToDto(includeHash),
-            CanonicalJsonOptions);
-
-    private static string ComputeSha256Hex(byte[] data)
-    {
-        using var sha = SHA256.Create();
-        var hash = sha.ComputeHash(data);
-        return Convert.ToHexString(hash)
-            .ToLowerInvariant();
-    }
-
-    // -------------------------
-    // Spec primitives (data)
-    // -------------------------
-
-    public readonly record struct KeywordEntrySpec(
+    private readonly record struct KeywordSpec(
         string Text,
         TokenKind Kind);
 
-    public readonly record struct FixedTokenSpec(
+    public readonly record struct SymbolSpec(
         TokenKind Kind,
         string Spelling);
 }
@@ -696,317 +718,37 @@ public static class LanguageSpec
 
 public sealed record LanguageSpecDto(
     string SpecVersion,
-    string? SpecHash,
     TokenInfoDto[] Tokens,
-    KeywordEntryDto[] Keywords,
     FixedTokenDto[] FixedTokens,
-    IdentifierSpecDto Identifier,
-    NumberSpecDto Numbers,
-    StringSpecDto Strings,
-    TriviaSpecDto Trivia,
-    AsiSpecDto Asi
+    LexerMachineDto[] LexerMachines,
+    TriviaDto Trivia,
+    int[] IgnoredTokenKindIds
 );
 
-public sealed record TokenInfoDto(
+public sealed record TokenInfoDto(int Id, string Name);
+
+public sealed record FixedTokenDto(int Id, string Name, string Literal);
+
+public sealed record TriviaDto(
+    string[] WhitespaceChars,
+    string NewlineChar,
+    string LineCommentStart
+);
+
+public sealed record LexerMachineDto(
+    int TokenKindId,
+    int StartStateId,
+    LexerStateDto[] States,
+    LexerTransitionDto[] Transitions
+);
+
+public sealed record LexerStateDto(
     int Id,
-    string Name,
-    string Category,
-    string[] Spellings,
-    bool IsLexable,
-    bool IsSynthetic,
-    bool IsTrivia,
-    bool MayBeVirtual
+    bool Accepting
 );
 
-public sealed record KeywordEntryDto(
-    string Text,
-    int TokenId,
-    string TokenName
-);
-
-public sealed record FixedTokenDto(
-    int TokenId,
-    string TokenName,
-    string Spelling
-);
-
-// =========================
-// Identifier
-// =========================
-
-public sealed record IdentifierSpec(
-    IdentifierCharSetSpec Start,
-    IdentifierCharSetSpec Continue,
-    bool KeywordsAreReserved
-)
-{
-    public IdentifierSpecDto ToDto() =>
-        new(
-            Start: Start.ToDto(isStart: true),
-            Continue: Continue.ToDto(isStart: false),
-            KeywordsAreReserved: KeywordsAreReserved
-        );
-}
-
-public sealed record IdentifierCharSetSpec(
-    bool IncludeUnicodeLetter,
-    bool IncludeAsciiUnderscore,
-    bool IncludeAtSign,
-    bool IncludeUnicodeLetterOrDigit
-)
-{
-    public IdentifierCharSetDto ToDto(bool isStart)
-    {
-        // Machine-friendly list of categories.
-        var cats = new List<string>();
-        if (IncludeUnicodeLetter)
-            cats.Add("unicodeLetter");
-        if (IncludeUnicodeLetterOrDigit && !isStart)
-            cats.Add("unicodeLetterOrDigit");
-        if (IncludeAsciiUnderscore)
-            cats.Add("underscore");
-        if (IncludeAtSign)
-            cats.Add("atSign");
-        return new IdentifierCharSetDto(cats.OrderBy(c => c,
-                StringComparer.Ordinal)
-            .ToArray());
-    }
-
-    public bool IsMatchStart(char c)
-    {
-        if (IncludeAsciiUnderscore && c == '_')
-            return true;
-        if (IncludeAtSign && c == '@')
-            return true;
-        if (IncludeUnicodeLetter && char.IsLetter(c))
-            return true;
-
-        return false;
-    }
-
-    public bool IsMatchContinue(char c)
-    {
-        if (IncludeAsciiUnderscore && c == '_')
-            return true;
-        if (IncludeAtSign && c == '@')
-            return true;
-        if (IncludeUnicodeLetterOrDigit && char.IsLetterOrDigit(c))
-            return true;
-        if (IncludeUnicodeLetter && char.IsLetter(c))
-            return true;
-        return false;
-    }
-}
-
-public sealed record IdentifierSpecDto(
-    IdentifierCharSetDto Start,
-    IdentifierCharSetDto Continue,
-    bool KeywordsAreReserved
-);
-
-public sealed record IdentifierCharSetDto(
-    string[] AllowedCategories
-);
-
-// =========================
-// Numbers
-// =========================
-
-public enum DigitSet
-{
-    Ascii = 0,
-}
-
-public sealed record NumberSpec(
-    DigitSet Digits,
-    bool AllowLeadingDotReal,
-    bool RequireDigitAfterDotIfHasLeadingDigits,
-    bool AllowTrailingDotReal,
-    bool AllowExponent,
-    bool AllowUnderscoreSeparators,
-    TokenKind IntegerTokenKind,
-    TokenKind RealTokenKind
-)
-{
-    public NumberSpecDto ToDto() =>
-        new(
-            Digits: Digits.ToString(),
-            AllowLeadingDotReal: AllowLeadingDotReal,
-            RequireDigitAfterDotIfHasLeadingDigits: RequireDigitAfterDotIfHasLeadingDigits,
-            AllowTrailingDotReal: AllowTrailingDotReal,
-            AllowExponent: AllowExponent,
-            AllowUnderscoreSeparators: AllowUnderscoreSeparators,
-            IntegerTokenId: (int)IntegerTokenKind,
-            IntegerTokenName: IntegerTokenKind.ToString(),
-            RealTokenId: (int)RealTokenKind,
-            RealTokenName: RealTokenKind.ToString()
-        );
-}
-
-public sealed record NumberSpecDto(
-    string Digits,
-    bool AllowLeadingDotReal,
-    bool RequireDigitAfterDotIfHasLeadingDigits,
-    bool AllowTrailingDotReal,
-    bool AllowExponent,
-    bool AllowUnderscoreSeparators,
-    int IntegerTokenId,
-    string IntegerTokenName,
-    int RealTokenId,
-    string RealTokenName
-);
-
-// =========================
-// Strings
-// =========================
-
-public enum StringEscapeMode
-{
-    None = 0,
-}
-
-public sealed record StringSpec(
-    string[] QuoteChars,
-    bool TripleQuoteEnabled,
-    bool MultiLineRequiresTripleQuote,
-    StringEscapeMode EscapeMode,
-    bool AllowsNewlineInSingleLineString,
-    TokenKind TokenKind
-)
-{
-    public StringSpecDto ToDto() =>
-        new(
-            QuoteChars: QuoteChars.OrderBy(s => s,
-                    StringComparer.Ordinal)
-                .ToArray(),
-            TripleQuoteEnabled: TripleQuoteEnabled,
-            MultiLineRequiresTripleQuote: MultiLineRequiresTripleQuote,
-            EscapeMode: EscapeMode.ToString(),
-            AllowsNewlineInSingleLineString: AllowsNewlineInSingleLineString,
-            TokenId: (int)TokenKind,
-            TokenName: TokenKind.ToString()
-        );
-}
-
-public sealed record StringSpecDto(
-    string[] QuoteChars,
-    bool TripleQuoteEnabled,
-    bool MultiLineRequiresTripleQuote,
-    string EscapeMode,
-    bool AllowsNewlineInSingleLineString,
-    int TokenId,
-    string TokenName
-);
-
-// =========================
-// Trivia
-// =========================
-
-public sealed record TriviaSpec(
-    string[] WhitespaceChars,
-    char Newline,
-    char LineCommentStart,
-    bool LineCommentEndsAtNewline
-)
-{
-    public TriviaSpecDto ToDto() =>
-        new(
-            WhitespaceChars: WhitespaceChars.OrderBy(s => s,
-                    StringComparer.Ordinal)
-                .ToArray(),
-            Newline: Newline,
-            LineCommentStart: LineCommentStart,
-            LineCommentEndsAtNewline: LineCommentEndsAtNewline
-        );
-}
-
-public sealed record TriviaSpecDto(
-    string[] WhitespaceChars,
-    char Newline,
-    char LineCommentStart,
-    bool LineCommentEndsAtNewline
-);
-
-// =========================
-// ASI / Layout
-// =========================
-
-public sealed record ParserLayoutExceptionSpec(
-    bool AllowMissingTerminatorAfterInitializerIfNextTokenOnNewLine,
-    TokenKind OptionalTerminatorTokenKind
-)
-{
-    public ParserLayoutExceptionDto ToDto() =>
-        new(
-            AllowMissingTerminatorAfterInitializerIfNextTokenOnNewLine:
-            AllowMissingTerminatorAfterInitializerIfNextTokenOnNewLine,
-            OptionalTerminatorTokenId: (int)OptionalTerminatorTokenKind,
-            OptionalTerminatorTokenName: OptionalTerminatorTokenKind.ToString()
-        );
-}
-
-public sealed record ParserLayoutExceptionDto(
-    bool AllowMissingTerminatorAfterInitializerIfNextTokenOnNewLine,
-    int OptionalTerminatorTokenId,
-    string OptionalTerminatorTokenName
-);
-
-public sealed record AsiSpec(
-    bool Enabled,
-    TokenKind VirtualTerminatorKind,
-    TokenKind NewlineTokenKind,
-    bool DropsNewlineTokens,
-    TokenKind[] NoInsertAfter,
-    TokenKind[] ContinuationBefore,
-    ParserLayoutExceptionSpec ParserExceptions
-)
-{
-    [JsonIgnore]
-    public HashSet<TokenKind> NoInsertAfterSet { get; } =
-    [
-        ..NoInsertAfter
-    ];
-
-    [JsonIgnore]
-    public HashSet<TokenKind> ContinuationBeforeSet { get; } =
-    [
-        ..ContinuationBefore
-    ];
-
-    public AsiSpecDto ToDto() =>
-        new(
-            Enabled: Enabled,
-            VirtualTerminatorTokenId: (int)VirtualTerminatorKind,
-            VirtualTerminatorTokenName: VirtualTerminatorKind.ToString(),
-            NewlineTokenId: (int)NewlineTokenKind,
-            NewlineTokenName: NewlineTokenKind.ToString(),
-            DropsNewlineTokens: DropsNewlineTokens,
-            NoInsertAfterTokenIds: NoInsertAfter.Select(k => (int)k)
-                .OrderBy(x => x)
-                .ToArray(),
-            NoInsertAfterTokenNames: NoInsertAfter.OrderBy(k => (int)k)
-                .Select(k => k.ToString())
-                .ToArray(),
-            ContinuationBeforeTokenIds: ContinuationBefore.Select(k => (int)k)
-                .OrderBy(x => x)
-                .ToArray(),
-            ContinuationBeforeTokenNames: ContinuationBefore.OrderBy(k => (int)k)
-                .Select(k => k.ToString())
-                .ToArray(),
-            ParserExceptions: ParserExceptions.ToDto()
-        );
-}
-
-public sealed record AsiSpecDto(
-    bool Enabled,
-    int VirtualTerminatorTokenId,
-    string VirtualTerminatorTokenName,
-    int NewlineTokenId,
-    string NewlineTokenName,
-    bool DropsNewlineTokens,
-    int[] NoInsertAfterTokenIds,
-    string[] NoInsertAfterTokenNames,
-    int[] ContinuationBeforeTokenIds,
-    string[] ContinuationBeforeTokenNames,
-    ParserLayoutExceptionDto ParserExceptions
+public sealed record LexerTransitionDto(
+    int FromStateId,
+    string Predicate,
+    int ToStateId
 );

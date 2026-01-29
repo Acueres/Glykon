@@ -10,15 +10,14 @@ namespace Glykon.LanguageService.Services;
 public class CompilerServiceImpl : CompilerService.CompilerServiceBase
 {
     private static readonly ByteString specByteString = ByteString.CopyFrom(LanguageSpec.ToJsonUtf8());
-        
+
     public override Task<LanguageSpecReply> GetLanguageSpec(Empty request, ServerCallContext context)
     {
         var reply = new LanguageSpecReply
         {
             Language = LanguageSpec.LanguageName,
-            Version  = LanguageSpec.SpecVersion,
-            Hash     = LanguageSpec.SpecHash,
-            Json     = specByteString,
+            Version = LanguageSpec.SpecVersion,
+            Json = specByteString,
         };
         return Task.FromResult(reply);
     }
@@ -37,16 +36,16 @@ public class CompilerServiceImpl : CompilerService.CompilerServiceBase
         
         var expected = result.Expected ?? [];
         
-        var canTerminate = expected.Contains(TokenKind.OptionalTerminator);
+        var canTerminate = expected.Contains(TokenKind.VirtualTerminator);
 
         var reply = new PredictReply
         {
-            CanTerminateStatementHere = canTerminate
+            CanTerminateStatement = canTerminate
         };
 
         foreach (var k in expected)
         {
-            if (k == TokenKind.OptionalTerminator) continue;
+            if (k == TokenKind.VirtualTerminator) continue;
             reply.ExpectedTokenKindIds.Add((int)k);
         }
 

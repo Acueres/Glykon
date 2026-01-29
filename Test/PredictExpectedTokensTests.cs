@@ -264,11 +264,11 @@ public sealed class ParserPredictExpectedTokensTests : CompilerTestBase
 
     [Fact]
     public void Predict_break_expects_semicolon()
-        => AssertExpectedExactly("break", TokenKind.Semicolon, TokenKind.OptionalTerminator);
+        => AssertExpectedExactly("break", TokenKind.Semicolon, TokenKind.VirtualTerminator);
 
     [Fact]
     public void Predict_continue_expects_semicolon()
-        => AssertExpectedExactly("continue", TokenKind.Semicolon, TokenKind.OptionalTerminator);
+        => AssertExpectedExactly("continue", TokenKind.Semicolon, TokenKind.VirtualTerminator);
 
     [Fact]
     public void Predict_return_value_expects_semicolon()
@@ -288,7 +288,7 @@ public sealed class ParserPredictExpectedTokensTests : CompilerTestBase
             TokenKind.Dot,
             TokenKind.As,
             TokenKind.Semicolon,
-            TokenKind.OptionalTerminator);
+            TokenKind.VirtualTerminator);
     
     // EXPRESSION STATEMENTS
 
@@ -311,11 +311,11 @@ public sealed class ParserPredictExpectedTokensTests : CompilerTestBase
             TokenKind.Assignment,
             TokenKind.ParenthesisLeft,
             TokenKind.Semicolon,
-            TokenKind.OptionalTerminator);
+            TokenKind.VirtualTerminator);
 
     [Fact]
     public void Predict_assignment_stmt_expects_semicolon()
-        => AssertExpectedExactly("x = 1", TokenKind.Semicolon, TokenKind.OptionalTerminator,
+        => AssertExpectedExactly("x = 1", TokenKind.Semicolon, TokenKind.VirtualTerminator,
             TokenKind.Plus,
             TokenKind.Minus,
             TokenKind.Star,

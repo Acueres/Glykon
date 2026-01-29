@@ -5,13 +5,13 @@ namespace Glykon.Compiler.Syntax;
 public enum TokenKind : byte
 {
     // Sentinels
-    Empty, OptionalTerminator,
+    Empty, VirtualTerminator,
     // Cursor (for parser prediction mode)
     Cursor,
     Newline,
 
     // Literals
-    None, LiteralInt, LiteralReal, LiteralString, LiteralTrue, LiteralFalse,
+    None, LiteralInt, LiteralReal, LiteralString, LiteralMultilineString, LiteralTrue, LiteralFalse,
 
     // Symbols
     BracketLeft, BracketRight, //[]

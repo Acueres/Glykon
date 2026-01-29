@@ -568,7 +568,7 @@ public class Parser(LexResult lexResult, string filename, SyntaxMode mode)
     private Expression ParsePrimary()
     {
         if (Match(TokenKind.None, TokenKind.LiteralTrue, TokenKind.LiteralFalse,
-                TokenKind.LiteralInt, TokenKind.LiteralReal, TokenKind.LiteralString))
+                TokenKind.LiteralInt, TokenKind.LiteralReal, TokenKind.LiteralString, TokenKind.LiteralMultilineString))
         {
             return ParseLiteral();
         }
@@ -595,7 +595,7 @@ public class Parser(LexResult lexResult, string filename, SyntaxMode mode)
         errors.Add(error);
         throw error.Exception();
     }
-    
+
     private InitializerExpr ParseInitObject()
     {
         var expr = ParseTypeRef();
@@ -648,6 +648,7 @@ public class Parser(LexResult lexResult, string filename, SyntaxMode mode)
             case TokenKind.LiteralReal when
                 double.TryParse(span.AsSpan(), CultureInfo.InvariantCulture, out var d):
                 return new LiteralExpr(ConstantValue.FromReal(d));
+            case TokenKind.LiteralMultilineString:
             case TokenKind.LiteralString:
                 return new LiteralExpr(ConstantValue.FromString(span.Text));
             default:
@@ -718,7 +719,7 @@ public class Parser(LexResult lexResult, string filename, SyntaxMode mode)
         if (mode == SyntaxMode.Predict && AtCursor)
         {
             ProcessExpected(TokenKind.Semicolon);
-            ProcessExpected(TokenKind.OptionalTerminator);
+            ProcessExpected(TokenKind.VirtualTerminator);
             StopPredicting();
             return;
         }
