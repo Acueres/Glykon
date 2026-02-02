@@ -8,7 +8,9 @@ public enum TokenKind : byte
     Empty, VirtualTerminator,
     // Cursor (for parser prediction mode)
     Cursor,
+    
     Newline,
+    EOF,
 
     // Literals
     None, LiteralInt, LiteralReal, LiteralString, LiteralMultilineString, LiteralTrue, LiteralFalse,
@@ -29,9 +31,7 @@ public enum TokenKind : byte
     // Keywords
     Identifier, Class, Struct, Interface, New, Enum, Def, Let, Const,
     And, Not, Or,
-    If, Else, Elif, For, By, In, As, While, Return, Break, Continue,
-
-    EOF
+    If, Else, Elif, For, By, In, As, While, Return, Break, Continue
 }
 
 public readonly struct Token
@@ -40,7 +40,7 @@ public readonly struct Token
     public int Line { get; }
     public TextSpan? Span { get; }
 
-    public string Text => Span!.Value.Text;
+    public string Lexeme => Span!.Value.Text;
 
     private static readonly Token empty = new(TokenKind.Empty, 0);
     public static ref readonly Token Empty => ref empty;

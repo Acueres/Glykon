@@ -127,6 +127,34 @@ public sealed class ParserPredictExpectedTokensTests : CompilerTestBase
     public void Predict_def_return_type_expects_lbrace()
         => AssertExpectedExactly("def f() -> int", TokenKind.BraceLeft, TokenKind.Dot);
     
+    // FUNCTION BODIES
+
+    [Fact]
+    public void Predict_function_body_empty_contains_rbrace()
+        // After consuming '{' the block may end immediately.
+        => AssertExpectedContains("def main() {", TokenKind.BraceRight);
+
+    [Fact]
+    public void Predict_function_body_after_expression_stmt_contains_rbrace()
+        // Regression: when a statement can end via a virtual terminator at the cursor,
+        // the parser must still report '}' as a valid next token inside a block.
+        => AssertExpectedContains("def main() { println('x')", TokenKind.BraceRight);
+
+    [Fact]
+    public void Predict_function_body_after_return_value_contains_rbrace()
+        // Same regression, but via ReturnStmt + TerminateStatement.
+        => AssertExpectedContains("def main() { return 1", TokenKind.BraceRight);
+
+    [Fact]
+    public void Predict_function_body_after_let_declaration_contains_rbrace()
+        // Same regression, but via variable declaration termination.
+        => AssertExpectedContains("def main() { let x = 1", TokenKind.BraceRight);
+
+    [Fact]
+    public void Predict_nested_block_after_expression_stmt_contains_rbrace()
+        // Regression: nested blocks must still include the inner '}' as a valid next token.
+        => AssertExpectedContains("def main() { if true { println('x')", TokenKind.BraceRight);
+    
     // TYPE DECLARATIONS
 
     [Fact]
@@ -216,6 +244,16 @@ public sealed class ParserPredictExpectedTokensTests : CompilerTestBase
     public void Predict_while_condition_after_explicit_semicolon_expects_lbrace_only()
         => AssertExpectedExactly("while true;", TokenKind.BraceLeft);
     
+    [Fact]
+    public void Predict_if_body_after_expression_stmt_contains_rbrace()
+        // Regression: closing brace must be visible as a valid continuation inside if bodies.
+        => AssertExpectedContains("if true { println('x')", TokenKind.BraceRight);
+
+    [Fact]
+    public void Predict_while_body_after_expression_stmt_contains_rbrace()
+        // Regression: closing brace must be visible as a valid continuation inside while bodies.
+        => AssertExpectedContains("while true { println('x')", TokenKind.BraceRight);
+    
     // FOR + RANGE
 
     [Fact]
@@ -259,6 +297,11 @@ public sealed class ParserPredictExpectedTokensTests : CompilerTestBase
             TokenKind.Slash,
             TokenKind.Dot,
             TokenKind.As);
+    
+    [Fact]
+    public void Predict_for_body_after_expression_stmt_contains_rbrace()
+        // Regression: closing brace must be visible as a valid continuation inside for bodies.
+        => AssertExpectedContains("for i in 0..10 { println('x')", TokenKind.BraceRight);
     
     // JUMPS + RETURN
 

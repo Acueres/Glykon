@@ -324,7 +324,7 @@ public static class LanguageSpec
 
             var tr = new List<LexerTransitionDto>
             {
-                // Start triple single: ''' 
+                // Start triple single: '''
                 new(0, "lit:'", 1),
                 new(1, "lit:'", 2),
                 new(2, "lit:'", 3),
@@ -593,6 +593,7 @@ public static class LanguageSpec
 
     private static readonly HashSet<TokenKind> syntheticTokenKinds =
     [
+        TokenKind.EOF,
         TokenKind.Empty,
         TokenKind.VirtualTerminator,
         TokenKind.Cursor

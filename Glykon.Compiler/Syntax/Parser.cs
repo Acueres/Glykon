@@ -29,6 +29,8 @@ public class Parser(LexResult lexResult, string filename, SyntaxMode mode)
             try
             {
                 if (mode == SyntaxMode.Normal && Check(TokenKind.EOF)) break;
+                if (mode == SyntaxMode.Predict && AtCursor && statements.Count > 0) StopPredicting();
+
                 Statement stmt = ParseDeclaration();
                 statements.Add(stmt);
             }
@@ -119,7 +121,7 @@ public class Parser(LexResult lexResult, string filename, SyntaxMode mode)
 
         Consume(TokenKind.BraceRight, "Expect '}' after class body");
 
-        return new TypeDeclaration(className.Text, isValueType, [..methods], [..fields], [..constants], [..nested]);
+        return new TypeDeclaration(className.Lexeme, isValueType, [..methods], [..fields], [..constants], [..nested]);
     }
 
     private MethodDeclaration ParseMethodDeclaration()
@@ -150,7 +152,7 @@ public class Parser(LexResult lexResult, string filename, SyntaxMode mode)
 
         TerminateStatement("Expect ';' after field declaration", initializer);
 
-        string name = identifierToken.Text;
+        string name = identifierToken.Lexeme;
         return new FieldDeclaration(initializer, name, declaredType);
     }
 
@@ -178,7 +180,7 @@ public class Parser(LexResult lexResult, string filename, SyntaxMode mode)
         
         BlockStmt body = ParseBlockStatement();
 
-        return new FunctionDeclaration(functionName.Text, [..parameters], returnType, body);
+        return new FunctionDeclaration(functionName.Lexeme, [..parameters], returnType, body);
     }
 
     private VariableDeclaration ParseVariableDeclaration()
@@ -208,7 +210,7 @@ public class Parser(LexResult lexResult, string filename, SyntaxMode mode)
 
         TerminateStatement("Expect ';' after variable declaration", initializer);
 
-        string name = identifierToken.Text;
+        string name = identifierToken.Lexeme;
         return new VariableDeclaration(initializer, name, declaredType, immutable);
     }
 
@@ -225,7 +227,7 @@ public class Parser(LexResult lexResult, string filename, SyntaxMode mode)
 
         TerminateStatement("Expect ';' after constant declaration", initializer);
 
-        string name = token.Text;
+        string name = token.Lexeme;
         return new(initializer, name, declaredType);
     }
 
@@ -245,14 +247,14 @@ public class Parser(LexResult lexResult, string filename, SyntaxMode mode)
             // Allow for self reference in methods
             if (methodParams && parameters.Count == 0 && !Check(TokenKind.Colon))
             {
-                parameter = new Parameter(name.Text, TypeAnnotation.None);
+                parameter = new Parameter(name.Lexeme, TypeAnnotation.None);
             }
             else
             {
                 Consume(TokenKind.Colon, "Expect colon before type declaration");
                 var type = ParseType();
 
-                parameter = new Parameter(name.Text, type);
+                parameter = new Parameter(name.Lexeme, type);
             }
 
             parameters.Add(parameter);
@@ -368,7 +370,7 @@ public class Parser(LexResult lexResult, string filename, SyntaxMode mode)
         
         var range = ParseRange();
         
-        var iter = new VariableDeclaration(range.Start, identifierToken.Text, TypeAnnotation.None, immutable: true);
+        var iter = new VariableDeclaration(range.Start, identifierToken.Lexeme, TypeAnnotation.None, immutable: true);
         
         Consume(TokenKind.BraceLeft, "Expect '{' before for loop body");
         var body = ParseBlockStatement();
@@ -532,7 +534,7 @@ public class Parser(LexResult lexResult, string filename, SyntaxMode mode)
             else if (Match(TokenKind.Dot))
             {
                 Token name = Consume(TokenKind.Identifier, "Expect member name after '.'");
-                expr = new MemberAccessExpr(expr, name.Text);
+                expr = new MemberAccessExpr(expr, name.Lexeme);
             }
             else if (Match(TokenKind.As))
             {
@@ -575,7 +577,7 @@ public class Parser(LexResult lexResult, string filename, SyntaxMode mode)
 
         if (Match(TokenKind.Identifier))
         {
-            string name = Previous.Text;
+            string name = Previous.Lexeme;
             return new NameExpr(name);
         }
 
@@ -589,6 +591,12 @@ public class Parser(LexResult lexResult, string filename, SyntaxMode mode)
         if (Match(TokenKind.New))
         {
             return ParseInitObject();
+        }
+
+        //Output expected tokens from blank state
+        if (mode == SyntaxMode.Predict && AtCursor)
+        {
+            throw new PredictStopException();
         }
 
         ParseError error = new(Current, filename, "Expect expression");
@@ -611,7 +619,7 @@ public class Parser(LexResult lexResult, string filename, SyntaxMode mode)
                 Token name = Consume(TokenKind.Identifier, "Expect field name");
                 Consume(TokenKind.Colon, "Expect ':' after field name.");
                 var value = ParseLogicalOr();
-                initializers.Add(new Initializer(name.Text, value));
+                initializers.Add(new Initializer(name.Lexeme, value));
 
                 if (!Match(TokenKind.Comma)) break;
 
@@ -693,12 +701,12 @@ public class Parser(LexResult lexResult, string filename, SyntaxMode mode)
     private Expression ParseTypeRef()
     {
         var first = Consume(TokenKind.Identifier, "Expect type name");
-        Expression expr = new NameExpr(first.Text);
+        Expression expr = new NameExpr(first.Lexeme);
         
         while (Match(TokenKind.Dot))
         {
             var part = Consume(TokenKind.Identifier, "Expect identifier after '.' in type name");
-            expr = new MemberAccessExpr(expr, part.Text);
+            expr = new MemberAccessExpr(expr, part.Lexeme);
         }
 
         return expr;
@@ -720,7 +728,7 @@ public class Parser(LexResult lexResult, string filename, SyntaxMode mode)
         {
             ProcessExpected(TokenKind.Semicolon);
             ProcessExpected(TokenKind.VirtualTerminator);
-            StopPredicting();
+            //StopPredicting();
             return;
         }
         
@@ -816,15 +824,12 @@ public class Parser(LexResult lexResult, string filename, SyntaxMode mode)
 
         expected.Add(kind);
     }
-    
-    private void StopPredicting()
+
+    private static void StopPredicting()
     {
-        if (mode == SyntaxMode.Predict)
-        {
-            throw new PredictStopException();
-        }
+        throw new PredictStopException();
     }
-    
+
     private ref readonly Token Current => ref Peek(0);
     private ref readonly Token Previous => ref Peek(-1);
     private bool AtCursor => mode == SyntaxMode.Predict && Current.Kind == TokenKind.Cursor;

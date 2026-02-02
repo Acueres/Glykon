@@ -17,7 +17,7 @@ public class LexerTests : CompilerTestBase
         Assert.Equal(5, tokens.Length);
         Assert.Equal(TokenKind.Let, tokens[0].Kind);
         Assert.Equal(TokenKind.Identifier, tokens[1].Kind);
-        Assert.Equal("text", tokens[1].Text);
+        Assert.Equal("text", tokens[1].Lexeme);
     }
 
     [Fact]
@@ -120,9 +120,9 @@ public class LexerTests : CompilerTestBase
 
         Assert.Equal(3, tokens.Length);
         Assert.Equal(TokenKind.LiteralString, tokens[0].Kind);
-        Assert.Equal("some text", tokens[0].Text);
-        Assert.Equal("other text", tokens[1].Text);
-        Assert.Equal("multiline oneliner", tokens[2].Text);
+        Assert.Equal("some text", tokens[0].Lexeme);
+        Assert.Equal("other text", tokens[1].Lexeme);
+        Assert.Equal("multiline oneliner", tokens[2].Lexeme);
     }
 
     [Fact]
@@ -143,10 +143,10 @@ public class LexerTests : CompilerTestBase
         tokens = [.. tokens.Where(t => t.Kind != TokenKind.Semicolon && t.Kind != TokenKind.EOF)];
 
         Assert.Equal(3, tokens.Length);
-        Assert.Equal("multiline string\n", (tokens.First().Text).Replace("\r", string.Empty));
-        Assert.Equal("regular string", tokens[1].Text);
+        Assert.Equal("multiline string\n", (tokens.First().Lexeme).Replace("\r", string.Empty));
+        Assert.Equal("regular string", tokens[1].Lexeme);
         Assert.Equal(2, tokens[1].Line);
-        Assert.Equal("another 'multiline' string\n text\n", (tokens[2].Text).Replace("\r", string.Empty));
+        Assert.Equal("another 'multiline' string\n text\n", (tokens[2].Lexeme).Replace("\r", string.Empty));
         Assert.Equal(4, tokens[2].Line);
     }
 
@@ -161,12 +161,12 @@ public class LexerTests : CompilerTestBase
 
         Assert.Equal(6, tokens.Length);
         Assert.Equal(TokenKind.LiteralInt, tokens[0].Kind);
-        Assert.Equal("123", tokens[0].Text);
-        Assert.Equal("42", tokens[1].Text);
+        Assert.Equal("123", tokens[0].Lexeme);
+        Assert.Equal("42", tokens[1].Lexeme);
 
         Assert.Equal(TokenKind.LiteralReal, tokens[2].Kind);
-        Assert.Equal("1.2", tokens[2].Text);
-        Assert.Equal(".2", tokens[3].Text);
+        Assert.Equal("1.2", tokens[2].Lexeme);
+        Assert.Equal(".2", tokens[3].Lexeme);
 
         Assert.Equal(TokenKind.LiteralInt, tokens[4].Kind);
     }
