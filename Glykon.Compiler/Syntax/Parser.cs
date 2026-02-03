@@ -29,7 +29,6 @@ public class Parser(LexResult lexResult, string filename, SyntaxMode mode)
             try
             {
                 if (mode == SyntaxMode.Normal && Check(TokenKind.EOF)) break;
-                if (mode == SyntaxMode.Predict && AtCursor && statements.Count > 0) StopPredicting();
 
                 Statement stmt = ParseDeclaration();
                 statements.Add(stmt);

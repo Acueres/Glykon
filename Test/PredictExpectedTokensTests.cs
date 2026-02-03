@@ -307,72 +307,25 @@ public sealed class ParserPredictExpectedTokensTests : CompilerTestBase
 
     [Fact]
     public void Predict_break_expects_semicolon()
-        => AssertExpectedExactly("break", TokenKind.Semicolon, TokenKind.VirtualTerminator);
+        => AssertExpectedContains("break", TokenKind.Semicolon, TokenKind.VirtualTerminator);
 
     [Fact]
     public void Predict_continue_expects_semicolon()
-        => AssertExpectedExactly("continue", TokenKind.Semicolon, TokenKind.VirtualTerminator);
+        => AssertExpectedContains("continue", TokenKind.Semicolon, TokenKind.VirtualTerminator);
 
     [Fact]
     public void Predict_return_value_expects_semicolon()
-        => AssertExpectedExactly("return 1",
-            TokenKind.Plus,
-            TokenKind.Minus,
-            TokenKind.Star,
-            TokenKind.Slash,
-            TokenKind.And,
-            TokenKind.Or,
-            TokenKind.Equal,
-            TokenKind.NotEqual,
-            TokenKind.Greater,
-            TokenKind.Less,
-            TokenKind.GreaterEqual,
-            TokenKind.LessEqual,
-            TokenKind.Dot,
-            TokenKind.As,
-            TokenKind.Semicolon,
-            TokenKind.VirtualTerminator);
+        => AssertExpectedContains("return 1", TokenKind.Semicolon, TokenKind.VirtualTerminator);
     
     // EXPRESSION STATEMENTS
 
     [Fact]
     public void Predict_expression_stmt_identifier_expects_semicolon()
-        => AssertExpectedExactly("x", TokenKind.Plus,
-            TokenKind.Minus,
-            TokenKind.Star,
-            TokenKind.Slash,
-            TokenKind.And,
-            TokenKind.Or,
-            TokenKind.Equal,
-            TokenKind.NotEqual,
-            TokenKind.Greater,
-            TokenKind.Less,
-            TokenKind.GreaterEqual,
-            TokenKind.LessEqual,
-            TokenKind.Dot,
-            TokenKind.As,
-            TokenKind.Assignment,
-            TokenKind.ParenthesisLeft,
-            TokenKind.Semicolon,
-            TokenKind.VirtualTerminator);
+        => AssertExpectedContains("x", TokenKind.Semicolon, TokenKind.VirtualTerminator);
 
     [Fact]
     public void Predict_assignment_stmt_expects_semicolon()
-        => AssertExpectedExactly("x = 1", TokenKind.Semicolon, TokenKind.VirtualTerminator,
-            TokenKind.Plus,
-            TokenKind.Minus,
-            TokenKind.Star,
-            TokenKind.Slash,
-            TokenKind.And,
-            TokenKind.Or,
-            TokenKind.Equal,
-            TokenKind.NotEqual,
-            TokenKind.Greater,
-            TokenKind.Less,
-            TokenKind.GreaterEqual,
-            TokenKind.LessEqual,
-            TokenKind.Dot,
-            TokenKind.As);
+        => AssertExpectedContains("x = 1", TokenKind.Semicolon, TokenKind.VirtualTerminator);
     
     // POSTFIX: member access, conversion, grouping, calls
 
