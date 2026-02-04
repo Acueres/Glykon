@@ -30,6 +30,11 @@ public class Parser(LexResult lexResult, string filename, SyntaxMode mode)
             {
                 if (mode == SyntaxMode.Normal && Check(TokenKind.EOF)) break;
 
+                if (mode == SyntaxMode.Predict && AtCursor)
+                {
+                    ProcessExpected(TokenKind.EOF);
+                }
+
                 Statement stmt = ParseDeclaration();
                 statements.Add(stmt);
             }
@@ -323,9 +328,6 @@ public class Parser(LexResult lexResult, string filename, SyntaxMode mode)
     private IfStmt ParseIfStatement()
     {
         Expression condition = ParseLogicalOr();
-
-        // Handle ASI artifacts
-        Match(TokenKind.Semicolon);
         
         Consume(TokenKind.BraceLeft, "Expect '{' after if condition");
         
@@ -334,14 +336,10 @@ public class Parser(LexResult lexResult, string filename, SyntaxMode mode)
         Statement? elseStmt = null;
         if (Match(TokenKind.Else))
         {
-            // Handle ASI artifacts
-            Match(TokenKind.Semicolon);
             elseStmt = ParseStatement();
         }
         else if (Match(TokenKind.Elif))
         {
-            // Handle ASI artifacts
-            Match(TokenKind.Semicolon);
             elseStmt = ParseIfStatement();
         }
 
@@ -351,9 +349,6 @@ public class Parser(LexResult lexResult, string filename, SyntaxMode mode)
     private WhileStmt ParseWhileStatement()
     {
         Expression condition = ParseLogicalOr();
-
-        // Handle ASI artifacts
-        Match(TokenKind.Semicolon);
 
         Consume(TokenKind.BraceLeft, "Expect '{' after while condition");
 
@@ -727,7 +722,6 @@ public class Parser(LexResult lexResult, string filename, SyntaxMode mode)
         {
             ProcessExpected(TokenKind.Semicolon);
             ProcessExpected(TokenKind.VirtualTerminator);
-            //StopPredicting();
             return;
         }
         

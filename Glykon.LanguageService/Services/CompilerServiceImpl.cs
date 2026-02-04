@@ -1,7 +1,8 @@
-using Glykon.Compiler.Core;
 using Grpc.Core;
 using Google.Protobuf;
 using Google.Protobuf.WellKnownTypes;
+
+using Glykon.Compiler.Core;
 
 using Glykon.Compiler.Syntax;
 
@@ -36,11 +37,13 @@ public class CompilerServiceImpl : CompilerService.CompilerServiceBase
         
         var expected = result.Expected ?? [];
         
-        var canTerminate = expected.Contains(TokenKind.VirtualTerminator);
+        bool canTerminate = expected.Contains(TokenKind.VirtualTerminator);
+        bool canEndInput = expected.Contains(TokenKind.EOF);
 
         var reply = new PredictReply
         {
-            CanTerminateStatement = canTerminate
+            CanTerminateStatement = canTerminate,
+            CanEndInput = canEndInput,
         };
 
         foreach (var k in expected)

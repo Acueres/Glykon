@@ -228,21 +228,21 @@ public sealed class ParserPredictExpectedTokensTests : CompilerTestBase
         // ParseIfStatement: Match(Semicolon) then Consume('{')
         => AssertExpectedContains("if true", TokenKind.BraceLeft);
 
-    [Fact]
+    /*[Fact]
     public void Predict_if_condition_may_also_expect_semicolon()
-        => AssertExpectedContains("if true", TokenKind.Semicolon);
+        => AssertExpectedContains("if true", TokenKind.Semicolon);*/
 
-    [Fact]
+    /*[Fact]
     public void Predict_if_condition_after_explicit_semicolon_expects_lbrace_only()
-        => AssertExpectedExactly("if true;", TokenKind.BraceLeft);
+        => AssertExpectedExactly("if true;", TokenKind.BraceLeft);*/
 
     [Fact]
     public void Predict_while_condition_contains_lbrace()
         => AssertExpectedContains("while true", TokenKind.BraceLeft);
 
-    [Fact]
+    /*[Fact]
     public void Predict_while_condition_after_explicit_semicolon_expects_lbrace_only()
-        => AssertExpectedExactly("while true;", TokenKind.BraceLeft);
+        => AssertExpectedExactly("while true;", TokenKind.BraceLeft);*/
     
     [Fact]
     public void Predict_if_body_after_expression_stmt_contains_rbrace()
