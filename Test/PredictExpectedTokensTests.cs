@@ -66,6 +66,10 @@ public sealed class ParserPredictExpectedTokensTests : CompilerTestBase
     [Fact]
     public void Predict_let_expects_const_or_identifier()
         => AssertExpectedExactly("let", TokenKind.Const, TokenKind.Identifier);
+    
+    [Fact]
+    public void Predict_let_expects_assignment()
+        => AssertExpectedContains("let x", TokenKind.Assignment);
 
     [Fact]
     public void Predict_let_const_expects_identifier()

@@ -207,8 +207,14 @@ public class Parser(LexResult lexResult, string filename, SyntaxMode mode)
 
         if (initializer is null)
         {
+            if (AtCursor)
+            {
+                StopPredicting();
+            }
+            
             ParseError error = new(identifierToken, filename, "Variable must be initialized");
             errors.Add(error);
+            
             throw error.Exception();
         }
 
@@ -717,14 +723,14 @@ public class Parser(LexResult lexResult, string filename, SyntaxMode mode)
         {
             if (Current.Line > Previous.Line) return;
         }
-        
+
         if (mode == SyntaxMode.Predict && AtCursor)
         {
             ProcessExpected(TokenKind.Semicolon);
             ProcessExpected(TokenKind.VirtualTerminator);
             return;
         }
-        
+
         if (Current.Kind == TokenKind.Semicolon)
         {
             Advance();

@@ -26,7 +26,7 @@ public static class LanguageSpec
     // -------------------------
 
     /// <summary>
-    /// Canonical options used for hashing and deterministic JSON output.
+    /// Canonical options used for hashing and deterministic JSON output
     /// </summary>
     private static readonly JsonSerializerOptions CanonicalJsonOptions = new()
     {
@@ -34,6 +34,155 @@ public static class LanguageSpec
         PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
         DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull
     };
+    
+    /// <summary>
+    /// Grammar
+    /// </summary>
+
+    private const string grammarEbnf = """
+
+                                      program         ::= { item } EOF ;
+                                      item            ::= declaration | statement ;
+
+                                      (* ---------- Top-level / block-level declarations ---------- *)
+
+                                      declaration     ::= const_decl
+                                                        | var_decl
+                                                        | func_decl
+                                                        | type_decl ;
+
+                                      type_decl       ::= ("class" | "struct") IDENT "{" { type_member } "}" ;
+
+                                      type_member     ::= method_decl
+                                                        | const_decl
+                                                        | type_decl          (* nested class/struct *)
+                                                        | field_decl ;
+
+                                      field_decl      ::= IDENT ":" type [ "=" logical_or ] stmt_end ;
+
+                                      func_decl       ::= "def" IDENT "(" [ param_list ] ")" [ "->" type ] block ;
+
+                                      method_decl     ::= "def" IDENT "(" [ method_param_list ] ")" [ "->" type ] block ;
+                                      (* NOTE: first method parameter may omit ": type" (self-style). Other params require ": type". *)
+
+                                      param_list          ::= param { "," param } ;
+                                      param               ::= IDENT ":" type ;
+
+                                      method_param_list   ::= method_param { "," method_param } ;
+                                      method_param        ::= IDENT [ ":" type ] ;
+
+                                      var_decl         ::= "let" [ "const" ] IDENT [ ":" type ] "=" logical_or stmt_end ;
+                                      const_decl       ::= "const" IDENT ":" type "=" logical_or stmt_end ;
+
+                                      type            ::= type_ref ;
+                                      type_ref        ::= IDENT { "." IDENT } ;
+
+                                      (* ---------- Statements ---------- *)
+
+                                      statement       ::= block
+                                                        | if_stmt
+                                                        | while_stmt
+                                                        | for_stmt
+                                                        | return_stmt
+                                                        | jump_stmt
+                                                        | expr_stmt ;
+
+                                      block           ::= "{" { item } "}" ;
+                                      (* NOTE: item includes statement, and statement includes block. This is intentional nesting. *)
+
+                                      if_stmt         ::= "if" logical_or block
+                                                          { "elif" logical_or block }
+                                                          [ "else" statement ] ;
+
+                                      while_stmt      ::= "while" logical_or block ;
+
+                                      for_stmt        ::= "for" IDENT "in" range block ;
+                                      range           ::= term ( ".." | "..=" ) term [ "by" term ] ;
+                                      (* NOTE: range bounds/step parse as term-level expressions (not full logical/comparison). *)
+
+                                      return_stmt     ::= "return" [ logical_or ] stmt_end ;
+                                      jump_stmt       ::= ("break" | "continue") stmt_end ;
+                                      expr_stmt       ::= expression stmt_end ;
+
+                                      stmt_end        ::= ";" | VIRTUAL_TERMINATOR | ε ;
+                                      (* VIRTUAL_TERMINATOR is not written in source; it represents an implicit line terminator / ASI.
+                                         Parser accepts implicit termination before "}" / EOF, and also allows ASI after an initializer on a new line. *)
+
+                                      (* ---------- Expressions (precedence, low -> high) ---------- *)
+
+                                      expression      ::= assignment ;
+
+                                      assignment      ::= logical_or [ "=" assignment ] ;
+                                      (* LHS must be IDENT or member_access chain; otherwise it's a parse error. *)
+
+                                      logical_or      ::= logical_and { "or"  logical_and } ;
+                                      logical_and     ::= equality    { "and" equality    } ;
+                                      equality        ::= comparison  { ("==" | "!=") comparison } ;
+                                      comparison      ::= term        { (">" | ">=" | "<" | "<=") term } ;
+                                      term            ::= factor      { ("+" | "-") factor } ;
+                                      factor          ::= unary       { ("*" | "/") unary } ;
+
+                                      unary           ::= ("!" | "-") unary
+                                                        | postfix ;
+
+                                      postfix         ::= primary { postfix_op } ;
+                                      postfix_op      ::= call_suffix | member_suffix | as_suffix ;
+
+                                      member_suffix   ::= "." IDENT ;
+                                      as_suffix       ::= "as" type ;
+
+                                      call_suffix     ::= "(" [ arg_list ] ")" ;
+                                      arg_list        ::= logical_or { "," logical_or } ;
+                                      (* NOTE: calls are only completed when the callee is an identifier, a member-access, or a parenthesized expression.
+                                               After `as`, you generally need parentheses to call: (expr as T)(...) *)
+
+                                      primary         ::= literal
+                                                        | IDENT
+                                                        | "(" logical_or ")"
+                                                        | initializer ;
+
+                                      initializer     ::= "new" type_ref "{"
+                                                            [ init_entry { "," init_entry } [ "," ] ]
+                                                          "}" ;
+                                      init_entry      ::= IDENT ":" logical_or ;
+
+                                      literal         ::= "none" | "true" | "false"
+                                                        | INT | REAL | STRING | MULTILINE_STRING ;
+
+
+                                      """;
+    
+    private const string grammarPrompt = """
+                                              Declarations:
+                                                Function: def name(params) [-> Type] { ... }
+                                                Type: class Name { ... } or struct Name { ... }
+                                                Field inside a type: name: Type [= expr]
+                                                Let: let [const] name [: Type] = expr
+                                                Const: const name: Type = expr
+                                                Parameters: normally name: Type. In methods, the first parameter may omit : Type (self-style).
+                                              
+                                              Statements
+                                                Block: { ... }
+                                                If: if expr { ... } {elif expr { ... }} [else stmt]
+                                                While: while expr { ... }
+                                                For range: for i in a..b { ... } or a..=b and optional step: by step
+                                                Return: return [expr]
+                                                Break / Continue: break, continue
+                                                Expression statement: expr
+                                              
+                                              Statement termination
+                                                ; is allowed, but often optional: a statement can end at a newline or before } or end-of-file.
+                                                (Do not output any “ASI/virtual terminator” tokens; that’s internal.)
+                                              
+                                              Expressions
+                                                Usual precedence: assignment =, then or, and, comparisons (== != < <= > >=), + -, * /, unary ! -.
+                                              
+                                              Postfix operations:
+                                                Call: f(args)
+                                                Member access: x.y
+                                                Cast: expr as Type
+                                                Object initializer: new Type { field: expr, ... }
+                                              """;
 
     // -------------------------
     // Keywords
@@ -207,7 +356,8 @@ public static class LanguageSpec
 
                     // Stay in identifier on valid continue char
                     new LexerTransitionDto(FromStateId: 1, Predicate: cont, ToStateId: 1),
-                ]
+                ],
+                32
             );
         }
     }
@@ -275,7 +425,7 @@ public static class LanguageSpec
             };
 
             return new LexerMachineDto(TokenKindId: (int)TokenKind.LiteralString, StartStateId: 0, States: states,
-                Transitions: tr.ToArray());
+                Transitions: tr.ToArray(), 200_000);
         }
 
         private static LexerMachineDto GetMultilineLexerMachineDto()
@@ -359,7 +509,7 @@ public static class LanguageSpec
 
             return new LexerMachineDto(TokenKindId: (int)TokenKind.LiteralMultilineString, StartStateId: 0,
                 States: states,
-                Transitions: tr.ToArray());
+                Transitions: tr.ToArray(), 200_000);
         }
     }
 
@@ -395,7 +545,8 @@ public static class LanguageSpec
                 [
                     new LexerTransitionDto(0, Predicate: Digit, ToStateId: 1),
                     new LexerTransitionDto(1, Predicate: Digit, ToStateId: 1),
-                ]
+                ],
+                MaxLexemeChars: 128
             );
         }
 
@@ -444,7 +595,8 @@ public static class LanguageSpec
 
                     // Fractional digits
                     new LexerTransitionDto(3, Predicate: Digit, ToStateId: 3),
-                ]
+                ],
+                MaxLexemeChars: 128
             );
         }
     }
@@ -665,7 +817,7 @@ public static class LanguageSpec
             NumberSpec.IntegerLexerMachine, NumberSpec.RealLexerMachine
         ];
 
-        return new LanguageSpecDto(SpecVersion, tokenInfos.ToArray(), fixedInfos.ToArray(),
+        return new LanguageSpecDto(SpecVersion, grammarEbnf, grammarPrompt,tokenInfos.ToArray(), fixedInfos.ToArray(),
             lexerMachines, TriviaSpec.Dto, syntheticTokenKinds.Select(k => (int)k).ToArray());
     }
 
@@ -719,6 +871,8 @@ public static class LanguageSpec
 
 public sealed record LanguageSpecDto(
     string SpecVersion,
+    string GrammarEbnf,
+    string GrammarPrompt,
     TokenInfoDto[] Tokens,
     FixedTokenDto[] FixedTokens,
     LexerMachineDto[] LexerMachines,
@@ -740,7 +894,8 @@ public sealed record LexerMachineDto(
     int TokenKindId,
     int StartStateId,
     LexerStateDto[] States,
-    LexerTransitionDto[] Transitions
+    LexerTransitionDto[] Transitions,
+    int MaxLexemeChars
 );
 
 public sealed record LexerStateDto(
