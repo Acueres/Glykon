@@ -20,6 +20,7 @@ public class Parser(LexResult lexResult, string filename, SyntaxMode mode)
     private readonly HashSet<TokenKind> expected = [];
     
     private int tokenIndex;
+    private int braceDepth;
 
     public ParseResult Parse()
     {
@@ -308,7 +309,7 @@ public class Parser(LexResult lexResult, string filename, SyntaxMode mode)
             TerminateStatement("Expect ';' after break or continue");
             return jumpStmt;
         }
-
+        
         Expression expr = ParseExpression();
 
         TerminateStatement("Expect ';' after expression", expr);
@@ -320,10 +321,24 @@ public class Parser(LexResult lexResult, string filename, SyntaxMode mode)
     {
         List<Statement> stmts = [];
 
-        while (!Check(TokenKind.BraceRight) && !AtEnd)
+        while (!Check(TokenKind.BraceRight) && !(AtEnd || AtCursor))
         {
             Statement stmt = ParseDeclaration();
             stmts.Add(stmt);
+        }
+        
+        if (mode == SyntaxMode.Predict && AtCursor)
+        {
+            ProcessExpected(TokenKind.BraceRight);
+            
+            bool allowStarts = stmts.Count == 0 || Current.Line > Previous.Line;
+            
+            if (allowStarts)
+            {
+                EmitStatementStartTokens();
+            }
+
+            StopPredicting();
         }
 
         Consume(TokenKind.BraceRight, "Expect '}' after block");
@@ -712,6 +727,28 @@ public class Parser(LexResult lexResult, string filename, SyntaxMode mode)
         return expr;
     }
 
+    private void EmitStatementStartTokens()
+    {
+        // declaration starters
+        ProcessExpected(TokenKind.Const);
+        ProcessExpected(TokenKind.Let);
+        ProcessExpected(TokenKind.Def);
+        ProcessExpected(TokenKind.Class);
+        ProcessExpected(TokenKind.Struct);
+
+        // statement starters
+        ProcessExpected(TokenKind.Return);
+        ProcessExpected(TokenKind.If);
+        ProcessExpected(TokenKind.While);
+        ProcessExpected(TokenKind.For);
+        ProcessExpected(TokenKind.Break);
+        ProcessExpected(TokenKind.Continue);
+        ProcessExpected(TokenKind.BraceLeft);
+
+        // expression statement starter
+        ProcessExpected(TokenKind.Identifier);
+    }
+
     private void TerminateStatement(string message, Expression? expr = null)
     {
         if (Current.Kind is TokenKind.EOF or TokenKind.BraceRight)
@@ -723,24 +760,40 @@ public class Parser(LexResult lexResult, string filename, SyntaxMode mode)
         {
             if (Current.Line > Previous.Line) return;
         }
+        
+        if (Current.Kind == TokenKind.Semicolon)
+        {
+            Advance();
+        }
+        else if (mode == SyntaxMode.Normal)
+        {
+            // Internal error: lexer failed to insert semicolon where grammar requires it
+            var error = new ParseError(Current, filename, message);
+            errors.Add(error);
+            throw error.Exception();
+        }
 
         if (mode == SyntaxMode.Predict && AtCursor)
         {
             ProcessExpected(TokenKind.Semicolon);
-            ProcessExpected(TokenKind.VirtualTerminator);
-            return;
-        }
 
-        if (Current.Kind == TokenKind.Semicolon)
-        {
-            Advance();
-            return;
-        }
+            if (Current.Line > Previous.Line)
+            {
+                ProcessExpected(TokenKind.VirtualTerminator);
+                return;
+            }
 
-        // Internal error: lexer failed to insert semicolon where grammar requires it
-        var error = new ParseError(Current, filename, message);
-        errors.Add(error);
-        throw error.Exception();
+            if (braceDepth > 0)
+            {
+                ProcessExpected(TokenKind.BraceRight);
+            }
+            else
+            {
+                ProcessExpected(TokenKind.EOF);
+            }
+
+            StopPredicting();
+        }
     }
 
     private void Synchronize()
@@ -782,6 +835,12 @@ public class Parser(LexResult lexResult, string filename, SyntaxMode mode)
         if (AtCursor)
         {
             ProcessExpected(tokenKind);
+
+            if (Next.Kind == TokenKind.EOF)
+            {
+                //ProcessExpected(TokenKind.EOF);
+            }
+            
             StopPredicting();
         }
 
@@ -792,7 +851,19 @@ public class Parser(LexResult lexResult, string filename, SyntaxMode mode)
 
     private ref Token Advance()
     {
-        return ref tokens[tokenIndex++];
+        ref var tok = ref tokens[tokenIndex++];
+
+        switch (tok.Kind)
+        {
+            case TokenKind.BraceLeft:
+                braceDepth++;
+                break;
+            case TokenKind.BraceRight:
+                braceDepth--;
+                break;
+        }
+
+        return ref tok;
     }
 
     private ref readonly Token Peek(int offset)
@@ -830,6 +901,7 @@ public class Parser(LexResult lexResult, string filename, SyntaxMode mode)
     }
 
     private ref readonly Token Current => ref Peek(0);
+    private ref readonly Token Next => ref Peek(1);
     private ref readonly Token Previous => ref Peek(-1);
     private bool AtCursor => mode == SyntaxMode.Predict && Current.Kind == TokenKind.Cursor;
 

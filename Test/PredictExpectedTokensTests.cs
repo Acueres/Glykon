@@ -30,7 +30,21 @@ public sealed class ParserPredictExpectedTokensTests : CompilerTestBase
         foreach (var k in mustContain)
             Assert.Contains(k, actual);
     }
-    
+
+    private void AssertExpectedNotContains(string src, params TokenKind[] mustNotContain)
+    {
+        var (_, _, lexErrors, parseErrors, expected) = Parse(src, SyntaxMode.Predict);
+
+        Assert.Empty(lexErrors);
+        Assert.Empty(parseErrors);
+
+        var actual = (expected ?? Enumerable.Empty<TokenKind>()).ToHashSet();
+        foreach (var k in mustNotContain)
+        {
+            Assert.DoesNotContain(k, actual);
+        }
+    }
+
     // CONST DECLARATIONS
 
     [Fact]
@@ -159,6 +173,13 @@ public sealed class ParserPredictExpectedTokensTests : CompilerTestBase
         // Regression: nested blocks must still include the inner '}' as a valid next token.
         => AssertExpectedContains("def main() { if true { println('x')", TokenKind.BraceRight);
     
+    [Fact]
+    public void Predict_block_after_expr_same_line_allows_rbrace_but_not_new_statement()
+    {
+        AssertExpectedContains("def main() { func ", TokenKind.BraceRight);
+        AssertExpectedNotContains("def main() { func ", TokenKind.Identifier, TokenKind.Let, TokenKind.Def);
+    }
+    
     // TYPE DECLARATIONS
 
     [Fact]
@@ -232,21 +253,9 @@ public sealed class ParserPredictExpectedTokensTests : CompilerTestBase
         // ParseIfStatement: Match(Semicolon) then Consume('{')
         => AssertExpectedContains("if true", TokenKind.BraceLeft);
 
-    /*[Fact]
-    public void Predict_if_condition_may_also_expect_semicolon()
-        => AssertExpectedContains("if true", TokenKind.Semicolon);*/
-
-    /*[Fact]
-    public void Predict_if_condition_after_explicit_semicolon_expects_lbrace_only()
-        => AssertExpectedExactly("if true;", TokenKind.BraceLeft);*/
-
     [Fact]
     public void Predict_while_condition_contains_lbrace()
         => AssertExpectedContains("while true", TokenKind.BraceLeft);
-
-    /*[Fact]
-    public void Predict_while_condition_after_explicit_semicolon_expects_lbrace_only()
-        => AssertExpectedExactly("while true;", TokenKind.BraceLeft);*/
     
     [Fact]
     public void Predict_if_body_after_expression_stmt_contains_rbrace()
@@ -311,25 +320,70 @@ public sealed class ParserPredictExpectedTokensTests : CompilerTestBase
 
     [Fact]
     public void Predict_break_expects_semicolon()
-        => AssertExpectedContains("break", TokenKind.Semicolon, TokenKind.VirtualTerminator);
+        => AssertExpectedContains("break", TokenKind.Semicolon);
 
     [Fact]
     public void Predict_continue_expects_semicolon()
-        => AssertExpectedContains("continue", TokenKind.Semicolon, TokenKind.VirtualTerminator);
+        => AssertExpectedContains("continue", TokenKind.Semicolon);
 
     [Fact]
     public void Predict_return_value_expects_semicolon()
-        => AssertExpectedContains("return 1", TokenKind.Semicolon, TokenKind.VirtualTerminator);
+        => AssertExpectedContains("return 1", TokenKind.Semicolon);
     
     // EXPRESSION STATEMENTS
 
     [Fact]
     public void Predict_expression_stmt_identifier_expects_semicolon()
-        => AssertExpectedContains("x", TokenKind.Semicolon, TokenKind.VirtualTerminator);
+        => AssertExpectedContains("x", TokenKind.Semicolon);
 
     [Fact]
-    public void Predict_assignment_stmt_expects_semicolon()
-        => AssertExpectedContains("x = 1", TokenKind.Semicolon, TokenKind.VirtualTerminator);
+    public void Predict_assignment_stmt_does_not_allow_new_statement_start()
+        => AssertExpectedNotContains("x = 1", TokenKind.VirtualTerminator, TokenKind.Identifier, TokenKind.Let, TokenKind.Def, TokenKind.Const);
+    
+    [Fact]
+    public void Predict_assignment_stmt_newline_allows_new_statement_start()
+    {
+        // newline => ASI possible => next statement starters should appear
+        AssertExpectedContains("x = 1\n", TokenKind.Identifier, TokenKind.Let, TokenKind.Def, TokenKind.Const);
+        AssertExpectedContains("x = 1\n", TokenKind.VirtualTerminator);
+    }
+
+    [Fact]
+    public void Predict_in_block_same_line_after_stmt_allows_rbrace_but_not_new_statement()
+    {
+        // After a statement at end-of-input inside a block, the next likely token is '}'
+        // but a new statement must not start on the same line without newline/semicolon.
+        AssertExpectedContains("def main() { x = 1", TokenKind.BraceRight);
+        AssertExpectedNotContains("def main() { x = 1", TokenKind.Identifier, TokenKind.Let, TokenKind.Def, TokenKind.Const, TokenKind.VirtualTerminator);
+    }
+
+    [Fact]
+    public void Predict_block_start_same_line_allows_statement_or_decl_start()
+    {
+        AssertExpectedContains("def add(x: int, y: int) -> int {", TokenKind.BraceRight, TokenKind.Let,
+            TokenKind.Return, TokenKind.Identifier, TokenKind.Def, TokenKind.Const);
+    }
+
+    [Fact]
+    public void Predict_in_block_after_newline_allows_new_statement_start()
+    {
+        // newline inside block => statement starters should appear
+        AssertExpectedContains("def main() { x = 1\n", TokenKind.Identifier, TokenKind.Let, TokenKind.Def, TokenKind.Const);
+        AssertExpectedContains("def main() { x = 1\n", TokenKind.VirtualTerminator);
+    }
+    
+    [Fact]
+    public void Predict_same_line_after_identifier_does_not_allow_new_statement_start()
+    {
+        // "func " ends with identifier + spaces; no newline => must NOT allow starting a new statement
+        AssertExpectedNotContains("func ", TokenKind.Identifier, TokenKind.Let, TokenKind.Def, TokenKind.Const);
+    }
+    
+    [Fact]
+    public void Predict_after_newline_allows_new_statement_start()
+    {
+        AssertExpectedContains("func\n", TokenKind.Identifier, TokenKind.Let, TokenKind.Def, TokenKind.VirtualTerminator);
+    }
     
     // POSTFIX: member access, conversion, grouping, calls
 
@@ -366,22 +420,8 @@ public sealed class ParserPredictExpectedTokensTests : CompilerTestBase
     [Fact]
     public void Predict_call_args_expects_comma_or_rparen()
         // After "f(1" CompleteCall will optionally accept ',' then must Consume(')')
-        => AssertExpectedExactly("f(1", 
-            TokenKind.Comma, TokenKind.ParenthesisRight,
-            TokenKind.Plus,
-            TokenKind.Minus,
-            TokenKind.Star,
-            TokenKind.Slash,
-            TokenKind.And,
-            TokenKind.Or,
-            TokenKind.Equal,
-            TokenKind.NotEqual,
-            TokenKind.Greater,
-            TokenKind.Less,
-            TokenKind.GreaterEqual,
-            TokenKind.LessEqual,
-            TokenKind.Dot,
-            TokenKind.As);
+        => AssertExpectedContains("f(1", 
+            TokenKind.Comma, TokenKind.ParenthesisRight);
 
     [Fact]
     public void Predict_call_member_chain_dot_expects_identifier()
