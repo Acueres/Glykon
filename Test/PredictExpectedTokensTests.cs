@@ -10,7 +10,7 @@ public sealed class ParserPredictExpectedTokensTests : CompilerTestBase
 
     private void AssertExpectedExactly(string src, params TokenKind[] expectedKinds)
     {
-        var (_, _, lexErrors, parseErrors, expected) = Parse(src, SyntaxMode.Predict);
+        var (_, _, lexErrors, parseErrors, expected, _) = Parse(src, SyntaxMode.Predict);
 
         Assert.Empty(lexErrors);
         Assert.Empty(parseErrors);
@@ -21,7 +21,7 @@ public sealed class ParserPredictExpectedTokensTests : CompilerTestBase
 
     private void AssertExpectedContains(string src, params TokenKind[] mustContain)
     {
-        var (_, _, lexErrors, parseErrors, expected) = Parse(src, SyntaxMode.Predict);
+        var (_, _, lexErrors, parseErrors, expected, _) = Parse(src, SyntaxMode.Predict);
 
         Assert.Empty(lexErrors);
         Assert.Empty(parseErrors);
@@ -33,7 +33,7 @@ public sealed class ParserPredictExpectedTokensTests : CompilerTestBase
 
     private void AssertExpectedNotContains(string src, params TokenKind[] mustNotContain)
     {
-        var (_, _, lexErrors, parseErrors, expected) = Parse(src, SyntaxMode.Predict);
+        var (_, _, lexErrors, parseErrors, expected, _) = Parse(src, SyntaxMode.Predict);
 
         Assert.Empty(lexErrors);
         Assert.Empty(parseErrors);
@@ -178,6 +178,56 @@ public sealed class ParserPredictExpectedTokensTests : CompilerTestBase
     {
         AssertExpectedContains("def main() { func ", TokenKind.BraceRight);
         AssertExpectedNotContains("def main() { func ", TokenKind.Identifier, TokenKind.Let, TokenKind.Def);
+    }
+    
+    [Fact]
+    public void Predict_in_block_after_explicit_semicolon_same_line_allows_new_statement_start()
+    {
+        // Explicit ';' terminates the statement even on the same line, so a new statement may start.
+        AssertExpectedContains(
+            "def main() { x = 1;",
+            TokenKind.Identifier, TokenKind.Let, TokenKind.Return, TokenKind.BraceRight
+        );
+    }
+
+    [Fact]
+    public void Predict_in_block_after_explicit_semicolon_same_line_does_not_require_newline_for_statement_start()
+    {
+        AssertExpectedContains(
+            "def add(x: real, y: real) -> real { let sum: real = x + y;",
+            TokenKind.Identifier, TokenKind.Let, TokenKind.Return, TokenKind.BraceRight
+        );
+    }
+
+    [Fact]
+    public void Predict_in_block_after_explicit_semicolon_newline_allows_new_statement_start()
+    {
+        // After ';' and newline, statement start should obviously be allowed too.
+        AssertExpectedContains(
+            "def main() { x = 1;\n",
+            TokenKind.Identifier, TokenKind.Let, TokenKind.Return
+        );
+
+        AssertExpectedContains(
+            "def main() { x = 1;\n",
+            TokenKind.BraceRight
+        );
+    }
+
+    [Fact]
+    public void Predict_in_block_same_line_after_expression_without_semicolon_does_not_allow_new_statement_start()
+    {
+        // Control test: without ';' (and no newline), statement-start must not leak.
+        AssertExpectedNotContains(
+            "def main() { x = 1",
+            TokenKind.Identifier, TokenKind.Let, TokenKind.Def, TokenKind.Const, TokenKind.VirtualTerminator
+        );
+
+        // But closing the block should still be possible.
+        AssertExpectedContains(
+            "def main() { x = 1",
+            TokenKind.BraceRight
+        );
     }
     
     // TYPE DECLARATIONS
@@ -344,8 +394,8 @@ public sealed class ParserPredictExpectedTokensTests : CompilerTestBase
     public void Predict_assignment_stmt_newline_allows_new_statement_start()
     {
         // newline => ASI possible => next statement starters should appear
-        AssertExpectedContains("x = 1\n", TokenKind.Identifier, TokenKind.Let, TokenKind.Def, TokenKind.Const);
-        AssertExpectedContains("x = 1\n", TokenKind.VirtualTerminator);
+        AssertExpectedContains("x = 1\n", TokenKind.Identifier, TokenKind.Let, TokenKind.Def,
+            TokenKind.Const, TokenKind.VirtualTerminator);
     }
 
     [Fact]
@@ -368,8 +418,8 @@ public sealed class ParserPredictExpectedTokensTests : CompilerTestBase
     public void Predict_in_block_after_newline_allows_new_statement_start()
     {
         // newline inside block => statement starters should appear
-        AssertExpectedContains("def main() { x = 1\n", TokenKind.Identifier, TokenKind.Let, TokenKind.Def, TokenKind.Const);
-        AssertExpectedContains("def main() { x = 1\n", TokenKind.VirtualTerminator);
+        AssertExpectedContains("def main() { x = 1\n", TokenKind.Identifier, TokenKind.Let,
+            TokenKind.Def, TokenKind.Const, TokenKind.VirtualTerminator);
     }
     
     [Fact]

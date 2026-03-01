@@ -19,7 +19,7 @@ namespace Tests
                                            
                                """;
 
-            var (syntaxTree, _, lexErrors, errors, _) = Parse(src);
+            var (syntaxTree, _, lexErrors, errors, _, _) = Parse(src);
 
             Assert.Empty(lexErrors);
             Assert.Empty(errors);
@@ -56,7 +56,7 @@ namespace Tests
                                            
                                """;
 
-            var (syntaxTree, _, lexErrors, errors, _) = Parse(src);
+            var (syntaxTree, _, lexErrors, errors, _, _) = Parse(src);
 
             Assert.Empty(lexErrors);
             Assert.Empty(errors);
@@ -84,7 +84,7 @@ namespace Tests
                                            
                                """;
 
-            var (syntaxTree, _, lexErrors, errors, _) = Parse(src);
+            var (syntaxTree, _, lexErrors, errors, _, _) = Parse(src);
 
             Assert.Empty(lexErrors);
             Assert.Empty(errors);
@@ -104,7 +104,7 @@ namespace Tests
                                }
                                """;
 
-            var (syntaxTree, _, lexErrors, errors, _) = Parse(src);
+            var (syntaxTree, _, lexErrors, errors, _, _) = Parse(src);
 
             Assert.Empty(lexErrors);
             Assert.Empty(errors);
@@ -138,7 +138,7 @@ namespace Tests
                                     }
                                """;
 
-            var (syntaxTree, _, lexErrors, parseErrors, _) = Parse(src);
+            var (syntaxTree, _, lexErrors, parseErrors, _, _) = Parse(src);
 
             Assert.Empty(lexErrors);
             Assert.Empty(parseErrors);
@@ -172,7 +172,7 @@ namespace Tests
                                            
                                """;
 
-            var (syntaxTree, _, lexErrors, errors, _) = Parse(src);
+            var (syntaxTree, _, lexErrors, errors, _, _) = Parse(src);
 
             Assert.Empty(lexErrors);
             Assert.Empty(errors);
@@ -195,7 +195,7 @@ namespace Tests
         {
             const string src = "const pi: real = 3.14";
 
-            var (syntaxTree, _, lexErrors, errors, _) = Parse(src);
+            var (syntaxTree, _, lexErrors, errors, _, _) = Parse(src);
 
             Assert.Empty(lexErrors);
             Assert.Empty(errors);
@@ -208,7 +208,7 @@ namespace Tests
         {
             const string src = "let value = 42;";
 
-            var (syntaxTree, _, lexErrors, errors, _) = Parse(src);
+            var (syntaxTree, _, lexErrors, errors, _, _) = Parse(src);
 
             Assert.Empty(lexErrors);
             Assert.Empty(errors);
@@ -229,7 +229,7 @@ namespace Tests
         {
             const string src = "let value: int = 42;";
 
-            var (syntaxTree, _, lexErrors, errors, _) = Parse(src);
+            var (syntaxTree, _, lexErrors, errors, _, _) = Parse(src);
 
             Assert.Empty(lexErrors);
             Assert.Empty(errors);
@@ -254,7 +254,7 @@ namespace Tests
                                            
                                """;
 
-            var (syntaxTree, _, lexErrors, errors, _) = Parse(src);
+            var (syntaxTree, _, lexErrors, errors, _, _) = Parse(src);
 
             Assert.Empty(lexErrors);
             Assert.Empty(errors);
@@ -272,7 +272,7 @@ namespace Tests
 
                                            42 as str
                                """;
-            var (syntaxTree, _, lexErrors, errors, _) = Parse(src);
+            var (syntaxTree, _, lexErrors, errors, _, _) = Parse(src);
 
             Assert.Empty(lexErrors);
             Assert.Empty(errors);
@@ -296,7 +296,7 @@ namespace Tests
                                             let a = 5
                                             a = 3
                                """;
-            var (syntaxTree, _, lexErrors, errors, _) = Parse(src);
+            var (syntaxTree, _, lexErrors, errors, _, _) = Parse(src);
 
             Assert.Empty(lexErrors);
             Assert.Empty(errors);
@@ -312,7 +312,7 @@ namespace Tests
         {
             const string src = "not false;";
 
-            var (syntaxTree, _, lexErrors, errors, _) = Parse(src);
+            var (syntaxTree, _, lexErrors, errors, _, _) = Parse(src);
             var exprStmt = GetStmt<ExpressionStmt>(syntaxTree.Single());
             var ast = exprStmt.Expression;
 
@@ -332,7 +332,7 @@ namespace Tests
         {
             const string src = "true == false;";
 
-            var (syntaxTree, _, lexErrors, errors, _) = Parse(src);
+            var (syntaxTree, _, lexErrors, errors, _, _) = Parse(src);
             var exprStmt = GetStmt<ExpressionStmt>(syntaxTree.Single());
             var ast = exprStmt.Expression;
 
@@ -354,7 +354,7 @@ namespace Tests
         {
             const string src = "2 > 1;";
 
-            var (syntaxTree, _, lexErrors, errors, _) = Parse(src);
+            var (syntaxTree, _, lexErrors, errors, _, _) = Parse(src);
             var exprStmt = GetStmt<ExpressionStmt>(syntaxTree.Single());
             var ast = exprStmt.Expression;
 
@@ -376,7 +376,7 @@ namespace Tests
         {
             const string src = "2 - 3;";
 
-            var (syntaxTree, _, lexErrors, errors, _) = Parse(src);
+            var (syntaxTree, _, lexErrors, errors, _, _) = Parse(src);
             var exprStmt = GetStmt<ExpressionStmt>(syntaxTree.Single());
             var ast = exprStmt.Expression;
 
@@ -398,7 +398,7 @@ namespace Tests
         {
             const string src = "6 / 3;";
 
-            var (syntaxTree, _, lexErrors, errors, _) = Parse(src);
+            var (syntaxTree, _, lexErrors, errors, _, _) = Parse(src);
             var exprStmt = GetStmt<ExpressionStmt>(syntaxTree.Single());
             var ast = exprStmt.Expression;
 
@@ -420,7 +420,7 @@ namespace Tests
         {
             const string src = "true and false;";
 
-            var (syntaxTree, _, lexErrors, errors, _) = Parse(src);
+            var (syntaxTree, _, lexErrors, errors, _, _) = Parse(src);
             var exprStmt = GetStmt<ExpressionStmt>(syntaxTree.Single());
             var ast = exprStmt.Expression;
 
@@ -442,7 +442,7 @@ namespace Tests
         {
             const string src = "true or false;";
 
-            var (syntaxTree, _, lexErrors, errors, _) = Parse(src);
+            var (syntaxTree, _, lexErrors, errors, _, _) = Parse(src);
             var exprStmt = GetStmt<ExpressionStmt>(syntaxTree.Single());
             var ast = exprStmt.Expression;
 
@@ -464,7 +464,7 @@ namespace Tests
         {
             const string src = "let a = new A { field1: 1, field2: 2 }";
 
-            var (syntaxTree, _, lexErrors, errors, _) = Parse(src);
+            var (syntaxTree, _, lexErrors, errors, _, _) = Parse(src);
 
             Assert.Empty(lexErrors);
             Assert.Empty(errors);
@@ -494,7 +494,7 @@ namespace Tests
         {
             const string src = "let a = new A as B { f: 1 }";
 
-            var (_, _, lexErrors, parseErrors, _) = Parse(src);
+            var (_, _, lexErrors, parseErrors, _, _) = Parse(src);
 
             Assert.Empty(lexErrors);
             Assert.NotEmpty(parseErrors);
@@ -505,7 +505,7 @@ namespace Tests
         {
             const string src = "let a = new A().B { f: 1 }";
 
-            var (_, _, lexErrors, parseErrors, _) = Parse(src);
+            var (_, _, lexErrors, parseErrors, _, _) = Parse(src);
 
             Assert.Empty(lexErrors);
             Assert.NotEmpty(parseErrors);
@@ -516,7 +516,7 @@ namespace Tests
         {
             const string src = "let a = new (A) { f: 1 }";
 
-            var (_, _, lexErrors, parseErrors, _) = Parse(src);
+            var (_, _, lexErrors, parseErrors, _, _) = Parse(src);
 
             Assert.Empty(lexErrors);
             Assert.NotEmpty(parseErrors);
@@ -527,7 +527,7 @@ namespace Tests
         {
             const string src = "let a = new Outer.Inner { f: 1 }";
 
-            var (syntaxTree, _, lexErrors, errors, _) = Parse(src);
+            var (syntaxTree, _, lexErrors, errors, _, _) = Parse(src);
 
             Assert.Empty(lexErrors);
             Assert.Empty(errors);
@@ -549,7 +549,7 @@ namespace Tests
                                let b = 2
                                """;
 
-            var (syntaxTree, _, lexErrors, errors, _) = Parse(src);
+            var (syntaxTree, _, lexErrors, errors, _, _) = Parse(src);
 
             Assert.Empty(lexErrors);
             Assert.Empty(errors);
@@ -564,7 +564,7 @@ namespace Tests
         {
             const string src = "let a = new A { x: 1 } let b = 2";
 
-            var (_, _, lexErrors, parseErrors, _) = Parse(src);
+            var (_, _, lexErrors, parseErrors, _, _) = Parse(src);
 
             Assert.Empty(lexErrors);
             Assert.NotEmpty(parseErrors);
@@ -575,7 +575,7 @@ namespace Tests
         {
             const string src = "let a = new A { x: 1 }; let b = 2";
 
-            var (syntaxTree, _, lexErrors, errors, _) = Parse(src);
+            var (syntaxTree, _, lexErrors, errors, _, _) = Parse(src);
 
             Assert.Empty(lexErrors);
             Assert.Empty(errors);
@@ -591,7 +591,7 @@ namespace Tests
         {
             const string src = "let a = (new A { f: 1 }) as B";
 
-            var (syntaxTree, _, lexErrors, errors, _) = Parse(src);
+            var (syntaxTree, _, lexErrors, errors, _, _) = Parse(src);
 
             Assert.Empty(lexErrors);
             Assert.Empty(errors);
@@ -620,7 +620,7 @@ namespace Tests
                                }
                                """;
 
-            var (syntaxTree, _, lexErrors, errors, _) = Parse(src);
+            var (syntaxTree, _, lexErrors, errors, _, _) = Parse(src);
 
             Assert.Empty(lexErrors);
             Assert.Empty(errors);
@@ -641,7 +641,7 @@ namespace Tests
                                value as Outer.Inner
                                """;
 
-            var (syntaxTree, _, lexErrors, errors, _) = Parse(src);
+            var (syntaxTree, _, lexErrors, errors, _, _) = Parse(src);
 
             Assert.Empty(lexErrors);
             Assert.Empty(errors);

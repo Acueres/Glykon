@@ -21,6 +21,9 @@ public class Parser(LexResult lexResult, string filename, SyntaxMode mode)
     
     private int tokenIndex;
     private int braceDepth;
+    
+    private bool isTypeNameContext;
+    private int typeNameDepth;
 
     public ParseResult Parse()
     {
@@ -47,7 +50,7 @@ public class Parser(LexResult lexResult, string filename, SyntaxMode mode)
             {
                 syntaxTree = new SyntaxTree([..statements], filename);
                 return new ParseResult(syntaxTree, lexResult.Tokens,
-                    lexResult.Errors, [..errors], expected.ToArray());
+                    lexResult.Errors, [..errors], expected.ToArray(), isTypeNameContext);
             }
         }
 
@@ -326,13 +329,15 @@ public class Parser(LexResult lexResult, string filename, SyntaxMode mode)
             Statement stmt = ParseDeclaration();
             stmts.Add(stmt);
         }
-        
+
         if (mode == SyntaxMode.Predict && AtCursor)
         {
             ProcessExpected(TokenKind.BraceRight);
-            
-            bool allowStarts = stmts.Count == 0 || Current.Line > Previous.Line;
-            
+
+            bool allowStarts = stmts.Count == 0
+                               || Current.Line > Previous.Line
+                               || Previous.Kind == TokenKind.Semicolon;
+
             if (allowStarts)
             {
                 EmitStatementStartTokens();
@@ -709,6 +714,7 @@ public class Parser(LexResult lexResult, string filename, SyntaxMode mode)
 
     private TypeAnnotation ParseType()
     {
+        typeNameDepth++;
         Expression typeExpr = ParseTypeRef();
         return new TypeAnnotation(typeExpr);
     }
@@ -760,7 +766,7 @@ public class Parser(LexResult lexResult, string filename, SyntaxMode mode)
         {
             if (Current.Line > Previous.Line) return;
         }
-        
+
         if (Current.Kind == TokenKind.Semicolon)
         {
             Advance();
@@ -775,13 +781,15 @@ public class Parser(LexResult lexResult, string filename, SyntaxMode mode)
 
         if (mode == SyntaxMode.Predict && AtCursor)
         {
-            ProcessExpected(TokenKind.Semicolon);
-
             if (Current.Line > Previous.Line)
             {
                 ProcessExpected(TokenKind.VirtualTerminator);
                 return;
             }
+            
+            if (Previous.Kind == TokenKind.Semicolon) return;
+
+            ProcessExpected(TokenKind.Semicolon);
 
             if (braceDepth > 0)
             {
@@ -893,6 +901,11 @@ public class Parser(LexResult lexResult, string filename, SyntaxMode mode)
         if (!AtCursor) return;
 
         expected.Add(kind);
+
+        if (kind == TokenKind.Identifier && typeNameDepth > 0)
+        {
+            isTypeNameContext = true;
+        }
     }
 
     private static void StopPredicting()

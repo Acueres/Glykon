@@ -3,8 +3,11 @@ using Google.Protobuf;
 using Google.Protobuf.WellKnownTypes;
 
 using Glykon.Compiler.Core;
-
+using Glykon.Compiler.Semantics.Binding;
+using Glykon.Compiler.Semantics.Types;
 using Glykon.Compiler.Syntax;
+using Google.Protobuf.Collections;
+using Type = System.Type;
 
 namespace Glykon.LanguageService.Services;
 
@@ -44,6 +47,7 @@ public class CompilerServiceImpl : CompilerService.CompilerServiceBase
         {
             CanTerminateStatement = canTerminate,
             CanEndInput = canEndInput,
+            TypeNameContext = result.IsTypeNameContext
         };
 
         foreach (var k in expected)
@@ -52,6 +56,24 @@ public class CompilerServiceImpl : CompilerService.CompilerServiceBase
             reply.ExpectedTokenKindIds.Add((int)k);
         }
 
+        return Task.FromResult(reply);
+    }
+
+    public override Task<SemanticHintsReply> GetSemanticHints(Empty request, ServerCallContext context)
+    {
+        var interner = new IdentifierInterner();
+        var typeSystem = new TypeSystem(interner);
+        typeSystem.BuildPrimitives();
+        
+        var primitives = typeSystem.GetPrimitives();
+
+        var reply = new SemanticHintsReply();
+
+        foreach (var primitive in primitives)
+        {
+            reply.PreferredLexemes.Add(interner[primitive.NameId]);
+        }
+        
         return Task.FromResult(reply);
     }
 }
