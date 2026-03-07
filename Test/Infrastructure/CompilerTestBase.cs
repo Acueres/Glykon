@@ -14,35 +14,35 @@ namespace Tests.Infrastructure;
 
 public abstract class CompilerTestBase
 {
-    protected LexResult Lex(string source, [CallerMemberName] string? testName = null)
+    protected LexResult Lex(string source, SyntaxMode syntaxMode = SyntaxMode.Normal, [CallerMemberName] string? testName = null)
     {
         var file = testName ?? GetType().Name;
         var text = new SourceText(file, source);
 
-        var result = new Lexer(text, file).Lex();
+        var result = new Lexer(text, file, syntaxMode).Lex();
         return result;
     }
 
-    protected ParseResult Parse(string source, [CallerMemberName] string? testName = null)
+    protected ParseResult Parse(string source, SyntaxMode syntaxMode = SyntaxMode.Normal, [CallerMemberName] string? testName = null)
     {
         var file = testName ?? GetType().Name;
         var text = new SourceText(file, source);
 
-        var lexResult = new Lexer(text, file).Lex();
-        var parseResult = new Parser(lexResult, file).Parse();
+        var lexResult = new Lexer(text, file, syntaxMode).Lex();
+        var parseResult = new Parser(lexResult, file, syntaxMode).Parse();
         
         return parseResult;
     }
 
-    protected SemanticResult Analyze(string source, LanguageMode mode, [CallerMemberName] string? testName = null)
+    protected SemanticResult Analyze(string source, LanguageMode langMode, SyntaxMode syntaxMode = SyntaxMode.Normal, [CallerMemberName] string? testName = null)
     {
         var file = testName ?? GetType().Name;
         var text = new SourceText(file, source);
 
-        var lexResult = new Lexer(text, file).Lex();
-        var parseResult = new Parser(lexResult, file).Parse();
+        var lexResult = new Lexer(text, file, syntaxMode).Lex();
+        var parseResult = new Parser(lexResult, file, syntaxMode).Parse();
 
-        var analyzer = new SemanticAnalyzer(parseResult, mode, file);
+        var analyzer = new SemanticAnalyzer(parseResult, langMode, file);
         var semanticResult = analyzer.Analyze();
 
         return semanticResult;

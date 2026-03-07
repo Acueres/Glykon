@@ -3,14 +3,18 @@ using Glykon.Compiler.Diagnostics.Errors;
 
 namespace Glykon.Compiler.Syntax;
 
-public class Lexer(SourceText source, string fileName)
+public class Lexer(SourceText source, string filename, SyntaxMode mode)
 {
     private bool AtEnd => currentCharIndex >= source.Length;
 
     private readonly List<Token> tokens = [];
     private readonly List<IGlykonError> errors = [];
-    private int line = 0;
-    private int currentCharIndex = 0;
+    private int line;
+    private int currentCharIndex;
+    
+    private static readonly char newlineChar = LanguageSpec.TriviaSpec.NewLineChar;
+    private static readonly char lineCommentStart = LanguageSpec.TriviaSpec.LineCommentStart;
+    private static readonly Dictionary<char, LanguageSpec.SymbolSpec[]> fixedByFirstChar = BuildFixedByFirstChar();
 
     public LexResult Lex()
     {
@@ -23,130 +27,64 @@ public class Lexer(SourceText source, string fileName)
             }
         }
 
-        if (tokens.Count > 0)
+        if (mode == SyntaxMode.Predict)
         {
-            var last = ScanEndOfLine();
-
-            if (!last.IsEmpty)
-            {
-                tokens.Add(last);
-            }
-
-            tokens.Add(new(TokenKind.EOF, line));
+            tokens.Add(new Token(TokenKind.Cursor, line));
         }
 
-        return new LexResult(tokens.ToArray(), [..errors]);
+        tokens.Add(new Token(TokenKind.EOF, line));
+
+        var processedTokens = InsertTerminators();
+
+        return new LexResult(processedTokens, [..errors]);
     }
 
     private Token GetNextToken()
     {
-        char character = Advance();
+        char c = Advance();
 
-        switch (character)
+        if (LanguageSpec.TriviaSpec.IsWhitespace(c))
         {
-            //symbols
-            case '{':
-                return new(TokenKind.BraceLeft, line);
-            case '}':
-                return new(TokenKind.BraceRight, line);
-            case '(':
-                return new(TokenKind.ParenthesisLeft, line);
-            case ')':
-                return new(TokenKind.ParenthesisRight, line);
-            case '[':
-                return new(TokenKind.BracketLeft, line);
-            case ']':
-                return new(TokenKind.BracketRight, line);
-            case ',':
-                return new(TokenKind.Comma, line);
-            case ':':
-                return new(TokenKind.Colon, line);
-
-            //long symbols
-            case '.':
-            {
-                if (char.IsAsciiDigit(Peek()))
-                {
-                    return ScanNumber(true);
-                }
-
-                if (Match('.'))
-                {
-                    if (Match('=')) return new Token(TokenKind.RangeInclusive, line);
-                    return new Token(TokenKind.Range, line);
-                }
-
-                return new(TokenKind.Dot, line);
-            }
-            case '+':
-                return new(TokenKind.Plus, line);
-            case '-':
-                if (Match('>'))
-                {
-                    return new(TokenKind.Arrow, line);
-                }
-
-                return new(TokenKind.Minus, line);
-            case '<':
-                return new(Match('=') ? TokenKind.LessEqual : TokenKind.Less, line);
-            case '>':
-                return new(Match('=') ? TokenKind.GreaterEqual : TokenKind.Greater, line);
-            case '*':
-                return new(Match('*') ? TokenKind.StarDouble : TokenKind.Star, line);
-            case '/':
-                return new(Match('/') ? TokenKind.SlashDouble : TokenKind.Slash, line);
-            case '=':
-                return new(Match('=') ? TokenKind.Equal : TokenKind.Assignment, line);
-            case '!': //! is not valid by itself
-                if (Match('='))
-                {
-                    return new(TokenKind.NotEqual, line);
-                }
-                else
-                {
-                    errors.Add(new SyntaxError(line, fileName, $"Invalid character '{character}' in token"));
-                }
-
-                break;
-
-            //strings
-            case '\'':
-            case '"':
-                return ScanString(character);
-
-            //whitespace
-            case ' ':
-            case '\r':
-            case '\t':
-                break;
-
-            //comments
-            case '#':
-                while (!AtEnd && Peek() != '\n') Advance();
-                break;
-
-            //statement terminator
-            case '\n':
-                line++;
-                return ScanEndOfLine();
-            case ';':
-                return new(TokenKind.Semicolon, line);
-
-            default:
-                if (char.IsAsciiDigit(character))
-                {
-                    return ScanNumber();
-                }
-
-                if (IsAllowedIdentifierStartCharacter(character))
-                {
-                    return ScanIdentifier();
-                }
-
-                errors.Add(new SyntaxError(line, fileName, $"Invalid character '{character}' in token"));
-                break;
+            return Token.Empty;
         }
 
+        if (c == newlineChar)
+        {
+            return new Token(LanguageSpec.TriviaSpec.NewlineTokenKind, line++);
+        }
+        
+        if (c == lineCommentStart)
+        {
+            while (!AtEnd && Peek() != newlineChar) Advance();
+            return Token.Empty;
+        }
+
+        if (LanguageSpec.StringSpec.IsStringQuote(c))
+        {
+            return ScanString(c);
+        }
+
+        if (char.IsAsciiDigit(c))
+        {
+            return ScanNumber();
+        }
+
+        if (c == '.' && char.IsAsciiDigit(Peek()))
+        {
+            return ScanNumber(isReal: true);
+        }
+
+        if (LanguageSpec.IdentifierSpec.IsMatchStart(c))
+        {
+            return ScanIdentifier();
+        }
+
+        if (TryScanFixedToken(c, out var kind))
+        {
+            return new Token(kind, line);
+        }
+        
+        errors.Add(new SyntaxError(line, filename, $"Invalid character '{c}' in token"));
         return Token.Empty;
     }
 
@@ -154,16 +92,16 @@ public class Lexer(SourceText source, string fileName)
     {
         int identifierStart = currentCharIndex - 1;
 
-        while (IsAllowedIdentifierCharacter(Peek())) Advance();
+        while (LanguageSpec.IdentifierSpec.IsMatchContinue(Peek())) Advance();
 
         TextSpan identifier = new(source, identifierStart, currentCharIndex - identifierStart);
 
-        if (keywords.TryGetValue(identifier.Text, out TokenKind type))
+        if (LanguageSpec.TryGetKeywordKind(identifier.Text, out TokenKind type))
         {
-            return new(type, line);
+            return new Token(type, line);
         }
 
-        return new(TokenKind.Identifier, line, identifier);
+        return new Token(TokenKind.Identifier, line, identifier);
     }
 
     private Token ScanNumber(bool isReal = false)
@@ -175,21 +113,17 @@ public class Lexer(SourceText source, string fileName)
         if (Peek() == '.' && char.IsAsciiDigit(Peek(1)))
         {
             isReal = true;
-
             Advance();
-
             while (char.IsAsciiDigit(Peek())) Advance();
         }
 
         TextSpan number = new(source, numberStart, currentCharIndex - numberStart);
 
-        TokenKind type = TokenKind.LiteralInt;
-        if (isReal)
-        {
-            type = TokenKind.LiteralReal;
-        }
+        TokenKind type = isReal
+            ? LanguageSpec.NumberSpec.RealTokenKind
+            : LanguageSpec.NumberSpec.IntegerTokenKind;
 
-        return new(type, line, number);
+        return new Token(type, line, number);
     }
 
     private Token ScanString(char openingQuote)
@@ -200,11 +134,11 @@ public class Lexer(SourceText source, string fileName)
 
         while (!AtEnd && !(multiline ? Match(openingQuote, 3) : Match(openingQuote)))
         {
-            if (Peek() == '\n')
+            if (Peek() == newlineChar)
             {
                 if (!multiline)
                 {
-                    errors.Add(new SyntaxError(line, fileName, "Unterminated string literal"));
+                    errors.Add(new SyntaxError(line, filename, "Unterminated string literal"));
                     return Token.Empty;
                 }
 
@@ -216,30 +150,83 @@ public class Lexer(SourceText source, string fileName)
 
         if (AtEnd)
         {
-            errors.Add(new SyntaxError(line, fileName, "Unterminated string literal"));
+            errors.Add(new SyntaxError(line, filename, "Unterminated string literal"));
             return Token.Empty;
         }
 
         int stringEndOffset = multiline ? 3 : 1;
-        Token result = new(TokenKind.LiteralString, currentLine,
+        Token result = new(multiline ? TokenKind.LiteralMultilineString : TokenKind.LiteralString, currentLine,
             new TextSpan(source, stringStart, currentCharIndex - stringStart - stringEndOffset));
 
         return result;
     }
 
-    private Token ScanEndOfLine()
+    private Token[] InsertTerminators()
     {
-        Token last = tokens.LastOrDefault();
+        List<Token> processedTokens = [];
+        
+        for (int i = 0; i < tokens.Count; i++)
+        {
+            var token = tokens[i];
+            if (token.Kind != LanguageSpec.TriviaSpec.NewlineTokenKind)
+            {
+                processedTokens.Add(token);
+                continue;
+            }
+            
+            if (i == 0) continue;
+            
+            var previousToken = tokens[i - 1];
+            
+            if (LanguageSpec.AsiSpec.NoInsertAfter(previousToken.Kind)) continue;
 
-        if (last.IsEmpty || terminatorExceptions.Contains(last.Kind)) return Token.Empty;
+            if (i == tokens.Count - 1) continue;
+            
+            var nextToken = tokens[i + 1];
+            
+            if (LanguageSpec.AsiSpec.ContinuationBefore(nextToken.Kind)) continue;
+            
+            processedTokens.Add(new Token(LanguageSpec.AsiSpec.VirtualTerminatorKind, token.Line));
+        }
+        
+        return processedTokens.ToArray();
+    }
+    
+    private bool TryScanFixedToken(char firstChar, out TokenKind kind)
+    {
+        if (!fixedByFirstChar.TryGetValue(firstChar, out var candidates))
+        {
+            kind = default;
+            return false;
+        }
 
-        (char nextChar, int peekIndex) = PeekNextSignificant();
-        if (chainingChars.Contains(nextChar)) return Token.Empty;
+        for (int i = 0; i < candidates.Length; i++)
+        {
+            var fx = candidates[i];
+            if (MatchRemainder(fx.Spelling))
+            {
+                kind = fx.Kind;
+                return true;
+            }
+        }
 
-        // Handle long chaining tokens
-        if (IsLongChainingToken(nextChar, peekIndex)) return Token.Empty;
+        kind = default;
+        return false;
+    }
 
-        return new(TokenKind.Semicolon, line);
+    private bool MatchRemainder(string spelling)
+    {
+        // spelling[0] was already consumed
+        for (int i = 1; i < spelling.Length; i++)
+        {
+            if (Peek(i - 1) != spelling[i])
+            {
+                return false;
+            }
+        }
+
+        currentCharIndex += spelling.Length - 1;
+        return true;
     }
 
     private bool Match(char token)
@@ -268,192 +255,66 @@ public class Lexer(SourceText source, string fileName)
         return c;
     }
 
-    private (char, int) PeekNextSignificant()
-    {
-        int i = currentCharIndex;
-
-        while (i < source.Length)
-        {
-            char c = source[i];
-
-            if (!char.IsWhiteSpace(c))
-            {
-                return (c, i);
-            }
-
-            i++;
-        }
-
-        return ('\0', -1);
-    }
-
-    private bool IsLongChainingToken(char c, int index)
-    {
-        // Check for end of source
-        if (index == -1) return false;
-
-        // Handle 'and'
-        if (c == 'a')
-        {
-            const int len = 3;
-            int end = index + len;
-
-            if (source.Length >= end && source.Slice(index, len).ToString() == "and")
-            {
-                if (source.Length == end || !IsAllowedIdentifierCharacter(source[end]))
-                {
-                    return true;
-                }
-            }
-        }
-        // Handle 'or'
-        else if (c == 'o')
-        {
-            const int len = 2;
-            int end = index + len;
-
-            if (source.Length >= end && source.Slice(index, len).ToString() == "or")
-            {
-                if (source.Length == end || !IsAllowedIdentifierCharacter(source[end]))
-                {
-                    return true;
-                }
-            }
-        }
-        // Handle 'not'
-        else if (c == 'n')
-        {
-            const int len = 3;
-            int end = index + len;
-
-            if (source.Length >= end && source.Slice(index, len).ToString() == "not")
-            {
-                if (source.Length == end || !IsAllowedIdentifierCharacter(source[end]))
-                {
-                    return true;
-                }
-            }
-        }
-
-        return false;
-    }
-
     private char Advance()
     {
         return source[currentCharIndex++];
     }
-
-    private static bool IsAllowedIdentifierStartCharacter(char c)
+    
+    private static HashSet<char> BuildSingleCharSet(string[] items)
     {
-        return char.IsLetter(c) || c == '_' || c == '@';
-    }
-
-    private static bool IsAllowedIdentifierCharacter(char c)
-    {
-        return c == '_' || char.IsLetterOrDigit(c);
-    }
-
-    private static readonly Dictionary<string, TokenKind> keywords;
-    private static readonly HashSet<TokenKind> terminatorExceptions;
-    private static readonly HashSet<char> chainingChars;
-
-    static Lexer()
-    {
-        keywords = new Dictionary<string, TokenKind>
+        var set = new HashSet<char>();
+        for (int i = 0; i < items.Length; i++)
         {
-            { "class", TokenKind.Class },
-            { "struct", TokenKind.Struct },
-            { "interface", TokenKind.Interface },
-            { "new", TokenKind.New },
-            { "enum", TokenKind.Enum },
-            { "def", TokenKind.Def },
-            { "let", TokenKind.Let },
-            { "const", TokenKind.Const },
-            { "true", TokenKind.LiteralTrue },
-            { "false", TokenKind.LiteralFalse },
-            { "none", TokenKind.None },
-            { "and", TokenKind.And },
-            { "not", TokenKind.Not },
-            { "or", TokenKind.Or },
-            { "if", TokenKind.If },
-            { "else", TokenKind.Else },
-            { "elif", TokenKind.Elif },
-            { "for", TokenKind.For },
-            { "by", TokenKind.By },
-            { "in",  TokenKind.In },
-            { "as", TokenKind.As },
-            { "while", TokenKind.While },
-            { "return", TokenKind.Return },
-            { "break", TokenKind.Break },
-            { "continue", TokenKind.Continue }
-        };
+            var s = items[i];
+            if (!string.IsNullOrEmpty(s))
+            {
+                set.Add(s[0]);
+            }
+        }
+        return set;
+    }
+    
+    private static Dictionary<char, LanguageSpec.SymbolSpec[]> BuildFixedByFirstChar()
+    {
+        var dict = new Dictionary<char, List<LanguageSpec.SymbolSpec>>();
 
-        terminatorExceptions =
-        [
-            // Internal/special
-            TokenKind.EOF, TokenKind.Semicolon,
+        var newlineKind = LanguageSpec.TriviaSpec.NewlineTokenKind;
 
-            // Openers
-            TokenKind.BracketLeft,
-            TokenKind.ParenthesisLeft,
-            TokenKind.BraceLeft,
+        foreach (var symbol in LanguageSpec.GetSymbolSpecs())
+        {
+            if (string.IsNullOrEmpty(symbol.Spelling))
+            {
+                continue;
+            }
 
-            // Block closer
-            TokenKind.BraceRight,
+            if (symbol.Kind == newlineKind)
+            {
+                continue;
+            }
 
-            // Punctuation and operators that precede an operand
-            TokenKind.Comma,
-            TokenKind.Colon,
-            TokenKind.Dot,
-            TokenKind.Assignment,
-            TokenKind.Arrow,
-            TokenKind.Range,
-            TokenKind.RangeInclusive,
+            char first = symbol.Spelling[0];
+            if (!dict.TryGetValue(first, out var list))
+            {
+                list = [];
+                dict[first] = list;
+            }
 
-            // Arithmetic operators
-            TokenKind.Plus,
-            TokenKind.Minus,
-            TokenKind.Star,
-            TokenKind.StarDouble,
-            TokenKind.Slash,
-            TokenKind.SlashDouble,
+            list.Add(symbol);
+        }
+        
+        var result = new Dictionary<char, LanguageSpec.SymbolSpec[]>();
+        foreach (var (ch, list) in dict)
+        {
+            list.Sort(static (a, b) =>
+            {
+                int len = b.Spelling.Length.CompareTo(a.Spelling.Length);
+                if (len != 0) return len;
+                return string.CompareOrdinal(a.Spelling, b.Spelling);
+            });
 
-            // Comparison operators
-            TokenKind.Equal,
-            TokenKind.NotEqual,
-            TokenKind.Greater,
-            TokenKind.GreaterEqual,
-            TokenKind.Less,
-            TokenKind.LessEqual,
+            result[ch] = list.ToArray();
+        }
 
-            // Logical operators
-            TokenKind.And,
-            TokenKind.Or,
-            TokenKind.Not,
-
-            // Declarations
-            TokenKind.Def,
-            TokenKind.Class,
-            TokenKind.Struct,
-            TokenKind.Interface,
-            TokenKind.Enum,
-            TokenKind.Let,
-            TokenKind.Const,
-            TokenKind.New,
-            
-            // Control-flow keywords
-            TokenKind.If,
-            TokenKind.Else,
-            TokenKind.Elif,
-            
-            // Other keywords
-            TokenKind.For,
-            TokenKind.By,
-            TokenKind.In,
-            TokenKind.While,
-            TokenKind.As
-        ];
-
-        chainingChars = ['.', '[', '(', '+', '-', '*', '/', '=', '!', '<', '>'];
+        return result;
     }
 }

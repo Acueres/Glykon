@@ -6,7 +6,10 @@ public sealed record ParseResult(
     SyntaxTree SyntaxTree,
     Token[] Tokens,
     IGlykonError[] LexErrors,
-    IGlykonError[] ParseErrors)
+    IGlykonError[] ParseErrors,
+    TokenKind[]? Expected = null,
+    bool IsTypeNameContext = false,
+    bool AtTopLevel = false)
 {
     public IEnumerable<IGlykonError> AllErrors => LexErrors.Concat(ParseErrors);
 }

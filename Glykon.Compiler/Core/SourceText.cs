@@ -3,10 +3,9 @@
 public class SourceText(string fileName, string text)
 {
     public string FileName { get; } = fileName;
-    public ReadOnlyMemory<char> Buffer { get; } = text.AsMemory();
     public int Length => Buffer.Length;
 
-    private readonly string text = text;
+    private ReadOnlyMemory<char> Buffer { get; } = text.AsMemory();
 
     public ReadOnlySpan<char> Slice(TextSpan span) =>
         Buffer.Span.Slice(span.Start, span.Length);

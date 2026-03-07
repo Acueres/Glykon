@@ -1,0 +1,36 @@
+syntax = "proto3";
+
+option csharp_namespace = "Glykon.LanguageService";
+
+package glykon.compiler;
+
+import "google/protobuf/empty.proto";
+
+service CompilerService {
+  rpc GetLanguageSpec(google.protobuf.Empty) returns (LanguageSpecReply);
+  rpc PredictNext(PredictRequest) returns (PredictReply);
+  rpc GetSemanticHints(google.protobuf.Empty) returns (SemanticHintsReply);
+}
+
+message LanguageSpecReply {
+  string language = 1; 
+  string version = 2;
+  string hash = 3;
+  bytes  json = 4;
+}
+
+message PredictRequest {
+  string text = 1;
+}
+
+message PredictReply {
+  repeated int32 expected_token_kind_ids = 1;
+  bool can_terminate_statement = 2;
+  bool can_end_input = 3;
+  bool semantic_symbol_context = 4;
+  bool root_start = 5;
+}
+
+message SemanticHintsReply {
+  repeated string preferred_lexemes = 1;
+}
