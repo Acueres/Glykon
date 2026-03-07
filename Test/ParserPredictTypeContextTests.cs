@@ -8,7 +8,8 @@ public class ParserPredictTypeContextTests : CompilerTestBase
 {
     private void AssertTypeContext(string src, bool expectedTypeContext)
     {
-        var (_, _, lexErrors, parseErrors, expected, isTypeNameContext) = Parse(src, SyntaxMode.Predict);
+        var (_, _, lexErrors, parseErrors,
+            _, isTypeNameContext, _) = Parse(src, SyntaxMode.Predict);
 
         Assert.Empty(lexErrors);
         Assert.Empty(parseErrors);
@@ -19,7 +20,8 @@ public class ParserPredictTypeContextTests : CompilerTestBase
     private void AssertExpectedContainsWithTypeContext(string src, bool expectedTypeContext,
         params TokenKind[] mustContain)
     {
-        var (_, _, lexErrors, parseErrors, expected, isTypeNameContext) = Parse(src, SyntaxMode.Predict);
+        var (_, _, lexErrors, parseErrors,
+            expected, isTypeNameContext, _) = Parse(src, SyntaxMode.Predict);
 
         Assert.Empty(lexErrors);
         Assert.Empty(parseErrors);
@@ -34,7 +36,8 @@ public class ParserPredictTypeContextTests : CompilerTestBase
     private void AssertExpectedExactlyWithTypeContext(string src, bool expectedTypeContext,
         params TokenKind[] expectedKinds)
     {
-        var (_, _, lexErrors, parseErrors, expected, isTypeNameContext) = Parse(src, SyntaxMode.Predict);
+        var (_, _, lexErrors, parseErrors,
+            expected, isTypeNameContext, _) = Parse(src, SyntaxMode.Predict);
 
         Assert.Empty(lexErrors);
         Assert.Empty(parseErrors);

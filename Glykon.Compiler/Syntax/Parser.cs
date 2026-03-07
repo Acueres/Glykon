@@ -24,6 +24,7 @@ public class Parser(LexResult lexResult, string filename, SyntaxMode mode)
     
     private bool isTypeNameContext;
     private int typeNameDepth;
+    private bool atTopLevelItemStart;
 
     public ParseResult Parse()
     {
@@ -37,6 +38,7 @@ public class Parser(LexResult lexResult, string filename, SyntaxMode mode)
                 if (mode == SyntaxMode.Predict && AtCursor)
                 {
                     ProcessExpected(TokenKind.EOF);
+                    atTopLevelItemStart = true;
                 }
 
                 Statement stmt = ParseDeclaration();
@@ -50,7 +52,7 @@ public class Parser(LexResult lexResult, string filename, SyntaxMode mode)
             {
                 syntaxTree = new SyntaxTree([..statements], filename);
                 return new ParseResult(syntaxTree, lexResult.Tokens,
-                    lexResult.Errors, [..errors], expected.ToArray(), isTypeNameContext);
+                    lexResult.Errors, [..errors], expected.ToArray(), isTypeNameContext, atTopLevelItemStart);
             }
         }
 

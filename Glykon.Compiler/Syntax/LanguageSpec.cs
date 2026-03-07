@@ -243,6 +243,13 @@ public static class LanguageSpec
     ];
 
     private static readonly Dictionary<string, TokenKind> keywords;
+    
+    private static readonly HashSet<TokenKind> rootKeywords = [
+        TokenKind.Const,
+        TokenKind.Def,
+        TokenKind.Class,
+        TokenKind.Struct
+    ];
 
     private static readonly SymbolSpec[] symbolEntries =
     [
@@ -786,7 +793,8 @@ public static class LanguageSpec
     public static LanguageSpecDto ToDto()
     {
         List<TokenInfoDto> tokenInfos = [];
-        List<FixedTokenDto> fixedInfos = [];
+        List<FixedTokenDto> fixedTokens = [];
+        List<FixedTokenDto> rootTokens = [];
 
         Dictionary<TokenKind, string> fixedMap = [];
 
@@ -800,7 +808,7 @@ public static class LanguageSpec
             fixedMap[sb.Kind] = sb.Spelling;
         }
 
-        foreach (TokenKind kind in Enum.GetValues(typeof(TokenKind)))
+        foreach (var kind in Enum.GetValues<TokenKind>())
         {
             tokenInfos.Add(new TokenInfoDto((int)kind, kind.ToString()));
 
@@ -808,7 +816,13 @@ public static class LanguageSpec
 
             string literal = fixedMap[kind];
 
-            fixedInfos.Add(new FixedTokenDto((int)kind, kind.ToString(), literal));
+            var fixedToken = new FixedTokenDto((int)kind, kind.ToString(), literal);
+            fixedTokens.Add(fixedToken);
+
+            if (rootKeywords.Contains(kind))
+            {
+                rootTokens.Add(fixedToken);
+            }
         }
 
         LexerMachineDto[] lexerMachines =
@@ -817,7 +831,8 @@ public static class LanguageSpec
             NumberSpec.IntegerLexerMachine, NumberSpec.RealLexerMachine
         ];
 
-        return new LanguageSpecDto(SpecVersion, grammarEbnf, grammarPrompt,tokenInfos.ToArray(), fixedInfos.ToArray(),
+        return new LanguageSpecDto(SpecVersion, grammarEbnf, grammarPrompt,tokenInfos.ToArray(),
+            fixedTokens.ToArray(), rootTokens.ToArray(),
             lexerMachines, TriviaSpec.Dto, syntheticTokenKinds.Select(k => (int)k).ToArray());
     }
 
@@ -875,6 +890,7 @@ public sealed record LanguageSpecDto(
     string GrammarPrompt,
     TokenInfoDto[] Tokens,
     FixedTokenDto[] FixedTokens,
+    FixedTokenDto[] RootTokens,
     LexerMachineDto[] LexerMachines,
     TriviaDto Trivia,
     int[] IgnoredTokenKindIds

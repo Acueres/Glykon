@@ -10,7 +10,7 @@ public sealed class ParserPredictExpectedTokensTests : CompilerTestBase
 
     private void AssertExpectedExactly(string src, params TokenKind[] expectedKinds)
     {
-        var (_, _, lexErrors, parseErrors, expected, _) = Parse(src, SyntaxMode.Predict);
+        var (_, _, lexErrors, parseErrors, expected, _, _) = Parse(src, SyntaxMode.Predict);
 
         Assert.Empty(lexErrors);
         Assert.Empty(parseErrors);
@@ -21,7 +21,7 @@ public sealed class ParserPredictExpectedTokensTests : CompilerTestBase
 
     private void AssertExpectedContains(string src, params TokenKind[] mustContain)
     {
-        var (_, _, lexErrors, parseErrors, expected, _) = Parse(src, SyntaxMode.Predict);
+        var (_, _, lexErrors, parseErrors, expected, _, _) = Parse(src, SyntaxMode.Predict);
 
         Assert.Empty(lexErrors);
         Assert.Empty(parseErrors);
@@ -33,7 +33,7 @@ public sealed class ParserPredictExpectedTokensTests : CompilerTestBase
 
     private void AssertExpectedNotContains(string src, params TokenKind[] mustNotContain)
     {
-        var (_, _, lexErrors, parseErrors, expected, _) = Parse(src, SyntaxMode.Predict);
+        var (_, _, lexErrors, parseErrors, expected, _, _) = Parse(src, SyntaxMode.Predict);
 
         Assert.Empty(lexErrors);
         Assert.Empty(parseErrors);

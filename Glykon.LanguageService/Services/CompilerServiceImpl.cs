@@ -6,8 +6,6 @@ using Glykon.Compiler.Core;
 using Glykon.Compiler.Semantics.Binding;
 using Glykon.Compiler.Semantics.Types;
 using Glykon.Compiler.Syntax;
-using Google.Protobuf.Collections;
-using Type = System.Type;
 
 namespace Glykon.LanguageService.Services;
 
@@ -33,9 +31,9 @@ public class CompilerServiceImpl : CompilerService.CompilerServiceBase
         const string filename = "<rpc>";
         SourceText sourceText = new(filename, text);
         var lexer = new Lexer(sourceText, sourceText.FileName, SyntaxMode.Predict);
-        var tokens = lexer.Lex();
+        var lexResult = lexer.Lex();
         
-        var parser = new Parser(tokens, filename: sourceText.FileName, mode: SyntaxMode.Predict);
+        var parser = new Parser(lexResult, filename: sourceText.FileName, mode: SyntaxMode.Predict);
         var result = parser.Parse();
         
         var expected = result.Expected ?? [];
@@ -47,7 +45,8 @@ public class CompilerServiceImpl : CompilerService.CompilerServiceBase
         {
             CanTerminateStatement = canTerminate,
             CanEndInput = canEndInput,
-            TypeNameContext = result.IsTypeNameContext
+            SemanticSymbolContext = result.IsTypeNameContext,
+            RootStart = result.AtTopLevel
         };
 
         foreach (var k in expected)

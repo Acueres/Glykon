@@ -8,7 +8,8 @@ public sealed record ParseResult(
     IGlykonError[] LexErrors,
     IGlykonError[] ParseErrors,
     TokenKind[]? Expected = null,
-    bool IsTypeNameContext = false)
+    bool IsTypeNameContext = false,
+    bool AtTopLevel = false)
 {
     public IEnumerable<IGlykonError> AllErrors => LexErrors.Concat(ParseErrors);
 }
