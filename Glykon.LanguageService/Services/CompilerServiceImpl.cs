@@ -76,21 +76,23 @@ public class CompilerServiceImpl : CompilerService.CompilerServiceBase
         return Task.FromResult(reply);
     }
 
-    public override Task<ParseOkReply> ParseOk(PredictRequest request, ServerCallContext context)
+    public override Task<CheckSyntaxReply> CheckSyntax(PredictRequest request, ServerCallContext context)
     {
         var text = request.Text ?? string.Empty;
-        
+
         const string filename = "<rpc>";
         SourceText sourceText = new(filename, text);
         var lexer = new Lexer(sourceText, sourceText.FileName, SyntaxMode.Normal);
         var lexResult = lexer.Lex();
-        
+
         var parser = new Parser(lexResult, filename: sourceText.FileName, mode: SyntaxMode.Normal);
         var result = parser.Parse();
 
-        var reply = new ParseOkReply()
+        var reply = new CheckSyntaxReply()
         {
-            Ok = !result.AllErrors.Any()
+            Ok = !result.AllErrors.Any(),
+            SyntaxErrorsNumber = lexResult.Errors.Length,
+            ParseErrorsNumber = result.ParseErrors.Length
         };
 
         return Task.FromResult(reply);
