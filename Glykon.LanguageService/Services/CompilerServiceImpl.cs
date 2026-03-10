@@ -3,6 +3,7 @@ using Google.Protobuf;
 using Google.Protobuf.WellKnownTypes;
 
 using Glykon.Compiler.Core;
+using Glykon.Compiler.Semantics.Analysis;
 using Glykon.Compiler.Semantics.Binding;
 using Glykon.Compiler.Semantics.Types;
 using Glykon.Compiler.Syntax;
@@ -76,7 +77,7 @@ public class CompilerServiceImpl : CompilerService.CompilerServiceBase
         return Task.FromResult(reply);
     }
 
-    public override Task<CheckSyntaxReply> CheckSyntax(PredictRequest request, ServerCallContext context)
+    public override Task<AnalyzeInputReply> AnalyzeInput(PredictRequest request, ServerCallContext context)
     {
         var text = request.Text ?? string.Empty;
 
@@ -86,13 +87,17 @@ public class CompilerServiceImpl : CompilerService.CompilerServiceBase
         var lexResult = lexer.Lex();
 
         var parser = new Parser(lexResult, filename: sourceText.FileName, mode: SyntaxMode.Normal);
-        var result = parser.Parse();
+        var parseResult = parser.Parse();
+        
+        var semanticAnalyzer = new SemanticAnalyzer(parseResult, LanguageMode.Application, filename);
+        var semanticResult = semanticAnalyzer.Analyze();
 
-        var reply = new CheckSyntaxReply()
+        var reply = new AnalyzeInputReply()
         {
-            Ok = !result.AllErrors.Any(),
+            Ok = !parseResult.AllErrors.Any(),
             SyntaxErrorsNumber = lexResult.Errors.Length,
-            ParseErrorsNumber = result.ParseErrors.Length
+            ParseErrorsNumber = parseResult.ParseErrors.Length,
+            SemanticErrorsNumber = semanticResult.SemanticErrors.Length
         };
 
         return Task.FromResult(reply);
