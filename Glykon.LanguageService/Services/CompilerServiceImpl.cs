@@ -92,7 +92,7 @@ public class CompilerServiceImpl : CompilerService.CompilerServiceBase
         var semanticAnalyzer = new SemanticAnalyzer(parseResult, LanguageMode.Application, filename);
         var semanticResult = semanticAnalyzer.Analyze();
 
-        var reply = new AnalyzeInputReply()
+        var reply = new AnalyzeInputReply
         {
             Ok = !parseResult.AllErrors.Any(),
             SyntaxErrorsNumber = lexResult.Errors.Length,

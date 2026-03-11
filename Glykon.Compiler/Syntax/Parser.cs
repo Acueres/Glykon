@@ -697,10 +697,9 @@ public class Parser(LexResult lexResult, string filename, SyntaxMode mode)
         {
             isInclusive = true;
         }
-        else if (!Match(TokenKind.Range))
+        else
         {
-            var error = new ParseError(Current, filename, "Expect range operator");
-            errors.Add(error);
+            Consume(TokenKind.Range, "Expect range operator");
         }
         
         var end = ParseTerm();

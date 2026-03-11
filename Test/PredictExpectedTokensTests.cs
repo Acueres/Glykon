@@ -230,6 +230,24 @@ public sealed class ParserPredictExpectedTokensTests : CompilerTestBase
         );
     }
     
+    [Fact]
+    public void Predict_function_body_start_allows_statement_starts_and_rbrace()
+    {
+        AssertExpectedContains(
+            "def add(x: real, y: real) -> real {",
+            TokenKind.BraceRight,
+            TokenKind.Identifier,
+            TokenKind.Let,
+            TokenKind.Return,
+            TokenKind.If,
+            TokenKind.While,
+            TokenKind.For,
+            TokenKind.Break,
+            TokenKind.Continue,
+            TokenKind.BraceLeft
+        );
+    }
+    
     // TYPE DECLARATIONS
 
     [Fact]
@@ -308,6 +326,10 @@ public sealed class ParserPredictExpectedTokensTests : CompilerTestBase
         => AssertExpectedContains("while true", TokenKind.BraceLeft);
     
     [Fact]
+    public void Predict_while_after_condition_expects_lbrace()
+        => AssertExpectedContains("while i <= 10", TokenKind.BraceLeft);
+    
+    [Fact]
     public void Predict_if_body_after_expression_stmt_contains_rbrace()
         // Regression: closing brace must be visible as a valid continuation inside if bodies.
         => AssertExpectedContains("if true { println('x')", TokenKind.BraceRight);
@@ -326,6 +348,22 @@ public sealed class ParserPredictExpectedTokensTests : CompilerTestBase
     [Fact]
     public void Predict_for_identifier_expects_in()
         => AssertExpectedExactly("for i", TokenKind.In);
+    
+    [Fact]
+    public void Predict_for_after_in_allows_range_start_expression()
+    {
+        AssertExpectedContains(
+            "for i in",
+            TokenKind.Identifier,
+            TokenKind.LiteralInt,
+            TokenKind.LiteralReal,
+            TokenKind.ParenthesisLeft
+        );
+    }
+    
+    [Fact]
+    public void Predict_for_after_first_range_bound_expects_range_operator()
+        => AssertExpectedContains("for i in 0", TokenKind.Range, TokenKind.RangeInclusive);
 
     [Fact]
     public void Predict_for_range_expects_by_or_lbrace()
@@ -510,4 +548,104 @@ public sealed class ParserPredictExpectedTokensTests : CompilerTestBase
             TokenKind.LessEqual,
             TokenKind.Dot,
             TokenKind.As);
+    
+    [Fact]
+    public void Predict_empty_function_body_allows_statement_starts()
+        => AssertExpectedContains(
+            "def print_numbers(i: int) {",
+            TokenKind.BraceRight,
+            TokenKind.Let,
+            TokenKind.Return,
+            TokenKind.For,
+            TokenKind.Identifier,
+            TokenKind.If,
+            TokenKind.While
+        );
+
+    [Fact]
+    public void Predict_for_range_start_allows_term_starts()
+        => AssertExpectedContains(
+            "def print_numbers(i: int) { for j in ",
+            TokenKind.Identifier,
+            TokenKind.LiteralInt,
+            TokenKind.LiteralReal,
+            TokenKind.ParenthesisLeft,
+            TokenKind.Minus,
+            TokenKind.New
+        );
+
+    [Fact]
+    public void Predict_after_first_range_bound_expects_range_operator()
+        => AssertExpectedContains(
+            "def print_numbers(i: int) { for j in 0",
+            TokenKind.Range,
+            TokenKind.RangeInclusive
+        );
+
+    [Fact]
+    public void Predict_after_first_range_bound_does_not_allow_block_or_step_yet()
+        => AssertExpectedNotContains(
+            "def print_numbers(i: int) { for j in 0",
+            TokenKind.By,
+            TokenKind.BraceLeft
+        );
+
+    [Fact]
+    public void Predict_after_complete_range_allows_by_or_block()
+        => AssertExpectedContains(
+            "def print_numbers(i: int) { for j in 0..10",
+            TokenKind.By,
+            TokenKind.BraceLeft
+        );
+    
+    [Fact]
+    public void Predict_initializer_expression_start_allows_new()
+        => AssertExpectedContains(
+            "let point = ",
+            TokenKind.New,
+            TokenKind.Identifier,
+            TokenKind.LiteralInt,
+            TokenKind.LiteralReal,
+            TokenKind.ParenthesisLeft
+        );
+
+    [Fact]
+    public void Predict_after_new_expects_type_name()
+        => AssertExpectedContains(
+            "let point = new ",
+            TokenKind.Identifier
+        );
+    
+    [Fact]
+    public void Predict_after_function_name_paren_allows_parameter_or_close()
+        => AssertExpectedContains(
+            "def sum_to_ten(",
+            TokenKind.Identifier,
+            TokenKind.ParenthesisRight
+        );
+
+    [Fact]
+    public void Predict_after_function_name_paren_does_not_allow_declaration_keywords()
+        => AssertExpectedNotContains(
+            "def sum_to_ten(",
+            TokenKind.Const,
+            TokenKind.Let,
+            TokenKind.Def,
+            TokenKind.BraceLeft
+        );
+
+    [Fact]
+    public void Predict_after_empty_parameter_list_allows_arrow_or_body()
+        => AssertExpectedContains(
+            "def sum_to_ten()",
+            TokenKind.Arrow,
+            TokenKind.BraceLeft
+        );
+    
+    [Fact]
+    public void Predict_after_as_expects_type_identifier()
+        => AssertExpectedContains(
+            "println(j as ",
+            TokenKind.Identifier
+        );
 }
