@@ -7,6 +7,7 @@ using Glykon.Compiler.Semantics.Analysis;
 using Glykon.Compiler.Semantics.Binding;
 using Glykon.Compiler.Semantics.Types;
 using Glykon.Compiler.Syntax;
+using Glykon.Runtime;
 
 namespace Glykon.LanguageService.Services;
 
@@ -100,6 +101,28 @@ public class CompilerServiceImpl : CompilerService.CompilerServiceBase
             SemanticErrorsNumber = semanticResult.SemanticErrors.Length
         };
 
+        return Task.FromResult(reply);
+    }
+
+    public override Task<EvaluateInputReply> EvaluateInput(PredictRequest request, ServerCallContext context)
+    {
+        const string filename = "<rpc>";
+
+        var reply = new EvaluateInputReply();
+
+        try
+        {
+            var runtime = new GlykonRuntime(request.Text, filename);
+            var result = runtime.RunAppInMemory();
+
+            reply.Ok = result.Exception is null;
+            reply.Output = result.Stdout;
+        }
+        catch (InvalidOperationException)
+        {
+            reply.Ok = false;
+        }
+        
         return Task.FromResult(reply);
     }
 }
