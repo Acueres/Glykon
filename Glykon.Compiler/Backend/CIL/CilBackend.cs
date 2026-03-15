@@ -10,6 +10,11 @@ using Glykon.Compiler.Semantics.Binding;
 
 namespace Glykon.Compiler.Backend.CIL;
 
+sealed class LoadContext() : AssemblyLoadContext(isCollectible: true)
+{
+    protected override Assembly? Load(AssemblyName assemblyName) => null;
+}
+
 public sealed class CilBackend(SemanticResult semanticResult, AssemblyName asmName)
 {
     private readonly IdentifierInterner interner = semanticResult.Interner;
@@ -42,7 +47,9 @@ public sealed class CilBackend(SemanticResult semanticResult, AssemblyName asmNa
         using var ms = new MemoryStream();
         peBlob.WriteContentTo(ms);
         ms.Position = 0;
-        var assembly = AssemblyLoadContext.Default.LoadFromStream(ms);
+
+        var lc = new LoadContext();
+        var assembly = lc.LoadFromStream(ms);
 
         var entry = assembly.GetType(asmName.Name!)?.GetMethod("main")
                     ?? throw new InvalidOperationException("Entry not found.");
