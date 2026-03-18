@@ -182,6 +182,14 @@ public static class LanguageSpec
                                                 Member access: x.y
                                                 Cast: expr as Type
                                                 Object initializer: new Type { field: expr, ... }
+                                                
+                                              Builtins and semantics:
+                                                Built-in types: int, real, str, bool.
+                                                Functions without return do not specify their return type.
+                                                `println(x)` prints one line of output. `x` is of type `str` only. Cast it using `as str` if it is not.
+                                                Use `main()` as the entry point for runnable programs.
+                                                When a task asks to print a value, print only the requested value(s).
+                                                Do not add explanations, placeholder code, or extra declarations unless needed for the task.
                                               """;
 
     // -------------------------
@@ -274,6 +282,8 @@ public static class LanguageSpec
             "."),
         new(TokenKind.Semicolon,
             ";"),
+        new(TokenKind.VirtualTerminator,
+            "\n"),
 
         // Operators (punctuator-like)
         new(TokenKind.Plus,
@@ -737,7 +747,7 @@ public static class LanguageSpec
             TokenKind.As
         ];
 
-        public static TokenKind VirtualTerminatorKind => TokenKind.Semicolon;
+        public static TokenKind VirtualTerminatorKind => TokenKind.VirtualTerminator;
 
         public static bool NoInsertAfter(TokenKind previous) =>
             noInsertAfter.Contains(previous);
@@ -754,7 +764,6 @@ public static class LanguageSpec
     [
         TokenKind.EOF,
         TokenKind.Empty,
-        TokenKind.VirtualTerminator,
         TokenKind.Cursor
     ];
     

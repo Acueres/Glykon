@@ -53,7 +53,6 @@ public class CompilerServiceImpl : CompilerService.CompilerServiceBase
 
         foreach (var k in expected)
         {
-            if (k == TokenKind.VirtualTerminator) continue;
             reply.ExpectedTokenKindIds.Add((int)k);
         }
 

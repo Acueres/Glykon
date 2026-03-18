@@ -326,26 +326,10 @@ public class Parser(LexResult lexResult, string filename, SyntaxMode mode)
     {
         List<Statement> stmts = [];
 
-        while (!Check(TokenKind.BraceRight) && !(AtEnd || AtCursor))
+        while (!Check(TokenKind.BraceRight) && !AtEnd)
         {
             Statement stmt = ParseDeclaration();
             stmts.Add(stmt);
-        }
-
-        if (mode == SyntaxMode.Predict && AtCursor)
-        {
-            ProcessExpected(TokenKind.BraceRight);
-
-            bool allowStarts = stmts.Count == 0
-                               || Current.Line > Previous.Line
-                               || Previous.Kind == TokenKind.Semicolon;
-
-            if (allowStarts)
-            {
-                EmitStatementStartTokens();
-            }
-
-            StopPredicting();
         }
 
         Consume(TokenKind.BraceRight, "Expect '}' after block");
@@ -403,7 +387,7 @@ public class Parser(LexResult lexResult, string filename, SyntaxMode mode)
     private ReturnStmt ParseReturnStatement()
     {
         Token token = Previous;
-        if (Match(TokenKind.Semicolon) || Check(TokenKind.BraceRight))
+        if (Match(TokenKind.Semicolon, TokenKind.VirtualTerminator) || Check(TokenKind.BraceRight))
         {
             return new ReturnStmt(null, token);
         }
@@ -734,28 +718,6 @@ public class Parser(LexResult lexResult, string filename, SyntaxMode mode)
         return expr;
     }
 
-    private void EmitStatementStartTokens()
-    {
-        // declaration starters
-        ProcessExpected(TokenKind.Const);
-        ProcessExpected(TokenKind.Let);
-        ProcessExpected(TokenKind.Def);
-        ProcessExpected(TokenKind.Class);
-        ProcessExpected(TokenKind.Struct);
-
-        // statement starters
-        ProcessExpected(TokenKind.Return);
-        ProcessExpected(TokenKind.If);
-        ProcessExpected(TokenKind.While);
-        ProcessExpected(TokenKind.For);
-        ProcessExpected(TokenKind.Break);
-        ProcessExpected(TokenKind.Continue);
-        ProcessExpected(TokenKind.BraceLeft);
-
-        // expression statement starter
-        ProcessExpected(TokenKind.Identifier);
-    }
-
     private void TerminateStatement(string message, Expression? expr = null)
     {
         if (Current.Kind is TokenKind.EOF or TokenKind.BraceRight)
@@ -768,7 +730,7 @@ public class Parser(LexResult lexResult, string filename, SyntaxMode mode)
             if (Current.Line > Previous.Line) return;
         }
 
-        if (Current.Kind == TokenKind.Semicolon)
+        if (Current.Kind is TokenKind.Semicolon or TokenKind.VirtualTerminator)
         {
             Advance();
         }
@@ -782,15 +744,10 @@ public class Parser(LexResult lexResult, string filename, SyntaxMode mode)
 
         if (mode == SyntaxMode.Predict && AtCursor)
         {
-            if (Current.Line > Previous.Line)
-            {
-                ProcessExpected(TokenKind.VirtualTerminator);
-                return;
-            }
-            
-            if (Previous.Kind == TokenKind.Semicolon) return;
+            if (Previous.Kind is TokenKind.Semicolon or TokenKind.VirtualTerminator) return;
 
             ProcessExpected(TokenKind.Semicolon);
+            ProcessExpected(TokenKind.VirtualTerminator);
 
             if (braceDepth > 0)
             {
@@ -800,7 +757,7 @@ public class Parser(LexResult lexResult, string filename, SyntaxMode mode)
             {
                 ProcessExpected(TokenKind.EOF);
             }
-
+            
             StopPredicting();
         }
     }
@@ -817,7 +774,7 @@ public class Parser(LexResult lexResult, string filename, SyntaxMode mode)
 
         while (!AtEnd)
         {
-            if (Current.Kind == TokenKind.Semicolon) return;
+            if (Current.Kind == TokenKind.Semicolon || AtCursor) return;
 
             switch (Current.Kind)
             {
@@ -844,12 +801,6 @@ public class Parser(LexResult lexResult, string filename, SyntaxMode mode)
         if (AtCursor)
         {
             ProcessExpected(tokenKind);
-
-            if (Next.Kind == TokenKind.EOF)
-            {
-                //ProcessExpected(TokenKind.EOF);
-            }
-            
             StopPredicting();
         }
 

@@ -140,7 +140,7 @@ public class LexerTests : CompilerTestBase
         var (tokens, _) = Lex(src);
 
         //filter out statement terminators
-        tokens = [.. tokens.Where(t => t.Kind != TokenKind.Semicolon && t.Kind != TokenKind.EOF)];
+        tokens = [.. tokens.Where(t => t.Kind != TokenKind.VirtualTerminator && t.Kind != TokenKind.EOF)];
 
         Assert.Equal(3, tokens.Length);
         Assert.Equal("multiline string\n", (tokens.First().Lexeme).Replace("\r", string.Empty));
@@ -172,7 +172,7 @@ public class LexerTests : CompilerTestBase
     }
 
     [Fact]
-    public void SemicolonInsertion()
+    public void TerminatorInsertion()
     {
         const string src = @"
 # 1. Basic insertion
@@ -203,28 +203,28 @@ if a > b
 
         TokenKind[] expectedTypes =
         [
-            // let a = 1;
-            TokenKind.Let, TokenKind.Identifier, TokenKind.Assignment, TokenKind.LiteralInt, TokenKind.Semicolon,
-            // let b = 2;
-            TokenKind.Let, TokenKind.Identifier, TokenKind.Assignment, TokenKind.LiteralInt, TokenKind.Semicolon,
-            // b = a + 2; (newline after + is ignored)
+            // let a = 1
+            TokenKind.Let, TokenKind.Identifier, TokenKind.Assignment, TokenKind.LiteralInt, TokenKind.VirtualTerminator,
+            // let b = 2
+            TokenKind.Let, TokenKind.Identifier, TokenKind.Assignment, TokenKind.LiteralInt, TokenKind.VirtualTerminator,
+            // b = a + 2 (newline after + is ignored)
             TokenKind.Identifier, TokenKind.Assignment, TokenKind.Identifier, TokenKind.Plus, TokenKind.LiteralInt,
-            TokenKind.Semicolon,
-            // def func(a, b) { return a; } (newlines after def, comma, {, }, and before } are ignored or handled)
+            TokenKind.VirtualTerminator,
+            // def func(a, b) { return a } (newlines after def, comma, {, }, and before } are ignored or handled)
             TokenKind.Def, TokenKind.Identifier,
             TokenKind.ParenthesisLeft, TokenKind.Identifier, TokenKind.Comma, TokenKind.Identifier,
             TokenKind.ParenthesisRight,
             TokenKind.BraceLeft,
-            TokenKind.Return, TokenKind.Identifier, TokenKind.Semicolon,
+            TokenKind.Return, TokenKind.Identifier, TokenKind.VirtualTerminator,
             TokenKind.BraceRight,
             // let c = 3;
             TokenKind.Let, TokenKind.Identifier, TokenKind.Assignment, TokenKind.LiteralInt, TokenKind.Semicolon,
             // let d = 4;
             TokenKind.Let, TokenKind.Identifier, TokenKind.Assignment, TokenKind.LiteralInt, TokenKind.Semicolon,
-            // if a > b; { d = 5; }
-            TokenKind.If, TokenKind.Identifier, TokenKind.Greater, TokenKind.Identifier, TokenKind.Semicolon,
+            // if a > b { d = 5 }
+            TokenKind.If, TokenKind.Identifier, TokenKind.Greater, TokenKind.Identifier, TokenKind.VirtualTerminator,
             TokenKind.BraceLeft,
-            TokenKind.Identifier, TokenKind.Assignment, TokenKind.LiteralInt, TokenKind.Semicolon,
+            TokenKind.Identifier, TokenKind.Assignment, TokenKind.LiteralInt, TokenKind.VirtualTerminator,
             TokenKind.BraceRight,
             // Final EOF
             TokenKind.EOF
@@ -262,7 +262,7 @@ if user.is_guest
 }
 
 # Test 5: Negative test for 'and'. Semicolon MUST be inserted.
-let name = ""andre""
+let name = ""andre"";
 let id = 1
 
 # Test 6: Negative test for 'or'. Semicolon MUST be inserted.
@@ -276,29 +276,29 @@ let details = ""...""
         [
             // Test 1: `let item = my_collection.get_name()`
             TokenKind.Let, TokenKind.Identifier, TokenKind.Assignment, TokenKind.Identifier, TokenKind.Dot,
-            TokenKind.Identifier, TokenKind.ParenthesisLeft, TokenKind.ParenthesisRight, TokenKind.Semicolon,
+            TokenKind.Identifier, TokenKind.ParenthesisLeft, TokenKind.ParenthesisRight, TokenKind.VirtualTerminator,
 
-            // Test 2: `let result = 100 + 20;`
+            // Test 2: `let result = 100 + 20`
             TokenKind.Let, TokenKind.Identifier, TokenKind.Assignment, TokenKind.LiteralInt, TokenKind.Plus,
-            TokenKind.LiteralInt, TokenKind.Semicolon,
+            TokenKind.LiteralInt, TokenKind.VirtualTerminator,
 
-            // Test 3: `if user.is_valid and user.has_permission; { }`
+            // Test 3: `if user.is_valid and user.has_permission { }`
             TokenKind.If, TokenKind.Identifier, TokenKind.Dot, TokenKind.Identifier, TokenKind.And,
-            TokenKind.Identifier, TokenKind.Dot, TokenKind.Identifier, TokenKind.Semicolon, TokenKind.BraceLeft,
+            TokenKind.Identifier, TokenKind.Dot, TokenKind.Identifier, TokenKind.VirtualTerminator, TokenKind.BraceLeft,
             TokenKind.BraceRight,
 
             // Test 4: `if user.is_guest or user.is_new; { }`
             TokenKind.If, TokenKind.Identifier, TokenKind.Dot, TokenKind.Identifier, TokenKind.Or,
-            TokenKind.Identifier, TokenKind.Dot, TokenKind.Identifier, TokenKind.Semicolon, TokenKind.BraceLeft,
+            TokenKind.Identifier, TokenKind.Dot, TokenKind.Identifier, TokenKind.VirtualTerminator, TokenKind.BraceLeft,
             TokenKind.BraceRight,
 
             // Test 5: `let name = "andre";` and `let id = 1;`
             TokenKind.Let, TokenKind.Identifier, TokenKind.Assignment, TokenKind.LiteralString, TokenKind.Semicolon,
-            TokenKind.Let, TokenKind.Identifier, TokenKind.Assignment, TokenKind.LiteralInt, TokenKind.Semicolon,
+            TokenKind.Let, TokenKind.Identifier, TokenKind.Assignment, TokenKind.LiteralInt, TokenKind.VirtualTerminator,
 
             // Test 6: `let status = "order";` and `let details = "...";`
-            TokenKind.Let, TokenKind.Identifier, TokenKind.Assignment, TokenKind.LiteralString, TokenKind.Semicolon,
-            TokenKind.Let, TokenKind.Identifier, TokenKind.Assignment, TokenKind.LiteralString, TokenKind.Semicolon,
+            TokenKind.Let, TokenKind.Identifier, TokenKind.Assignment, TokenKind.LiteralString, TokenKind.VirtualTerminator,
+            TokenKind.Let, TokenKind.Identifier, TokenKind.Assignment, TokenKind.LiteralString, TokenKind.VirtualTerminator,
 
             TokenKind.EOF
         ];
