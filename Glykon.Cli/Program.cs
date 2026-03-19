@@ -8,25 +8,7 @@ internal static class Program
     {
         const string filename = "Test";
         const string src = """
-
-                                       def main() {
-                                            for i in 0..21 {
-                                                println(fib(i) as str)
-                                            }
-                                       }
-                                       
-                                       def fib(n: int) -> int {
-                                            let a = 0
-                                            let b = 1
-
-                                            for i in 0..n {
-                                                let next = a + b
-                                                a = b
-                                                b = next
-                                            }
-                           
-                                        return a
-                                      }
+                            def main( ) { let x: real = 5.0; let y: int = x as int; println(y as str) ; }
                            """;
         GlykonRuntime runtime = new(src, filename);
         var result = runtime.RunAppInMemory();

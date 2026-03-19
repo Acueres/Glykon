@@ -186,7 +186,7 @@ public static class LanguageSpec
                                               Builtins and semantics:
                                                 Built-in types: int, real, str, bool.
                                                 Functions without return do not specify their return type.
-                                                `println(x)` prints one line of output. `x` is of type `str` only. Cast it using `as str` if it is not.
+                                                `println(x)` prints one line of output. Pass a value of type str; cast with as str when needed.
                                                 Use `main()` as the entry point for runnable programs.
                                                 When a task asks to print a value, print only the requested value(s).
                                                 Do not add explanations, placeholder code, or extra declarations unless needed for the task.

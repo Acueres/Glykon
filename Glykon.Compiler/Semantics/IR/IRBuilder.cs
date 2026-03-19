@@ -88,6 +88,11 @@ public class IRBuilder(
                 var range = BuildExpression(forStmt.Range);
                 var body = BuildStatement(forStmt.Body);
 
+                if (range.Kind == IRExpressionKind.Invalid)
+                {
+                    return new IRInvalidStmt();
+                }
+
                 return new IRForStmt((IRVariableDeclaration)iter, (IRRangeExpr)range, body);
             }
             case BoundStatementKind.Variable:
