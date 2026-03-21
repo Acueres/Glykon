@@ -153,43 +153,110 @@ public static class LanguageSpec
                                       """;
     
     private const string grammarPrompt = """
-                                              Declarations:
-                                                Function: def name(params) [-> Type] { ... }
-                                                Type: class Name { ... } or struct Name { ... }
-                                                Field inside a type: name: Type [= expr]
-                                                Let: let [const] name [: Type] = expr
-                                                Const: const name: Type = expr
-                                                Parameters: normally name: Type. In methods, the first parameter may omit : Type (self-style).
+                                              Write only valid Glykon code.
+                                              
+                                              Syntax overview
+                                              
+                                              Top-level and block-level declarations
+                                              - Function: def name(params) [-> Type] { ... }
+                                              - Type: class Name { ... } or struct Name { ... }
+                                              - Constant: const name: Type = expr
+                                              - Variable: let [const] name [: Type] = expr
+                                              
+                                              Important declaration rules
+                                              - `let` declarations must always have an initializer.
+                                              - `const` declarations must always include both an explicit type and an initializer.
+                                              - Functions may omit `-> Type` only when they do not return a value.
+                                              - Type names in annotations and `new` expressions are identifiers, optionally qualified with dots, for example: Foo, MyModule.Point.
+                                              - Inside a `class` or `struct`, the allowed members are:
+                                                - methods declared with `def`
+                                                - fields: name: Type [= expr]
+                                                - constants: const name: Type = expr
+                                                - nested class/struct declarations
+                                              - Do not use `let` directly as a type member.
+                                              
+                                              Methods
+                                              - Methods are declared with `def` inside a class or struct.
+                                              - For an instance-style method, the first parameter may omit its type, for example:
+                                                def move(self, dx: int, dy: int) { ... }
+                                              - If the first parameter has no type, it is treated like a self parameter.
+                                              - Static-style methods use normal typed parameters or no parameters.
                                               
                                               Statements
-                                                Block: { ... }
-                                                If: if expr { ... } {elif expr { ... }} [else stmt]
-                                                While: while expr { ... }
-                                                For range: for i in a..b { ... } or a..=b and optional step: by step
-                                                Return: return [expr]
-                                                Break / Continue: break, continue
-                                                Expression statement: expr
+                                              - Block: { ... }
+                                              - If: if expr { ... }
+                                              - Else-if: either `elif expr { ... }` or `else if expr { ... }`
+                                              - Else: else stmt
+                                              - While: while expr { ... }
+                                              - For-range:
+                                                - for i in a..b { ... }
+                                                - for i in a..=b { ... }
+                                                - optional step: for i in a..b by step { ... }
+                                              - Return: return or return expr
+                                              - Break / Continue: break, continue
+                                              - Expression statement: expr
+                                              
+                                              For-loop notes
+                                              - The loop variable is introduced by the `for` syntax.
+                                              - Do not add a type annotation to the loop variable.
+                                              
+                                              Expression forms
+                                              - Literals:
+                                                - integers
+                                                - reals
+                                                - strings
+                                                - multiline strings
+                                                - true, false
+                                                - none
+                                              - Names: x
+                                              - Grouping: (expr)
+                                              - Assignment: x = expr or x.y = expr
+                                              - Binary operators:
+                                                - or
+                                                - and
+                                                - == != < <= > >=
+                                                - + -
+                                                - * /
+                                              - Unary operators:
+                                                - !expr
+                                                - -expr
+                                              - Call: f(args)
+                                              - Member access: x.y
+                                              - Cast: expr as Type
+                                              - Object initializer: new Type { field: expr, ... }
+                                              
+                                              Expression rules
+                                              - Assignment targets must be a variable name or a field access.
+                                              - Object initializers use field names with `:`, not `=`.
+                                              - A trailing comma in an object initializer is acceptable.
+                                              
+                                              Operator precedence
+                                              - Lowest to highest:
+                                                - assignment =
+                                                - or
+                                                - and
+                                                - comparisons: == != < <= > >=
+                                                - + -
+                                                - * /
+                                                - unary: ! -
+                                                - postfix: call, member access, cast
                                               
                                               Statement termination
-                                                ; is allowed, but often optional: a statement can end at a newline or before } or end-of-file.
-                                                (Do not output any “ASI/virtual terminator” tokens; that’s internal.)
+                                              - `;` is allowed.
+                                              - A statement may also end at a newline, before `}`, or at end-of-file.
+                                              - Do not output any internal lexer/parser tokens such as virtual terminators.
                                               
-                                              Expressions
-                                                Usual precedence: assignment =, then or, and, comparisons (== != < <= > >=), + -, * /, unary ! -.
-                                              
-                                              Postfix operations:
-                                                Call: f(args)
-                                                Member access: x.y
-                                                Cast: expr as Type
-                                                Object initializer: new Type { field: expr, ... }
-                                                
-                                              Builtins and semantics:
-                                                Built-in types: int, real, str, bool.
-                                                Functions without return do not specify their return type.
-                                                `println(x)` prints one line of output. Pass a value of type str; cast with as str when needed.
-                                                Use `main()` as the entry point for runnable programs.
-                                                When a task asks to print a value, print only the requested value(s).
-                                                Do not add explanations, placeholder code, or extra declarations unless needed for the task.
+                                              Builtins and codegen rules
+                                              - Built-in types: int, real, str, bool
+                                              - `println(x)` prints one line.
+                                              - Pass a value of type `str` to `println`, so cast when needed, for example: println(value as str)
+                                              - Use `main()` as the entry point for runnable programs.
+                                              - `main` takes no parameters.
+                                              - Do not invent parameters for a function unless the task explicitly asks for them.
+                                              - Do not invent argument container types such as `array`, `list`, or `Vec`.
+                                              - When asked to print something, print only the requested value(s).
+                                              - Do not add comments, explanations, placeholder code, or extra declarations unless needed.
+                                              - Do not invent unsupported features such as generics, arrays, interfaces, enums, lambdas, or switch/match unless they are explicitly defined elsewhere.
                                               """;
 
     // -------------------------
